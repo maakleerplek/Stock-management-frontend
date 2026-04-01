@@ -1,0 +1,26 @@
+services:
+  frontend:
+    build:
+      context: .
+      args:
+        VITE_INVENTREE_URL: ${VITE_INVENTREE_URL}
+        VITE_INVENTREE_TOKEN: ${VITE_INVENTREE_TOKEN}
+        VITE_VOLUNTEER_PASSWORD: ${VITE_VOLUNTEER_PASSWORD}
+        VITE_LASER_PRICE_PER_MIN: ${VITE_LASER_PRICE_PER_MIN}
+        VITE_PRINT_PRICE_PER_GRAM: ${VITE_PRINT_PRICE_PER_GRAM}
+        VITE_CURRENCY: ${VITE_CURRENCY}
+        VITE_PAYMENT_NAME: ${VITE_PAYMENT_NAME}
+        VITE_PAYMENT_IBAN: ${VITE_PAYMENT_IBAN}
+        VITE_DOCS_URL: ${VITE_DOCS_URL}
+        VITE_FEEDBACK_URL: ${VITE_FEEDBACK_URL}
+        VITE_GITHUB_URL: ${VITE_GITHUB_URL}
+    container_name: stock-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
