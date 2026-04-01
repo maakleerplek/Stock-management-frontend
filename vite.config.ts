@@ -3,11 +3,14 @@ import react from '@vitejs/plugin-react-swc'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import svgr from 'vite-plugin-svgr'
 import { VitePWA } from 'vite-plugin-pwa'
+import tailwindcss from '@tailwindcss/vite'
+import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    react(), 
+    react(),
+    tailwindcss(),
     basicSsl(), 
     svgr(),
     VitePWA({
@@ -42,6 +45,11 @@ export default defineConfig({
       }
     })
   ],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   server: {
     host: '0.0.0.0', // Listen on all network interfaces
     port: 5173, // Default Vite port
@@ -68,7 +76,8 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          ui: ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          scanner: ['@yudiel/react-qr-scanner'],
+          motion: ['motion'],
         },
       },
     },
