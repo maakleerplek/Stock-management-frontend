@@ -1,0 +1,36 @@
+:443 {
+	tls internal
+
+	encode gzip
+
+	@health path /health
+	handle @health {
+		respond "healthy" 200
+	}
+
+	# Security headers
+	header {
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+	}
+
+	# Cache static assets
+	@cache_assets {
+		path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot
+	}
+	header @cache_assets Cache-Control "public, max-age=31536000, immutable"
+
+	# SPA fallback: route all non-existent files to index.html
+	handle {
+		try_files {path} /index.html
+		file_server {
+			root /usr/share/caddy
+		}
+	}
+}
+
+:80 {
+	redir https://{host}:8444{uri} 308
+}
+
