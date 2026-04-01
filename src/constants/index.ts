@@ -22,9 +22,14 @@ export const API_CONFIG = {
 
 // InvenTree Configuration
 const getInvenTreeUrl = () => {
+  const envUrl = import.meta.env.VITE_INVENTREE_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
+    return envUrl.endsWith('/') ? envUrl : `${envUrl}/`;
+  }
+
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    // Always use HTTPS on port 8443 for camera access (Secure Context)
+    // Fallback: use HTTPS on port 8443 for camera access (Secure Context)
     return `https://${hostname}:8443/`;
   }
   return '/inventree/';
