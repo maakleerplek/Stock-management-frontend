@@ -1,5 +1,11 @@
 // Constants file for the frontend application
 
+// Organization Configuration
+export const ORGANIZATION = {
+  NAME: import.meta.env.VITE_ORGANIZATION_NAME || 'Stock Management',
+  URL: import.meta.env.VITE_ORGANIZATION_URL || 'https://maakleerplek.be/',
+} as const;
+
 // API Configuration
 export const API_CONFIG = {
   BASE_URL: import.meta.env.VITE_BACKEND_URL || '/api',
@@ -66,6 +72,7 @@ export const PRICING = {
 export const PAYMENT = {
   BENEFICIARY_NAME: import.meta.env.VITE_PAYMENT_NAME || 'Stock Manager',
   IBAN: import.meta.env.VITE_PAYMENT_IBAN || 'BE00000000000000',
+  PAYCONIQ_MERCHANT_ID: import.meta.env.VITE_PAYCONIQ_MERCHANT_ID || '',
 } as const;
 
 // Authentication

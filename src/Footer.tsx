@@ -1,5 +1,6 @@
 import { Box, Container, Typography, Link, Divider } from '@mui/material';
 import { GitHub, Info } from '@mui/icons-material';
+import { ORGANIZATION } from './constants';
 
 function Footer() {
   const currentYear = new Date().getFullYear();
@@ -119,7 +120,7 @@ function Footer() {
         {/* Copyright */}
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="caption" color="text.secondary">
-            &copy; {currentYear} Stock Management. Powered by Maakleerplek VZW
+            &copy; {currentYear} Stock Management. Powered by {ORGANIZATION.NAME}
           </Typography>
         </Box>
       </Container>

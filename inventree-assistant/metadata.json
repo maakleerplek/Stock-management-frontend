@@ -1,0 +1,5 @@
+{
+  "name": "Inventree Assistant",
+  "description": "A makerspace inventory management and checkout system with a brutalist architectural design.",
+  "requestFramePermissions": ["camera"]
+}

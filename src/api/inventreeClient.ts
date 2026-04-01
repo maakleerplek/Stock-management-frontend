@@ -70,7 +70,12 @@ class InvenTreeClient {
                 throw new Error(`InvenTree API error ${response.status}: ${errorText}`);
             }
 
-            return response.json();
+            const data = await response.json();
+            // Normalize InvenTree response: if it's a flat array, wrap it in a results object
+            if (Array.isArray(data)) {
+                return { count: data.length, results: data } as unknown as T;
+            }
+            return data;
         } catch (error) {
             console.error(`InvenTree API call failed: ${method} ${endpoint}`, error);
             throw error;
@@ -350,8 +355,9 @@ class InvenTreeClient {
 }
 
 // ==================== Singleton Instance ====================
-
-const INVENTREE_URL = import.meta.env.VITE_INVENTREE_URL || 'https://10.72.3.141:8443';
+const envUrl = import.meta.env.VITE_INVENTREE_URL;
+// Use empty string as default so it uses relative paths (current origin)
+const INVENTREE_URL = (envUrl !== undefined && envUrl !== null) ? envUrl : '';
 const INVENTREE_TOKEN = import.meta.env.VITE_INVENTREE_TOKEN || '';
 
 if (!INVENTREE_TOKEN) {

@@ -11,8 +11,8 @@ interface WeroQrCodeProps {
 }
 
 function WeroQrCode({ total = 0, description = 'Stock Purchase' }: WeroQrCodeProps) {
-    // The specific Payconiq Merchant ID for Maakleerplek found in git history
-    const MERCHANT_ID = "616941d236664900073738ce";
+    // Get the Payconiq Merchant ID from environment variables (optional)
+    const MERCHANT_ID = PAYMENT.PAYCONIQ_MERCHANT_ID;
 
     const epcQrString = useMemo(() => {
         if (total <= 0) return '';
@@ -31,10 +31,10 @@ function WeroQrCode({ total = 0, description = 'Stock Purchase' }: WeroQrCodePro
     }, [total, description]);
 
     const payconiqLink = useMemo(() => {
-        // We revert to the Payconiq merchant link for clicking, but don't pass extra info if it was failing
-        // Just bringing them to the merchant context as requested
+        // Only generate Payconiq link if merchant ID is configured
+        if (!MERCHANT_ID) return null;
         return `https://payconiq.com/merchant/1/${MERCHANT_ID}`;
-    }, []);
+    }, [MERCHANT_ID]);
 
     const displayTotal = total > 0 ? `€${total.toFixed(2)}` : '';
 
@@ -56,33 +56,53 @@ function WeroQrCode({ total = 0, description = 'Stock Purchase' }: WeroQrCodePro
                             {displayTotal}
                         </Typography>
 
-                        <Box
-                            component="a"
-                            href={payconiqLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            sx={{
-                                p: 2,
-                                bgcolor: 'white',
-                                borderRadius: 2,
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                my: 1,
-                                display: 'block',
-                                transition: 'transform 0.2s',
-                                '&:hover': { transform: 'scale(1.02)' }
-                            }}
-                        >
-                            <QRCodeSVG
-                                value={epcQrString}
-                                size={180}
-                                level="M"
-                                includeMargin={false}
-                            />
-                        </Box>
+                        {payconiqLink ? (
+                            <Box
+                                component="a"
+                                href={payconiqLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{
+                                    p: 2,
+                                    bgcolor: 'white',
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    my: 1,
+                                    display: 'block',
+                                    transition: 'transform 0.2s',
+                                    '&:hover': { transform: 'scale(1.02)' }
+                                }}
+                            >
+                                <QRCodeSVG
+                                    value={epcQrString}
+                                    size={180}
+                                    level="M"
+                                    includeMargin={false}
+                                />
+                            </Box>
+                        ) : (
+                            <Box
+                                sx={{
+                                    p: 2,
+                                    bgcolor: 'white',
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    my: 1,
+                                }}
+                            >
+                                <QRCodeSVG
+                                    value={epcQrString}
+                                    size={180}
+                                    level="M"
+                                    includeMargin={false}
+                                />
+                            </Box>
+                        )}
 
                         <Typography variant="body2" color="text.secondary" sx={{ maxWidth: '28ch', mb: 1 }}>
-                            Scan with your bank app or <strong>tap the QR code</strong> to open Payconiq.
+                            Scan with your bank app{payconiqLink ? <> or <strong>tap the QR code</strong> to open Payconiq</> : ''}.
                         </Typography>
                     </>
                 ) : (

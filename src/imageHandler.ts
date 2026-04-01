@@ -1,11 +1,12 @@
 /**
  * @file imageHandler.ts
  * 
- * Image loading from InvenTree via backend proxy.
+ * Image loading from InvenTree via Caddy proxy.
  * Uses Object URLs for efficient memory usage.
  */
 
-import { API_CONFIG } from './constants';
+// Import the InvenTree token from environment
+const INVENTREE_TOKEN = import.meta.env.VITE_INVENTREE_TOKEN || '';
 
 // ============================================================================
 // CONSTANTS
@@ -61,11 +62,8 @@ export async function loadImage(imageRelativePath: string | null): Promise<Image
         console.warn('Failed to parse image path as URL:', imageRelativePath);
     }
 
-    if (cleanPath.startsWith('/')) {
-        cleanPath = cleanPath.substring(1);
-    }
-
-    const proxiedUrl = `${API_CONFIG.BASE_URL}/image-proxy/${cleanPath}`;
+    // Ensure the path starts with / for proper proxying through Caddy
+    const proxiedUrl = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
 
     let lastError = '';
     for (let attempt = 1; attempt <= IMAGE_RETRY_ATTEMPTS; attempt++) {
@@ -76,8 +74,10 @@ export async function loadImage(imageRelativePath: string | null): Promise<Image
             console.debug(`[Image] Fetching ${proxiedUrl}`);
             const response = await fetch(proxiedUrl, {
                 method: 'GET',
-                // Removed credentials: 'include' for better Firefox compatibility 
-                // when backend allow_credentials is False
+                headers: {
+                    // Include Authorization header for InvenTree media access
+                    'Authorization': `Token ${INVENTREE_TOKEN}`,
+                },
                 signal: controller.signal,
             });
 

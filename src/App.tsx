@@ -16,10 +16,10 @@ import { lightTheme, darkTheme } from './theme';
 import { ToastProvider, useToast } from './ToastContext';
 import { VolunteerProvider } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
-import { API_CONFIG, STORAGE_KEYS, DEFAULTS } from './constants';
+import inventreeClient from './api/inventreeClient';
+import { STORAGE_KEYS, DEFAULTS } from './constants';
 import {
   getInitialTheme,
-  createApiUrl,
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
@@ -64,48 +64,23 @@ function AppContent() {
   );
 
   const fetchCategoriesAndLocations = useCallback(async () => {
-    const handleApiResponse = async (res: Response, type: 'categories' | 'locations') => {
-      const isCategories = type === 'categories';
-      const setter = isCategories ? setCategories : setLocations;
-      
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'ok') {
-          setter(data[type]);
-          console.log(`[App] Loaded ${data[type].length} ${type}`);
-        } else {
-          setter([]);
-          console.error(`[App] Error in ${type} data: ${data.message}`);
-          addToast(`${type.charAt(0).toUpperCase() + type.slice(1)} error: ${data.message}`, 'warning');
-        }
-      } else {
-        setter([]);
-        const errorText = await res.text().catch(() => 'No error text');
-        console.error(`[App] Network error fetching ${type}: ${res.status} ${res.statusText} - ${errorText}`);
-        addToast(`Failed to fetch ${type}: ${res.status}`, 'error');
-      }
-    };
-
     try {
       console.log('[App] Fetching categories and locations...');
-      const [categoriesRes, locationsRes] = await Promise.all([
-        fetch(createApiUrl(API_CONFIG.ENDPOINTS.GET_CATEGORIES)),
-        fetch(createApiUrl(API_CONFIG.ENDPOINTS.GET_LOCATIONS)),
+      const [categoriesResp, locationsResp] = await Promise.all([
+        inventreeClient.getCategories(),
+        inventreeClient.getLocations(),
       ]);
 
-      await Promise.all([
-        handleApiResponse(categoriesRes, 'categories'),
-        handleApiResponse(locationsRes, 'locations')
-      ]);
+      setCategories((Array.isArray(categoriesResp) ? categoriesResp : categoriesResp?.results || []).map(c => ({ id: c.pk, name: c.name })));
+      setLocations((Array.isArray(locationsResp) ? locationsResp : locationsResp?.results || []).map(l => ({ id: l.pk, name: l.name })));
+      console.log(`[App] Loaded ${categoriesResp.results.length} categories and ${locationsResp.results.length} locations`);
 
     } catch (error) {
       setCategories([]);
       setLocations([]);
-      console.error('[App] Critical error fetching categories and locations:', error);
-      const message = error instanceof Error ? error.message : 'Unknown network error';
-      addToast(`Connection error: ${message}`, 'error');
+      handleApiError(error, 'fetching categories and locations');
     }
-  }, [addToast]);
+  }, [handleApiError]);
 
   // Fetch categories and locations on component mount
   useEffect(() => {
@@ -113,55 +88,41 @@ function AppContent() {
   }, [fetchCategoriesAndLocations]);
 
   const handleAddCategorySubmit = async (formData: CategoryFormData): Promise<void> => {
-    const response = await fetch(createApiUrl(API_CONFIG.ENDPOINTS.CREATE_CATEGORY), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Failed to create category');
+    try {
+      await inventreeClient.createCategory({
+        name: formData.name,
+        description: formData.description || '',
+        parent: formData.parent ? parseInt(formData.parent) : undefined
+      });
+      addToast('Category created successfully!', 'success');
+      setAddCategoryModalOpen(false);
+      fetchCategoriesAndLocations(); // Refresh list
+    } catch (error) {
+      handleApiError(error, 'creating category');
+      throw error;
     }
-
-    addToast('Category created successfully!', 'success');
-    setAddCategoryModalOpen(false);
-    fetchCategoriesAndLocations(); // Refresh list
   };
 
   const handleAddLocationSubmit = async (formData: LocationFormData): Promise<void> => {
-    const response = await fetch(createApiUrl(API_CONFIG.ENDPOINTS.CREATE_LOCATION), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Failed to create location');
+    try {
+      await inventreeClient.createLocation({
+        name: formData.name,
+        description: formData.description || '',
+        parent: formData.parent ? parseInt(formData.parent) : undefined
+      });
+      addToast('Location created successfully!', 'success');
+      setAddLocationModalOpen(false);
+      fetchCategoriesAndLocations(); // Refresh list
+    } catch (error) {
+      handleApiError(error, 'creating location');
+      throw error;
     }
-
-    addToast('Location created successfully!', 'success');
-    setAddLocationModalOpen(false);
-    fetchCategoriesAndLocations(); // Refresh list
   };
 
   // Helper function to upload image
   const uploadPartImage = async (image: File, partId: string): Promise<void> => {
     try {
-      const imageFormData = new FormData();
-      imageFormData.append('file', image);
-
-      const imageResponse = await fetch(
-        createApiUrl(API_CONFIG.ENDPOINTS.UPLOAD_PART_IMAGE, undefined).replace('{part_id}', partId),
-        { method: 'POST', body: imageFormData }
-      );
-
-      if (!imageResponse.ok) {
-        const errorData = await imageResponse.json();
-        throw new Error(errorData.detail || 'Failed to upload image');
-      }
-
+      await inventreeClient.uploadPartImage(parseInt(partId), image);
       addToast('Image uploaded successfully!', 'success');
     } catch (error) {
       addToast(`Warning: Image upload failed: ${getErrorMessage(error)}`, 'warning');
@@ -170,79 +131,46 @@ function AppContent() {
 
   // Helper function to create initial stock
   const createInitialStock = async (formData: PartFormData, partId: string): Promise<void> => {
-    const { initialQuantity, locationId, purchasePrice } = parseNumericFields(formData);
+    const { initialQuantity, locationId } = parseNumericFields(formData);
 
     if (initialQuantity > 0 && partId && locationId > 0) {
       addToast('Creating initial stock...', 'info');
 
-      const stockResponse = await fetch(createApiUrl(API_CONFIG.ENDPOINTS.CREATE_STOCK_ITEM), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          partId: parseInt(partId),
-          quantity: initialQuantity,
-          locationId,
-          notes: `Initial stock for new part: ${formData.partName}`,
-          barcode: formData.barcode,
-          purchasePrice,
-          purchasePriceCurrency: DEFAULTS.CURRENCY,
-        }),
+      await inventreeClient.createStockItem({
+        part: parseInt(partId),
+        quantity: initialQuantity,
+        location: locationId,
+        notes: `Initial stock for new part: ${formData.partName}`,
       });
-
-      if (!stockResponse.ok) {
-        const errorData = await stockResponse.json();
-        throw new Error(errorData.detail || 'Failed to create initial stock');
-      }
 
       addToast('Initial stock created successfully!', 'success');
     }
   };
 
   // Helper function to update existing part
-  const updateExistingPart = async (formData: PartFormData): Promise<{ status: string; message?: string }> => {
-    const response = await fetch(
-      createApiUrl(API_CONFIG.ENDPOINTS.UPDATE_PART).replace('{part_pk}', formData.partId!),
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          category: formData.category,
-          storageLocation: formData.storageLocation,
-          barcode: formData.barcode,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Failed to update part');
-    }
-
+  const updateExistingPart = async (formData: PartFormData): Promise<void> => {
+    await inventreeClient.updatePart(parseInt(formData.partId!), {
+      category: parseInt(formData.category),
+      // Storage location and barcode are handled separately in InvenTree 
+      // but we can try to update metadata or basic fields if needed.
+    });
     addToast('Part updated successfully!', 'success');
-    return response.json();
   };
 
   // Helper function to create new part
   const createNewPart = async (formData: PartFormData): Promise<{ partId: string }> => {
-    const response = await fetch(createApiUrl(API_CONFIG.ENDPOINTS.CREATE_PART), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        partName: formData.partName,
-        description: formData.description,
-        initialQuantity: formData.initialQuantity,
-        minimumStock: formData.minimumStock,
-      }),
+    const { minimumStock } = parseNumericFields(formData);
+    
+    const result = await inventreeClient.createPart({
+      name: formData.partName,
+      description: formData.description,
+      category: parseInt(formData.category),
+      minimum_stock: minimumStock,
+      active: true,
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Failed to create part');
-    }
-
-    const result = await response.json();
+    
     addToast('Part created successfully!', 'success');
-    return { partId: result.partId };
+    return { partId: String(result.pk) };
   };
 
   // Main form submission handler

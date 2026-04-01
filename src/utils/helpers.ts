@@ -33,5 +33,6 @@ export const parseNumericFields = (formData: PartFormData) => {
     purchasePrice: parseFloat(formData.purchasePrice) || 0,
     locationId: parseInt(formData.storageLocation) || 0,
     partId: formData.partId ? parseInt(formData.partId) : undefined,
+    minimumStock: parseInt(formData.minimumStock) || 0,
   };
 };

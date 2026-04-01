@@ -17,6 +17,7 @@ import {
     IconButton,
     Tooltip
 } from '@mui/material';
+import inventreeClient from './api/inventreeClient';
 import { 
     Search as SearchIcon, 
     Refresh as RefreshIcon,
@@ -25,8 +26,6 @@ import {
     LocationOn as LocationIcon,
     Euro as EuroIcon
 } from '@mui/icons-material';
-import { API_CONFIG } from './constants';
-import { createApiUrl } from './utils/helpers';
 import ImageDisplay from './ImageDisplay';
 
 interface Item {
@@ -52,24 +51,27 @@ export default function ItemList() {
     const fetchItems = async () => {
         setLoading(true);
         setError(null);
-        console.log('[ItemList] Fetching all items...');
+        console.log('[ItemList] Fetching all items from direct InvenTree client...');
         try {
-            const response = await fetch(createApiUrl(API_CONFIG.ENDPOINTS.GET_ALL_ITEMS));
+            const data = await inventreeClient.getAllStockItems();
             
-            if (!response.ok) {
-                const errorText = await response.text().catch(() => 'No error text');
-                console.error(`[ItemList] Network error: ${response.status} ${response.statusText} - ${errorText}`);
-                throw new Error(`Failed to fetch items: ${response.status}`);
-            }
+            // Normalize results - some requests might return a flat array, others a paginated object
+            const results = Array.isArray(data) ? data : (data?.results || []);
             
-            const data = await response.json();
-            if (data.status === 'ok') {
-                setItems(data.items);
-                console.log(`[ItemList] Loaded ${data.items.length} items`);
-            } else {
-                console.error(`[ItemList] Data error: ${data.message}`);
-                throw new Error(data.message || 'Unknown error');
-            }
+            const mappedItems: Item[] = results.map(item => ({
+                id: item.pk,
+                name: (item as any).part_detail?.name || 'Unknown Part',
+                category: (item as any).part_detail?.category_name || 'Uncategorized',
+                location: (item as any).location_detail?.name || (item as any).location_detail?.pathstring || 'No Location',
+                quantity: item.quantity,
+                price: (item as any).part_detail?.pricing_min || 0,
+                image: (item as any).part_detail?.image || null,
+                ipn: (item as any).part_detail?.IPN || '',
+                description: (item as any).part_detail?.description || '',
+            }));
+
+            setItems(mappedItems);
+            console.log(`[ItemList] Loaded ${mappedItems.length} items`);
         } catch (err) {
             console.error('[ItemList] Critical error:', err);
             setError(err instanceof Error ? err.message : 'An error occurred');
