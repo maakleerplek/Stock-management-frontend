@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import AddPartForm, { type PartFormData, type SelectOption } from './AddPartForm';
 import AddCategoryForm, { type CategoryFormData } from './AddCategoryForm';
 import AddLocationForm, { type LocationFormData } from './AddLocationForm';
@@ -7,26 +7,22 @@ import type { ScanEvent } from './sendCodeHandler';
 import ShoppingWindow from './ShoppingWindow';
 import BarcodeScannerContainer from './BarcodeScannerContainer';
 import ItemList from './ItemList';
-import Footer from './Footer';
-import Header from './Header';
-import InvenTreePage from './InvenTreePage';
-import { CssBaseline, Box, Dialog, DialogContent, Typography, useMediaQuery, useTheme } from '@mui/material';
-import { ThemeProvider } from '@mui/material/styles';
-import { lightTheme, darkTheme } from './theme';
+import Footer from './components/Footer';
+import Header from './components/Header';
+import { Dialog, DialogContent } from '@mui/material';
 import { ToastProvider, useToast } from './ToastContext';
-import { VolunteerProvider } from './VolunteerContext';
+import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
 import inventreeClient from './api/inventreeClient';
-import { STORAGE_KEYS, DEFAULTS } from './constants';
+import { STORAGE_KEYS } from './constants';
 import {
-  getInitialTheme,
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
+import './index.css';
 
 function AppContent() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(getInitialTheme);
-  const [currentPage, setCurrentPage] = useState<'main' | 'inventree' | 'inventory'>('main');
+  const [currentPage, setCurrentPage] = useState<'checkout' | 'volunteer' | 'inventory'>('checkout');
   const [scanEvent, setScanEvent] = useState<ScanEvent | null>(null);
   const scanCounterRef = useRef(0);
   const [volunteerModalOpen, setVolunteerModalOpen] = useState(false);
@@ -37,8 +33,7 @@ function AppContent() {
   const [locations, setLocations] = useState<SelectOption[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
   const { addToast } = useToast();
-  const muiTheme = useTheme();
-  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+  const { isVolunteerMode } = useVolunteer();
 
   // Warn before refresh if a checkout result is active
   useEffect(() => {
@@ -46,14 +41,13 @@ function AppContent() {
       if (checkoutResult !== null) {
         console.log('[App] Preventing accidental refresh during active payment display');
         e.preventDefault();
-        e.returnValue = ''; // Required for modern browsers to show the dialog
+        e.returnValue = '';
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [checkoutResult]);
-
 
   const handleApiError = useCallback(
     (error: unknown, context: string, showWarning = false) => {
@@ -82,7 +76,6 @@ function AppContent() {
     }
   }, [handleApiError]);
 
-  // Fetch categories and locations on component mount
   useEffect(() => {
     fetchCategoriesAndLocations();
   }, [fetchCategoriesAndLocations]);
@@ -96,7 +89,7 @@ function AppContent() {
       });
       addToast('Category created successfully!', 'success');
       setAddCategoryModalOpen(false);
-      fetchCategoriesAndLocations(); // Refresh list
+      fetchCategoriesAndLocations();
     } catch (error) {
       handleApiError(error, 'creating category');
       throw error;
@@ -112,227 +105,206 @@ function AppContent() {
       });
       addToast('Location created successfully!', 'success');
       setAddLocationModalOpen(false);
-      fetchCategoriesAndLocations(); // Refresh list
+      fetchCategoriesAndLocations();
     } catch (error) {
       handleApiError(error, 'creating location');
       throw error;
     }
   };
 
-  // Helper function to upload image
-  const uploadPartImage = async (image: File, partId: string): Promise<void> => {
+  const handleAddPartSubmit = async (formData: PartFormData): Promise<void> => {
     try {
-      await inventreeClient.uploadPartImage(parseInt(partId), image);
-      addToast('Image uploaded successfully!', 'success');
-    } catch (error) {
-      addToast(`Warning: Image upload failed: ${getErrorMessage(error)}`, 'warning');
-    }
-  };
+      const numericFields = parseNumericFields(formData, ['category', 'defaultLocation']);
+      const partData = {
+        name: formData.name,
+        description: formData.description || '',
+        category: numericFields.category,
+        IPN: formData.ipn || '',
+        default_location: numericFields.defaultLocation,
+        active: true,
+      };
 
-  // Helper function to create initial stock
-  const createInitialStock = async (formData: PartFormData, partId: string): Promise<void> => {
-    const { initialQuantity, locationId } = parseNumericFields(formData);
+      const part = await inventreeClient.createPart(partData);
 
-    if (initialQuantity > 0 && partId && locationId > 0) {
-      addToast('Creating initial stock...', 'info');
-
-      await inventreeClient.createStockItem({
-        part: parseInt(partId),
-        quantity: initialQuantity,
-        location: locationId,
-        notes: `Initial stock for new part: ${formData.partName}`,
-      });
-
-      addToast('Initial stock created successfully!', 'success');
-    }
-  };
-
-  // Helper function to update existing part
-  const updateExistingPart = async (formData: PartFormData): Promise<void> => {
-    await inventreeClient.updatePart(parseInt(formData.partId!), {
-      category: parseInt(formData.category),
-      // Storage location and barcode are handled separately in InvenTree 
-      // but we can try to update metadata or basic fields if needed.
-    });
-    addToast('Part updated successfully!', 'success');
-  };
-
-  // Helper function to create new part
-  const createNewPart = async (formData: PartFormData): Promise<{ partId: string }> => {
-    const { minimumStock } = parseNumericFields(formData);
-    
-    const result = await inventreeClient.createPart({
-      name: formData.partName,
-      description: formData.description,
-      category: parseInt(formData.category),
-      minimum_stock: minimumStock,
-      active: true,
-    });
-    
-    addToast('Part created successfully!', 'success');
-    return { partId: String(result.pk) };
-  };
-
-  // Main form submission handler
-  const handleAddPartSubmit = async (formData: PartFormData): Promise<{ partId: string }> => {
-    try {
-      if (formData.partId) {
-        // Step 2: Update existing part
-        await updateExistingPart(formData);
-
-        // Upload image if provided
-        if (formData.image) {
-          await uploadPartImage(formData.image, formData.partId);
-        }
-
-        // Create initial stock
-        await createInitialStock(formData, formData.partId);
-
-        setAddPartFormModalOpen(false);
-        return { partId: formData.partId };
-      } else {
-        // Step 1: Create new part
-        return await createNewPart(formData);
+      if (formData.image) {
+        await inventreeClient.uploadPartImage(part.pk, formData.image);
       }
+
+      if (formData.initialStock && numericFields.defaultLocation) {
+        await inventreeClient.createStockItem({
+          part: part.pk,
+          quantity: parseFloat(formData.initialStock),
+          location: numericFields.defaultLocation,
+          notes: 'Initial stock from part creation'
+        });
+      }
+
+      addToast('Part created successfully!', 'success');
+      setAddPartFormModalOpen(false);
     } catch (error) {
-      handleApiError(error, 'part submission');
+      handleApiError(error, 'creating part');
       throw error;
     }
   };
 
-  const toggleTheme = useCallback(() => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
+  const handleScan = useCallback(
+    (code: string) => {
+      scanCounterRef.current += 1;
+      const newEvent: ScanEvent = { code, counter: scanCounterRef.current };
+      console.log(`[App] Scan event #${newEvent.counter}: ${code}`);
+      setScanEvent(newEvent);
+    },
+    []
+  );
 
-    const updateTheme = () => {
-      setTheme(newTheme);
-      localStorage.setItem(STORAGE_KEYS.THEME_PREFERENCE, newTheme);
-    };
+  const handleViewChange = (view: 'checkout' | 'volunteer' | 'inventory') => {
+    setCurrentPage(view);
+  };
 
-    // Use the View Transitions API if available
-    if (!document.startViewTransition) {
-      updateTheme();
-      return;
+  const handleVolunteerClick = () => {
+    if (!isVolunteerMode) {
+      setVolunteerModalOpen(true);
     }
+  };
 
-    // Wrap the state update in startViewTransition
-    document.startViewTransition(updateTheme);
-  }, [theme]);
+  // Update currentPage when volunteer mode changes
+  useEffect(() => {
+    if (!isVolunteerMode && currentPage !== 'checkout') {
+      setCurrentPage('checkout');
+    }
+  }, [isVolunteerMode, currentPage]);
 
   return (
-    <ThemeProvider theme={theme === 'light' ? lightTheme : darkTheme}>
-      <CssBaseline />
+    <div className="min-h-screen flex flex-col bg-brand-beige">
+      <Header 
+        currentView={currentPage}
+        onViewChange={handleViewChange}
+        onVolunteerClick={handleVolunteerClick}
+      />
 
-      <motion.div
-        style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}
-      >
-        {currentPage === 'inventree' ? (
-          <InvenTreePage onBack={() => setCurrentPage('main')} />
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: 'background.default' }}>
-            <Header
-              theme={theme}
-              toggleTheme={toggleTheme}
-              setVolunteerModalOpen={setVolunteerModalOpen}
-              setAddPartFormModalOpen={setAddPartFormModalOpen}
-              setAddCategoryModalOpen={setAddCategoryModalOpen}
-              setAddLocationModalOpen={setAddLocationModalOpen}
-              onOpenInvenTree={() => setCurrentPage('inventree')}
-              onOpenInventory={() => setCurrentPage(currentPage === 'inventory' ? 'main' : 'inventory')}
-              isInventoryOpen={currentPage === 'inventory'}
-            />
-            <Box sx={{ flex: 1, py: { xs: 2, sm: 4 } }}>
-              <Box sx={{ maxWidth: 'none', mx: 'auto', px: 2 }}>
-                {currentPage === 'inventory' ? (
-                  <ItemList />
-                ) : (
-                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: DEFAULTS.GRID_COLUMNS.XS, md: DEFAULTS.GRID_COLUMNS.MD }, gap: 2 }}>
-                    <BarcodeScannerContainer
-                      onItemScanned={(item) => {
-                        if (item) setScanEvent({ item, id: ++scanCounterRef.current });
-                      }}
-                      checkoutResult={checkoutResult}
-                    />
-                    <Box>
-                      <ShoppingWindow
-                        scanEvent={scanEvent}
-                        onCheckoutResultChange={setCheckoutResult}
-                      />
-                    </Box>
-                  </Box>
-                )}
-              </Box>
-            </Box>
-
-            <Footer />
-          </Box>
+      <main className="flex-1 flex flex-col">
+        {currentPage === 'checkout' && (
+          <div className="flex-1 flex flex-col lg:flex-row">
+            {/* Scanner Section */}
+            <div className="flex-1 border-b-[3px] lg:border-b-0 lg:border-r-[3px] border-brand-black p-4 sm:p-6">
+              <BarcodeScannerContainer onScan={handleScan} />
+            </div>
+            
+            {/* Shopping Cart Section */}
+            <div className="w-full lg:w-[450px] p-4 sm:p-6 bg-white">
+              <ShoppingWindow
+                scanEvent={scanEvent}
+                onCheckoutComplete={(total, description) => setCheckoutResult({ total, description })}
+                onCheckoutClose={() => setCheckoutResult(null)}
+                checkoutResult={checkoutResult}
+              />
+            </div>
+          </div>
         )}
-      </motion.div>
-      <VolunteerModal open={volunteerModalOpen} onClose={() => setVolunteerModalOpen(false)} />
 
-      <Dialog
-        open={addPartFormModalOpen}
+        {currentPage === 'volunteer' && (
+          <div className="flex-1 p-4 sm:p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="brutalist-card p-6">
+                <h2 className="text-2xl font-black uppercase mb-4">Volunteer Dashboard</h2>
+                <p className="text-sm opacity-60">Placeholder: Dashboard stats and activity log will be added here</p>
+                
+                {/* Action buttons */}
+                <div className="flex gap-3 mt-6 flex-wrap">
+                  <button 
+                    onClick={() => setAddPartFormModalOpen(true)}
+                    className="brutalist-button"
+                  >
+                    + Add Part
+                  </button>
+                  <button 
+                    onClick={() => setAddCategoryModalOpen(true)}
+                    className="brutalist-button"
+                  >
+                    + Add Category
+                  </button>
+                  <button 
+                    onClick={() => setAddLocationModalOpen(true)}
+                    className="brutalist-button"
+                  >
+                    + Add Location
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentPage === 'inventory' && (
+          <div className="flex-1 p-4 sm:p-6">
+            <ItemList />
+          </div>
+        )}
+      </main>
+
+      <Footer />
+
+      {/* Modals */}
+      <VolunteerModal 
+        open={volunteerModalOpen}
+        onClose={() => setVolunteerModalOpen(false)}
+      />
+
+      <Dialog 
+        open={addPartFormModalOpen} 
         onClose={() => setAddPartFormModalOpen(false)}
         maxWidth="md"
         fullWidth
-        fullScreen={isMobile}
       >
-        <DialogContent sx={{ p: isMobile ? 2 : 3 }}>
+        <DialogContent>
           <AddPartForm
             onSubmit={handleAddPartSubmit}
+            onCancel={() => setAddPartFormModalOpen(false)}
             categories={categories}
             locations={locations}
-            onCancel={() => setAddPartFormModalOpen(false)}
           />
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={addCategoryModalOpen}
+      <Dialog 
+        open={addCategoryModalOpen} 
         onClose={() => setAddCategoryModalOpen(false)}
         maxWidth="sm"
         fullWidth
-        fullScreen={isMobile}
       >
-        <DialogContent sx={{ p: isMobile ? 2 : 3 }}>
-          <Typography variant="h6" gutterBottom>Add New Category</Typography>
+        <DialogContent>
           <AddCategoryForm
             onSubmit={handleAddCategorySubmit}
-            categories={categories}
-            locations={locations}
             onCancel={() => setAddCategoryModalOpen(false)}
+            categories={categories}
           />
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={addLocationModalOpen}
+      <Dialog 
+        open={addLocationModalOpen} 
         onClose={() => setAddLocationModalOpen(false)}
         maxWidth="sm"
         fullWidth
-        fullScreen={isMobile}
       >
-        <DialogContent sx={{ p: isMobile ? 2 : 3 }}>
-          <Typography variant="h6" gutterBottom>Add New Location</Typography>
+        <DialogContent>
           <AddLocationForm
             onSubmit={handleAddLocationSubmit}
-            locations={locations}
             onCancel={() => setAddLocationModalOpen(false)}
+            locations={locations}
           />
         </DialogContent>
       </Dialog>
-
-    </ThemeProvider>
+    </div>
   );
 }
 
-function App() {
+export default function App() {
   return (
-    <VolunteerProvider>
-      <ToastProvider>
+    <ToastProvider>
+      <VolunteerProvider>
         <AppContent />
-      </ToastProvider>
-    </VolunteerProvider>
+      </VolunteerProvider>
+    </ToastProvider>
   );
 }
-
-export default App;
