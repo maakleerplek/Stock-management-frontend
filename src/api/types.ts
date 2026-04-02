@@ -153,3 +153,23 @@ export interface CreateLocationPayload {
     external?: boolean;
     icon?: string;
 }
+export interface InvenTreeTrackingEntry {
+    pk: number;
+    item: number;
+    part: number;
+    date: string;
+    deltas: {
+        removed?: number;
+        added?: number;
+        quantity?: number;
+    };
+    label: string;
+    notes: string;
+    tracking_type: number;
+    user: number;
+}
+
+export interface InvenTreeTrackingListResponse {
+    count: number;
+    results: InvenTreeTrackingEntry[];
+}

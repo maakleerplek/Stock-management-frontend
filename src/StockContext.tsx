@@ -45,8 +45,9 @@ export function StockProvider({ children }: { children: ReactNode }) {
       }
 
       // Fetch in parallel for speed
+      // Note: Removed in_stock: true filter to show all items including those with 0 stock
       const [stockResp, catResp, locResp] = await Promise.all([
-        inventreeClient.getAllStockItems({ in_stock: true }),
+        inventreeClient.getAllStockItems(),
         inventreeClient.getCategories(),
         inventreeClient.getLocations(),
       ]);

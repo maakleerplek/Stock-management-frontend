@@ -197,6 +197,10 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
     }
   };
 
+  // Diagnostics for mobile troubleshooting
+  const isSecure = typeof window !== 'undefined' && (window.location.protocol === 'https:' || window.location.hostname === 'localhost');
+  const hasMediaDevices = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+
   // Build the constraints for the scanner
   const scannerConstraints: MediaTrackConstraints = selectedCameraId
     ? { deviceId: { exact: selectedCameraId } }
@@ -213,14 +217,12 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
     return `Camera ${index + 1}`;
   };
 
-  const isSecure = typeof window !== 'undefined' && window.isSecureContext;
-  const hasMediaDevices = typeof navigator !== 'undefined' && !!navigator.mediaDevices;
 
   return (
     <div className="w-full flex flex-col items-center gap-4">
       <div className={cn(
-        "flex flex-col gap-3 sm:gap-4 w-full max-w-[320px] sm:max-w-[360px]",
-        compact ? "" : "brutalist-card p-4 sm:p-6"
+        "flex flex-col gap-3 sm:gap-4 w-full max-w-[420px] sm:max-w-[480px]",
+        compact ? "" : "brutalist-card p-6 sm:p-8"
       )}>
         {!compact && (
           <div className="flex items-center gap-2 pb-2 border-b-2 border-brand-black">

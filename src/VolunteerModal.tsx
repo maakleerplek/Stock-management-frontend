@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, LogIn, Info } from 'lucide-react';
+import { X, LogIn, AlertCircle } from 'lucide-react';
 import { useVolunteer } from './VolunteerContext';
 import { AUTH } from './constants';
 import { cn } from './lib/utils';
@@ -9,21 +9,19 @@ interface VolunteerModalProps {
     onClose: () => void;
 }
 
-// Volunteer password from environment or default
-
 export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { setIsVolunteerMode } = useVolunteer();
 
-const handleSubmit = () => {
+    const handleSubmit = () => {
         if (password === AUTH.VOLUNTEER_PASSWORD) {
             setIsVolunteerMode(true);
             setPassword('');
             setError('');
             onClose();
         } else {
-            setError('Incorrect password');
+            setError('INCORRECT PASSWORD');
             setPassword('');
         }
     };
@@ -47,36 +45,39 @@ const handleSubmit = () => {
             {/* Backdrop */}
             {open && (
                 <div 
-                    className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                    className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4 transition-opacity"
                     onClick={handleClose}
                 >
                     {/* Modal */}
                     <div 
-                        className="brutalist-card bg-white w-full max-w-md"
+                        className="border-2 border-brand-black bg-white w-full max-w-md shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="flex items-center justify-between p-4 border-b-3 border-black">
-                            <h2 className="text-lg font-bold uppercase">Enter Volunteer Mode</h2>
+                        <div className="flex items-center justify-between p-4 border-b-2 border-brand-black bg-brand-beige">
+                            <h2 className="text-sm font-black uppercase tracking-widest text-brand-black">VOLUNTEER MODE</h2>
                             <button
                                 onClick={handleClose}
-                                className="p-1 hover:bg-beige transition-colors"
+                                className="p-1 hover:bg-white border-2 border-transparent hover:border-brand-black transition-colors"
                             >
-                                <X className="w-5 h-5" />
+                                <X className="w-5 h-5 text-brand-black" />
                             </button>
                         </div>
 
                         {/* Content */}
-                        <div className="flex flex-col gap-4 p-4">
-                            <div className="brutalist-card bg-blue-50 border-blue-500 p-3 flex gap-2">
-                                <Info className="w-5 h-5 flex-shrink-0 text-blue-600" />
-                                <p className="text-sm">
-                                    Volunteer mode allows you to add items to stock instead of removing them.
-                                </p>
+                        <div className="flex flex-col gap-6 p-6 bg-white">
+                            <div className="flex gap-3 items-start">
+                                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-brand-black" />
+                                <div className="flex flex-col gap-1">
+                                    <h3 className="font-black text-xs uppercase tracking-widest">AUTHENTICATION REQUIRED</h3>
+                                    <p className="text-xs font-bold leading-relaxed text-brand-black/70 uppercase">
+                                        VOLUNTEER MODE ALLOWS YOU TO ADJUST STOCK LEVELS.
+                                    </p>
+                                </div>
                             </div>
                             
-                            <div>
-                                <label className="block text-sm font-bold mb-2 uppercase">Password</label>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-brand-black">ENTER PASSWORD</label>
                                 <input
                                     type="password"
                                     value={password}
@@ -84,33 +85,32 @@ const handleSubmit = () => {
                                     onKeyDown={handleKeyPress}
                                     autoFocus
                                     className={cn(
-                                        "brutalist-input w-full px-3 py-2",
-                                        error && "border-red-500"
+                                        "brutalist-input w-full px-4 py-3 text-lg font-black tracking-widest",
+                                        error && "border-red-500 bg-red-50"
                                     )}
                                 />
+                                {error && (
+                                    <p className="text-xs font-black uppercase tracking-widest text-red-600 mt-1">
+                                        {error}
+                                    </p>
+                                )}
                             </div>
-
-                            {error && (
-                                <p className="text-sm font-bold text-red-600">
-                                    {error}
-                                </p>
-                            )}
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-3 justify-end p-4 border-t-3 border-black">
+                        <div className="flex gap-4 p-4 border-t-2 border-brand-black bg-white">
                             <button
                                 onClick={handleClose}
-                                className="brutalist-button px-4 py-2 flex items-center gap-2"
+                                className="flex-1 brutalist-button bg-white text-brand-black py-3 text-xs uppercase flex justify-center items-center gap-2"
                             >
-                                Cancel
+                                CANCEL
                             </button>
                             <button
                                 onClick={handleSubmit}
-                                className="brutalist-button px-4 py-2 bg-black text-beige flex items-center gap-2"
+                                className="flex-1 brutalist-button bg-[#c6e2ff] text-brand-black py-3 text-xs uppercase flex justify-center items-center gap-2 hover:bg-blue-200"
                             >
                                 <LogIn className="w-4 h-4" />
-                                Enter
+                                AUTHENTICATE
                             </button>
                         </div>
                     </div>

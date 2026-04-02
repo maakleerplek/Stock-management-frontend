@@ -1,17 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-    Box,
-    Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogContentText,
-    DialogActions,
-} from '@mui/material';
 import ShoppingCart, { type CartItem } from './ShoppingCart';
+import Extras from './Extras';
 import { type ItemData, type ScanEvent, handleTakeItem, handleAddItem, handleSetItem } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
+import { AlertCircle, Check, X, Settings } from 'lucide-react';
 
 interface ShoppingWindowProps {
     scanEvent: ScanEvent | null;
@@ -24,7 +17,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
     const [cartItems, setCartItems] = useState<CartItem[]>(() => {
         try {
             const stored = localStorage.getItem(CART_STORAGE_KEY);
-            return stored ? JSON.parse(stored) : [];
+            if (!stored) return [];
+            const parsed = JSON.parse(stored);
+            return Array.isArray(parsed) ? parsed : [];
         } catch (e) {
             console.error("Failed to parse cart items from local storage", e);
             return [];
@@ -35,14 +30,12 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
     const [isSetMode, setIsSetMode] = useState<boolean>(false);
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
-    const [confirmMessage, setConfirmMessage] = useState('');
     const { addToast } = useToast();
     const { isVolunteerMode } = useVolunteer();
 
     const handleSetModeChange = useCallback((newMode: boolean) => {
         setIsSetMode(newMode);
         if (!newMode) {
-            // Un-setting Set Mode should delete items that sit at 0
             setCartItems((prevItems) => prevItems.filter(item => item.cartQuantity !== 0));
         }
     }, []);
@@ -52,45 +45,37 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
         onCheckoutResultChange?.(result);
     }, [onCheckoutResultChange]);
 
-    // Cleanup cart if volunteer mode is exited
     useEffect(() => {
         if (!isVolunteerMode) {
             setCartItems((prevItems) => prevItems.filter(item => item.cartQuantity > 0));
         }
     }, [isVolunteerMode]);
 
-    // Persist cart items
     useEffect(() => {
         localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
     }, [cartItems]);
 
     const handleAddItemToCart = useCallback((item: ItemData) => {
-        console.log('[Cart] Adding item to cart:', { id: item.id, name: item.name, price: item.price });
         setCheckedOut(null);
         setCartItems((prevItems) => {
             const existingItem = prevItems.find((i) => i.id === item.id);
             if (existingItem) {
                 const newQuantity = Math.min(existingItem.cartQuantity + 1, item.quantity);
-                console.log(`[Cart] Incrementing quantity for ${item.name}: ${existingItem.cartQuantity} -> ${newQuantity}`);
                 return prevItems.map((i) =>
                     i.id === item.id ? { ...i, cartQuantity: newQuantity } : i
                 );
             }
-            console.log('[Cart] New item added to cart list');
             return [...prevItems, { ...item, cartQuantity: 1 }];
         });
     }, [setCheckedOut]);
 
-    // React to every new scan event (same item twice works correctly via unique id)
     useEffect(() => {
         if (scanEvent) {
-            console.log('[Scanner] Received scanned item:', scanEvent.item.name);
             handleAddItemToCart(scanEvent.item);
         }
     }, [scanEvent, handleAddItemToCart]);
 
     const handleUpdateQuantity = (itemId: number, newQuantity: number) => {
-        console.log(`[Cart] Updating quantity for item ${itemId} to ${newQuantity}`);
         setCartItems((prevItems) =>
             prevItems
                 .map((item) =>
@@ -98,38 +83,16 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
                 )
                 .filter((item) => {
                     if (isVolunteerMode) return true;
-                    const keep = item.cartQuantity !== 0;
-                    if (!keep) console.log(`[Cart] Removing item ${item.name} because quantity reached 0`);
-                    return keep;
+                    return item.cartQuantity !== 0;
                 })
         );
     };
 
     const handleRemoveItem = (itemId: number) => {
-        console.log(`[Cart] Manually removing item ${itemId}`);
         setCartItems((prevItems) => prevItems.filter((item) => item.id !== itemId));
     };
 
-    // Show the MUI confirm dialog before committing the checkout
     const handleCheckout = () => {
-        const checkoutTotal = cartItems.reduce((total, item) => total + item.price * item.cartQuantity, 0) + extraCosts;
-        console.log('[Checkout] Starting checkout process', {
-            itemCount: cartItems.length,
-            total: checkoutTotal,
-            extraCosts,
-            isVolunteerMode,
-            isSetMode,
-        });
-
-        const itemsSummary = cartItems.map(item => `${item.name} x${item.cartQuantity}`).join('\n');
-        let actionText = 'checkout';
-        if (isVolunteerMode) {
-            actionText = isSetMode ? 'set stock to' : 'add to stock';
-        }
-        const message = `${actionText.charAt(0).toUpperCase() + actionText.slice(1)}:\n\n${itemsSummary}${
-            !isVolunteerMode ? `\n\nExtra Services: €${extraCosts.toFixed(2)}\nTotal: €${checkoutTotal.toFixed(2)}` : ''
-        }`;
-        setConfirmMessage(message);
         setConfirmOpen(true);
     };
 
@@ -142,37 +105,26 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
         if (isVolunteerMode) {
             handler = isSetMode ? handleSetItem : handleAddItem;
         }
-        console.log(`[Checkout] Using handler: ${handler.name}`);
 
         setIsCheckingOut(true);
         try {
             for (const item of cartItems) {
                 let success = false;
-                console.log(`[Checkout] Processing item: ${item.name} (qty: ${item.cartQuantity})`);
-
                 if (isVolunteerMode && !isSetMode && item.cartQuantity < 0) {
-                    console.log(`[Checkout] Item quantity is negative, using handleTakeItem for ${item.name}`);
                     success = await handleTakeItem(item.id, Math.abs(item.cartQuantity));
                 } else {
                     success = await handler(item.id, item.cartQuantity);
                 }
 
                 if (!success) {
-                    console.error(`[Checkout] FAILED to process item: ${item.name}`);
-                    addToast(
-                        `Failed to process "${item.name}". Operation stopped — earlier items in this batch may already have been processed.`,
-                        'error'
-                    );
+                    addToast(`Failed to process "${item.name}". Operation stopped.`, 'error');
                     setIsCheckingOut(false);
                     return;
                 }
-                console.log(`[Checkout] Successfully processed: ${item.name}`);
             }
 
-            console.log('[Checkout] All items processed successfully. Clearing cart.');
             setCartItems([]);
 
-            // Only show payment QR in non-volunteer mode
             if (!isVolunteerMode) {
                 let desc = itemsSummary;
                 if (extraCosts > 0) {
@@ -195,35 +147,107 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
     };
 
     return (
-        <Box>
-            <ShoppingCart
-                cartItems={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-                onCheckout={handleCheckout}
-                checkedOutTotal={checkedOutResult?.total ?? null}
-                onClearCheckout={() => setCheckedOut(null)}
-                onExtraCostChange={setExtraCosts}
-                extraCosts={extraCosts}
-                isVolunteerMode={isVolunteerMode}
-                isSetMode={isSetMode}
-                onSetModeChange={handleSetModeChange}
-                isCheckingOut={isCheckingOut}
-            />
+        <div className="flex flex-col h-full bg-white">
+            <div className="flex-1 overflow-auto">
+                <ShoppingCart
+                    cartItems={cartItems}
+                    onUpdateQuantity={handleUpdateQuantity}
+                    onRemoveItem={handleRemoveItem}
+                    onCheckout={handleCheckout}
+                    checkedOutTotal={checkedOutResult?.total ?? null}
+                    checkedOutDescription={checkedOutResult?.description ?? undefined}
+                    onClearCheckout={() => setCheckedOut(null)}
+                    extraCosts={extraCosts}
+                    isVolunteerMode={isVolunteerMode}
+                    isSetMode={isSetMode}
+                    onSetModeChange={handleSetModeChange}
+                    isCheckingOut={isCheckingOut}
+                />
 
-            {/* MUI Confirmation Dialog — replaces window.confirm */}
-            <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle>Confirm</DialogTitle>
-                <DialogContent>
-                    <DialogContentText sx={{ whiteSpace: 'pre-line' }}>{confirmMessage}</DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
-                    <Button onClick={handleConfirmedCheckout} variant="contained" autoFocus>
-                        Confirm
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </Box>
+                {/* Extra Services appended directly below Shopping Cart */}
+                {!isVolunteerMode && checkedOutResult === null && (
+                    <div className="border-t-2 border-brand-black bg-slate-50/50">
+                        <div className="flex items-center gap-2 p-3 bg-sky-600 border-b-2 border-brand-black text-white">
+                            <Settings size={18} className="text-white" />
+                            <h3 className="text-sm font-black uppercase tracking-widest">
+                                Extra Services
+                            </h3>
+                        </div>
+                        <div className="p-4 sm:p-6">
+                            <Extras onExtraCostChange={setExtraCosts} />
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Brutalist Custom Confirmation Modal */}
+            {confirmOpen && (
+                <div className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4">
+                    <div className="border-2 border-brand-black bg-brand-beige w-full max-w-2xl flex flex-col">
+                        <div className="bg-brand-black text-white p-5 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <AlertCircle size={24} className="text-emerald-400" />
+                                <h3 className="font-black uppercase tracking-[0.2em] text-lg">CONFIRM TRANSACTION</h3>
+                            </div>
+                            <button onClick={() => setConfirmOpen(false)} className="hover:rotate-90 transition-transform">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="p-8 bg-white overflow-y-auto max-h-[60vh] space-y-6">
+                            <p className="text-xs font-black uppercase tracking-widest text-brand-black/50 border-b-2 border-brand-black pb-2">
+                                ITEMS IN CART
+                            </p>
+                            
+                            <div className="space-y-3">
+                                {cartItems.map((item) => (
+                                    <div key={item.id} className="flex justify-between items-center p-3 border-2 border-brand-black bg-white">
+                                        <div className="flex flex-col">
+                                            <span className="font-black text-sm uppercase">{item.name}</span>
+                                            <span className="text-[10px] font-bold text-brand-black/60">QTY: {item.cartQuantity} × €{item.price.toFixed(2)}</span>
+                                        </div>
+                                        <div className="font-black text-sm">€{(item.cartQuantity * item.price).toFixed(2)}</div>
+                                    </div>
+                                ))}
+
+                                {extraCosts > 0 && (
+                                    <div className="flex justify-between items-center p-3 border-2 border-brand-black bg-slate-50">
+                                        <span className="font-black text-sm uppercase text-slate-900 leading-none">EXTRA SERVICES</span>
+                                        <div className="font-black text-sm text-slate-900">€{extraCosts.toFixed(2)}</div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="border-t-[3px] border-brand-black pt-6 flex flex-col items-end">
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-black/50">TOTAL AMOUNT</span>
+                                <span className="text-5xl font-black text-brand-black tracking-tight">
+                                    €{(cartItems.reduce((acc, i) => acc + i.price * i.cartQuantity, 0) + extraCosts).toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="border-t-2 border-brand-black p-6 flex flex-col sm:flex-row gap-4 bg-brand-beige">
+                            <button
+                                onClick={() => setConfirmOpen(false)}
+                                className="flex-1 brutalist-button py-4 bg-white text-brand-black flex items-center justify-center gap-3 text-sm font-black uppercase tracking-widest"
+                            >
+                                <X size={20} /> CANCEL
+                            </button>
+                            <button
+                                onClick={handleConfirmedCheckout}
+                                disabled={isCheckingOut}
+                                className="flex-1 brutalist-button py-4 bg-emerald-400 text-brand-black hover:brightness-95 flex items-center justify-center gap-3 text-sm font-black uppercase tracking-widest transition-all"
+                            >
+                                {isCheckingOut ? (
+                                    <span className="flex items-center gap-2">PROCESSING...</span>
+                                ) : (
+                                    <>
+                                        <Check size={20} /> COMPLETE CHECKOUT
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }
