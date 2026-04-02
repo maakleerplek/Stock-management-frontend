@@ -9,6 +9,7 @@ services:
         VITE_INVENTREE_TOKEN: ${VITE_INVENTREE_TOKEN}
         VITE_VOLUNTEER_PASSWORD: ${VITE_VOLUNTEER_PASSWORD}
         VITE_LASER_PRICE_PER_MIN: ${VITE_LASER_PRICE_PER_MIN}
+        VITE_CNC_PRICE_PER_MIN: ${VITE_CNC_PRICE_PER_MIN}
         VITE_PRINT_PRICE_PER_GRAM: ${VITE_PRINT_PRICE_PER_GRAM}
         VITE_CURRENCY: ${VITE_CURRENCY}
         VITE_PAYMENT_NAME: ${VITE_PAYMENT_NAME}
@@ -26,9 +27,6 @@ services:
     ports:
       - "${FRONTEND_HTTP_PORT:-8082}:80"
       - "${FRONTEND_HTTPS_PORT:-8444}:443"
-    volumes:
-      - ./frontend-caddy-data:/data
-      - ./frontend-caddy-config:/config
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]

@@ -52,13 +52,24 @@ ENV VITE_GITHUB_URL=${VITE_GITHUB_URL}
 RUN npm run build
 
 # ==================== PRODUCTION STAGE ====================
-FROM caddy:alpine
+FROM nginx:alpine
+
+# Install openssl for certificate generation
+RUN apk add --no-cache openssl
+
+# Set the working directory to nginx asset directory
+WORKDIR /usr/share/nginx/html
+
+# Remove default nginx static assets
+RUN rm -rf ./*
 
 # Copy built files from builder stage
-COPY --from=builder /app/dist /usr/share/caddy
+COPY --from=builder /app/dist .
 
-# Copy Caddy configuration
-COPY Caddyfile /etc/caddy/Caddyfile
+# Copy Nginx template and entrypoint
+COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expose ports 80 and 443
 EXPOSE 80 443
@@ -66,3 +77,6 @@ EXPOSE 80 443
 # Health check using curl
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD curl -f http://localhost/health || exit 1
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"]
