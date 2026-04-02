@@ -52,11 +52,12 @@
 	}
 }
 
-http://localhost, http://127.0.0.1, http://192.168.68.64 {
+http://:80 {
 	import site_config
 }
 
-https://localhost, https://127.0.0.1, https://192.168.68.64, https://172.20.0.2 {
+# Use HOST_IP environment variable for HTTPS, fallback to localhost if not set
+https://localhost, https://127.0.0.1, https://{$HOST_IP:localhost} {
 	tls internal
 	import site_config
 }
