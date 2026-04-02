@@ -19,6 +19,7 @@ import type {
     InvenTreeStockListResponse,
     InvenTreeCategoryListResponse,
     InvenTreeLocationListResponse,
+    InvenTreeTrackingListResponse,
     StockOperationPayload,
     CreatePartPayload,
     CreateStockItemPayload,
@@ -26,6 +27,7 @@ import type {
     CreateCategoryPayload,
     CreateLocationPayload,
 } from './types';
+import { ApiCache, CACHE_TTL } from '../lib/cache';
 
 interface InvenTreeConfig {
     baseUrl: string;
@@ -40,15 +42,35 @@ class InvenTreeClient {
     }
 
     /**
-     * Generic HTTP request handler for InvenTree API
+     * Generic HTTP request handler for InvenTree API with caching
+     * 
+     * @param endpoint - API endpoint
+     * @param method - HTTP method (GET, POST, PATCH, etc.)
+     * @param body - Request body
+     * @param isFormData - Whether body is FormData
+     * @param useCache - Whether to use cache for GET requests (default: true)
+     * @param cacheTTL - Cache TTL in milliseconds (default: CACHE_TTL.MEDIUM)
      */
     private async request<T>(
         endpoint: string,
         method: string = 'GET',
         body?: unknown,
-        isFormData: boolean = false
+        isFormData: boolean = false,
+        useCache: boolean = true,
+        cacheTTL: number = CACHE_TTL.MEDIUM
     ): Promise<T> {
         const url = `${this.config.baseUrl}/api/${endpoint.replace(/^\//, '')}`;
+        
+        // Generate cache key for GET requests
+        const cacheKey = `${method}_${endpoint}`;
+        
+        // Try cache for GET requests
+        if (method === 'GET' && useCache) {
+            const cached = ApiCache.get<T>(cacheKey);
+            if (cached !== null) {
+                return cached;
+            }
+        }
         
         const headers: Record<string, string> = {
             'Authorization': `Token ${this.config.token}`,
@@ -72,14 +94,35 @@ class InvenTreeClient {
 
             const data = await response.json();
             // Normalize InvenTree response: if it's a flat array, wrap it in a results object
-            if (Array.isArray(data)) {
-                return { count: data.length, results: data } as unknown as T;
+            const normalizedData = Array.isArray(data) 
+                ? { count: data.length, results: data } as unknown as T
+                : data;
+            
+            // Cache GET responses
+            if (method === 'GET' && useCache) {
+                ApiCache.set(cacheKey, normalizedData, cacheTTL);
             }
-            return data;
+            
+            return normalizedData;
         } catch (error) {
             console.error(`InvenTree API call failed: ${method} ${endpoint}`, error);
             throw error;
         }
+    }
+    
+    /**
+     * Invalidate cached data for an endpoint
+     */
+    invalidateCache(endpoint: string, method: string = 'GET'): void {
+        const cacheKey = `${method}_${endpoint}`;
+        ApiCache.remove(cacheKey);
+    }
+    
+    /**
+     * Clear all cached API data
+     */
+    clearCache(): void {
+        ApiCache.clear();
     }
 
     // ==================== Stock Operations ====================
@@ -92,7 +135,11 @@ class InvenTreeClient {
             items: [{ pk: itemId, quantity }],
             notes,
         };
-        await this.request('/stock/add/', 'POST', payload);
+        await this.request('/stock/add/', 'POST', payload, false, false);
+        
+        // Invalidate related caches
+        this.invalidateCache(`/stock/${itemId}/?part_detail=true&location_detail=true`);
+        this.invalidateCache('/stock/');
     }
 
     /**
@@ -103,7 +150,11 @@ class InvenTreeClient {
             items: [{ pk: itemId, quantity }],
             notes,
         };
-        await this.request('/stock/remove/', 'POST', payload);
+        await this.request('/stock/remove/', 'POST', payload, false, false);
+        
+        // Invalidate related caches
+        this.invalidateCache(`/stock/${itemId}/?part_detail=true&location_detail=true`);
+        this.invalidateCache('/stock/');
     }
 
     /**
@@ -127,16 +178,21 @@ class InvenTreeClient {
     }
 
     /**
-     * Get detailed stock item information
+     * Get detailed stock item information (cached for 2 minutes)
      */
     async getStockItem(itemId: number): Promise<InvenTreeStockItem> {
         return this.request<InvenTreeStockItem>(
-            `/stock/${itemId}/?part_detail=true&location_detail=true`
+            `/stock/${itemId}/?part_detail=true&location_detail=true`,
+            'GET',
+            undefined,
+            false,
+            true,
+            CACHE_TTL.SHORT
         );
     }
 
     /**
-     * Get all stock items with optional filters
+     * Get all stock items with optional filters (cached for 15 minutes)
      */
     async getAllStockItems(filters?: {
         part?: number;
@@ -153,7 +209,14 @@ class InvenTreeClient {
         const queryString = params.toString();
         const endpoint = queryString ? `/stock/?${queryString}` : '/stock/';
         
-        return this.request<InvenTreeStockListResponse>(endpoint);
+        return this.request<InvenTreeStockListResponse>(
+            endpoint,
+            'GET',
+            undefined,
+            false,
+            true,
+            CACHE_TTL.MEDIUM
+        );
     }
 
     // ==================== Barcode Lookup ====================
@@ -166,6 +229,8 @@ class InvenTreeClient {
      * 2. Part barcode (find stock for that part)
      * 3. IPN (Internal Part Number) search
      * 4. Part name search (partial match)
+     * 
+     * Note: Barcode lookups are NOT cached since they're real-time user actions
      */
     async lookupBarcode(barcode: string): Promise<ItemData | null> {
         if (!barcode || barcode === 'No result') {
@@ -175,12 +240,14 @@ class InvenTreeClient {
         try {
             let stockId: number | null = null;
 
-            // Step 1: Try direct barcode scan
+            // Step 1: Try direct barcode scan (no cache for real-time lookups)
             try {
                 const barcodeResp = await this.request<InvenTreeBarcodeResponse>(
                     '/barcode/',
                     'POST',
-                    { barcode }
+                    { barcode },
+                    false,
+                    false // Don't cache barcode lookups
                 );
 
                 stockId = barcodeResp.stockitem?.pk ?? null;
@@ -202,7 +269,11 @@ class InvenTreeClient {
             if (!stockId) {
                 console.debug('Trying IPN search for:', barcode);
                 const parts = await this.request<InvenTreePartListResponse>(
-                    `/part/?IPN=${encodeURIComponent(barcode)}`
+                    `/part/?IPN=${encodeURIComponent(barcode)}`,
+                    'GET',
+                    undefined,
+                    false,
+                    false // Don't cache searches
                 );
                 const partId = parts.results[0]?.pk;
                 if (partId) {
@@ -218,7 +289,11 @@ class InvenTreeClient {
             if (!stockId) {
                 console.debug('Trying part name search for:', barcode);
                 const parts = await this.request<InvenTreePartListResponse>(
-                    `/part/?search=${encodeURIComponent(barcode)}`
+                    `/part/?search=${encodeURIComponent(barcode)}`,
+                    'GET',
+                    undefined,
+                    false,
+                    false // Don't cache searches
                 );
                 const partId = parts.results[0]?.pk;
                 if (partId) {
@@ -285,14 +360,37 @@ class InvenTreeClient {
      * Create a new part
      */
     async createPart(payload: CreatePartPayload): Promise<{ pk: number }> {
-        return this.request('/part/', 'POST', payload);
+        const result = await this.request<{ pk: number }>(
+            '/part/',
+            'POST',
+            payload,
+            false,
+            false
+        );
+        
+        // Invalidate part list cache
+        this.invalidateCache('/part/');
+        
+        return result;
     }
 
     /**
      * Update an existing part
      */
     async updatePart(partId: number, payload: UpdatePartPayload): Promise<unknown> {
-        return this.request(`/part/${partId}/`, 'PATCH', payload);
+        const result = await this.request(
+            `/part/${partId}/`,
+            'PATCH',
+            payload,
+            false,
+            false
+        );
+        
+        // Invalidate part cache
+        this.invalidateCache(`/part/${partId}/`);
+        this.invalidateCache('/part/');
+        
+        return result;
     }
 
     /**
@@ -302,14 +400,32 @@ class InvenTreeClient {
         const formData = new FormData();
         formData.append('image', imageFile);
         
-        return this.request(`/part/${partId}/`, 'PATCH', formData, true);
+        const result = await this.request(
+            `/part/${partId}/`,
+            'PATCH',
+            formData,
+            true,
+            false
+        );
+        
+        // Invalidate part cache
+        this.invalidateCache(`/part/${partId}/`);
+        
+        return result;
     }
 
     /**
      * Get part details
      */
     async getPart(partId: number): Promise<unknown> {
-        return this.request(`/part/${partId}/`);
+        return this.request(
+            `/part/${partId}/`,
+            'GET',
+            undefined,
+            false,
+            true,
+            CACHE_TTL.MEDIUM
+        );
     }
 
     // ==================== Stock Item Management ====================
@@ -318,39 +434,104 @@ class InvenTreeClient {
      * Create a new stock item
      */
     async createStockItem(payload: CreateStockItemPayload): Promise<{ pk: number }> {
-        return this.request('/stock/', 'POST', payload);
+        const result = await this.request<{ pk: number }>(
+            '/stock/',
+            'POST',
+            payload,
+            false,
+            false
+        );
+        
+        // Invalidate stock list cache
+        this.invalidateCache('/stock/');
+        
+        return result;
     }
 
     // ==================== Categories ====================
 
     /**
-     * Get all categories
+     * Get all categories (cached for 1 hour - categories change rarely)
      */
     async getCategories(): Promise<InvenTreeCategoryListResponse> {
-        return this.request<InvenTreeCategoryListResponse>('/part/category/');
+        return this.request<InvenTreeCategoryListResponse>(
+            '/part/category/',
+            'GET',
+            undefined,
+            false,
+            true,
+            CACHE_TTL.LONG
+        );
     }
 
     /**
      * Create a new category
      */
     async createCategory(payload: CreateCategoryPayload): Promise<{ pk: number }> {
-        return this.request('/part/category/', 'POST', payload);
+        const result = await this.request<{ pk: number }>(
+            '/part/category/',
+            'POST',
+            payload,
+            false,
+            false
+        );
+        
+        // Invalidate categories cache
+        this.invalidateCache('/part/category/');
+        
+        return result;
     }
 
     // ==================== Locations ====================
 
     /**
-     * Get all stock locations
+     * Get all stock locations (cached for 1 hour - locations change rarely)
      */
     async getLocations(): Promise<InvenTreeLocationListResponse> {
-        return this.request<InvenTreeLocationListResponse>('/stock/location/');
+        return this.request<InvenTreeLocationListResponse>(
+            '/stock/location/',
+            'GET',
+            undefined,
+            false,
+            true,
+            CACHE_TTL.LONG
+        );
     }
 
     /**
      * Create a new location
      */
     async createLocation(payload: CreateLocationPayload): Promise<{ pk: number }> {
-        return this.request('/stock/location/', 'POST', payload);
+        const result = await this.request<{ pk: number }>(
+            '/stock/location/',
+            'POST',
+            payload,
+            false,
+            false
+        );
+        
+        // Invalidate locations cache
+        this.invalidateCache('/stock/location/');
+        
+        return result;
+    }
+
+    // ==================== Dashboard & Metrics ====================
+
+    /**
+     * Get recent stock tracking entries
+     */
+    async getStockTracking(limit: number = 10): Promise<InvenTreeTrackingListResponse> {
+        return this.request<InvenTreeTrackingListResponse>(
+            `/stock/track/?limit=${limit}&ordering=-date`
+        );
+    }
+
+    /**
+     * Get parts that are below their minimum stock level
+     */
+    async getLowStockParts(): Promise<InvenTreePartListResponse> {
+        return this.request<InvenTreePartListResponse>('/part/?low_stock=true');
     }
 }
 
