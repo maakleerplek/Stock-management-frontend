@@ -51,8 +51,8 @@ export default defineConfig({
     },
   },
   server: {
-    host: '0.0.0.0', // Listen on all network interfaces
-    port: 5173, // Default Vite port
+    host: process.env.VITE_DEV_HOST || '0.0.0.0', // Configurable via .env, defaults to all network interfaces
+    port: parseInt(process.env.VITE_DEV_PORT || '5173'), // Configurable via .env, defaults to 5173
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8001',
@@ -63,8 +63,8 @@ export default defineConfig({
     }
   },
   preview: {
-    host: '0.0.0.0',
-    port: 4173,
+    host: process.env.VITE_DEV_HOST || '0.0.0.0',
+    port: parseInt(process.env.VITE_PREVIEW_PORT || '4173'),
   },
   optimizeDeps: {
     exclude: ['@emotion/use-insertion-effect-with-fallbacks'],
