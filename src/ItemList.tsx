@@ -116,7 +116,7 @@ export default function ItemList() {
             {/* Main Table Area */}
             <main className="flex-1 flex flex-col min-h-0 p-4 sm:p-6 overflow-hidden">
                 {/* Header - Fixed at top */}
-                <div className="flex-shrink-0 flex flex-col md:flex-row justify-between items-stretch md:items-center mb-4 gap-4 border-2 border-brand-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <div className="flex-shrink-0 flex flex-col md:flex-row justify-between items-stretch md:items-center mb-4 gap-4 border-2 border-brand-black bg-white p-4">
                     <div className="flex items-center gap-3">
                         <Box className="w-6 h-6 text-brand-black" />
                         <h2 className="text-lg font-black tracking-widest uppercase">STOCK LIST</h2>
@@ -150,7 +150,7 @@ export default function ItemList() {
                 )}
 
                 {/* Table Container - Fills remaining space and scrolls */}
-                <div className="flex-1 min-h-0 flex flex-col border-2 border-brand-black bg-white shadow-[8px_8px_0px_0px_rgba(30,27,24,1)]">
+                <div className="flex-1 min-h-0 flex flex-col border-2 border-brand-black bg-white">
                     {/* Scrollable table wrapper */}
                     <div className="flex-1 overflow-auto">
                         <table className="w-full min-w-[600px] border-collapse">
@@ -271,25 +271,25 @@ export default function ItemList() {
 
             {/* Right Sidebar: Pending Adjustments (only in volunteer mode) */}
             {isVolunteerMode && (
-                <aside className="w-full lg:w-96 border-l-0 lg:border-l-2 border-t-2 lg:border-t-0 border-brand-black bg-white flex flex-col">
-                    <div className="px-6 py-5 border-b-2 border-brand-black bg-brand-beige-dark">
-                        <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-brand-black">
-                            <RefreshCw size={16} /> PENDING CHANGES
+                <aside className="w-full lg:w-80 xl:w-96 flex-shrink-0 border-l-0 lg:border-l-2 border-t-2 lg:border-t-0 border-brand-black bg-white flex flex-col">
+                    <div className="px-4 py-4 border-b-2 border-brand-black bg-brand-beige-dark">
+                        <h2 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-brand-black">
+                            <RefreshCw size={14} /> PENDING CHANGES
                         </h2>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60 mt-1.5">{adjustments.length} ITEM(S) MODIFIED</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60 mt-1">{adjustments.length} ITEM(S) MODIFIED</p>
                     </div>
 
-                    <div className="flex-1 overflow-auto bg-brand-beige p-6 space-y-4">
+                    <div className="flex-1 overflow-auto bg-brand-beige p-4 space-y-3">
                         <AnimatePresence mode="popLayout">
                             {adjustments.length === 0 ? (
                                 <motion.div
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
-                                    className="h-full flex flex-col items-center justify-center text-center p-8 opacity-30 text-brand-black"
+                                    className="h-full flex flex-col items-center justify-center text-center p-6 opacity-30 text-brand-black"
                                 >
-                                    <Box size={48} className="mb-4" />
-                                    <p className="font-black text-sm uppercase tracking-widest">NO PENDING CHANGES</p>
-                                    <p className="text-[10px] mt-2 font-bold uppercase tracking-widest">USE +/- BUTTONS ON ITEMS TO QUEUE STOCK ADJUSTMENTS.</p>
+                                    <Box size={40} className="mb-3" />
+                                    <p className="font-black text-xs uppercase tracking-widest">NO PENDING CHANGES</p>
+                                    <p className="text-[10px] mt-2 font-bold uppercase">USE +/- BUTTONS TO QUEUE ADJUSTMENTS</p>
                                 </motion.div>
                             ) : (
                                 adjustments.map(adj => (
@@ -299,21 +299,21 @@ export default function ItemList() {
                                         initial={{ x: 20, opacity: 0 }}
                                         animate={{ x: 0, opacity: 1 }}
                                         exit={{ x: -20, opacity: 0 }}
-                                        className="border-2 border-brand-black bg-white p-3 flex items-center gap-3 shadow-[2px_2px_0px_0px_rgba(30,27,24,1)]"
+                                        className="border-2 border-brand-black bg-white p-2 flex items-center gap-2"
                                     >
                                         <div className="flex-1 min-w-0">
-                                            <div className="font-bold text-xs uppercase truncate">{adj.item.name}</div>
-                                            <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mt-1">
+                                            <div className="font-bold text-[11px] uppercase truncate">{adj.item.name}</div>
+                                            <div className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60">
                                                 {adj.item.quantity} → {adj.item.quantity + adj.delta}
                                             </div>
                                         </div>
                                         <span className={cn(
-                                            "font-black text-sm px-2 py-1 border-2 border-brand-black shadow-[2px_2px_0px_0px_rgba(30,27,24,1)]",
+                                            "font-black text-xs px-2 py-1 border-2 border-brand-black",
                                             adj.delta > 0 ? "bg-emerald-400 text-brand-black" : "bg-rose-400 text-brand-black"
                                         )}>
                                             {adj.delta > 0 ? `+${adj.delta}` : adj.delta}
                                         </span>
-                                        <button onClick={() => removeAdjustment(adj.item.id)} className="text-brand-black hover:text-red-600 hover:bg-brand-beige p-1.5 border-2 border-brand-black transition-colors">
+                                        <button onClick={() => removeAdjustment(adj.item.id)} className="text-brand-black/50 hover:text-red-600 p-1 transition-colors">
                                             <Trash2 size={14} />
                                         </button>
                                     </motion.div>
@@ -322,24 +322,24 @@ export default function ItemList() {
                         </AnimatePresence>
                     </div>
 
-                    <div className="p-6 border-t-2 border-brand-black bg-white space-y-4">
+                    <div className="p-4 border-t-2 border-brand-black bg-white space-y-3">
                         {adjustments.length > 0 && (
-                            <button onClick={clearAdjustments} className="brutalist-button w-full py-3 text-xs font-black uppercase border-dashed">
-                                CLEAR ALL CHANGES
+                            <button onClick={clearAdjustments} className="brutalist-button w-full py-2 text-[10px] font-black uppercase border-dashed">
+                                CLEAR ALL
                             </button>
                         )}
                         <button
                             disabled={adjustments.length === 0 || isCommitting}
                             onClick={() => setIsConfirmOpen(true)}
                             className={cn(
-                                "brutalist-button w-full py-4 bg-emerald-400 text-brand-black text-sm font-black disabled:opacity-50 flex items-center justify-center gap-2 tracking-widest",
+                                "brutalist-button w-full py-3 bg-emerald-400 text-brand-black text-xs font-black disabled:opacity-50 flex items-center justify-center gap-2 tracking-widest",
                                 isCommitting ? "opacity-75 cursor-not-allowed hover:bg-emerald-400" : "hover:brightness-95"
                             )}
                         >
                             {isCommitting ? (
-                                <><Loader2 className="w-5 h-5 animate-spin" /> SAVING...</>
+                                <><Loader2 className="w-4 h-4 animate-spin" /> SAVING...</>
                             ) : (
-                                <><CheckCircle size={18} /> CONFIRM CHANGES</>
+                                <><CheckCircle size={16} /> CONFIRM</>
                             )}
                         </button>
                     </div>

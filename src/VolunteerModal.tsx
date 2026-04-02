@@ -50,27 +50,29 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                 >
                     {/* Modal */}
                     <div 
-                        className="border-2 border-brand-black bg-white w-full max-w-md shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col"
+                        className="border-2 border-brand-black bg-white w-full max-w-md flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="flex items-center justify-between p-4 border-b-2 border-brand-black bg-brand-beige">
-                            <h2 className="text-sm font-black uppercase tracking-widest text-brand-black">VOLUNTEER MODE</h2>
+                        <div className="flex items-center justify-between p-4 border-b-2 border-brand-black bg-brand-black">
+                            <h2 className="text-sm font-black uppercase tracking-widest text-white">VOLUNTEER MODE</h2>
                             <button
                                 onClick={handleClose}
-                                className="p-1 hover:bg-white border-2 border-transparent hover:border-brand-black transition-colors"
+                                className="p-1 hover:bg-zinc-800 transition-colors"
                             >
-                                <X className="w-5 h-5 text-brand-black" />
+                                <X className="w-5 h-5 text-white" />
                             </button>
                         </div>
 
                         {/* Content */}
                         <div className="flex flex-col gap-6 p-6 bg-white">
                             <div className="flex gap-3 items-start">
-                                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-brand-black" />
+                                <div className="p-1 border-2 border-brand-black bg-amber-200">
+                                    <AlertCircle className="w-4 h-4 flex-shrink-0 text-brand-black" />
+                                </div>
                                 <div className="flex flex-col gap-1">
                                     <h3 className="font-black text-xs uppercase tracking-widest">AUTHENTICATION REQUIRED</h3>
-                                    <p className="text-xs font-bold leading-relaxed text-brand-black/70 uppercase">
+                                    <p className="text-xs font-bold leading-relaxed text-brand-black/60 uppercase">
                                         VOLUNTEER MODE ALLOWS YOU TO ADJUST STOCK LEVELS.
                                     </p>
                                 </div>
@@ -85,8 +87,8 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                     onKeyDown={handleKeyPress}
                                     autoFocus
                                     className={cn(
-                                        "brutalist-input w-full px-4 py-3 text-lg font-black tracking-widest",
-                                        error && "border-red-500 bg-red-50"
+                                        "w-full px-4 py-3 text-lg font-black tracking-widest border-2 border-brand-black bg-white outline-none focus:bg-brand-beige transition-colors",
+                                        error && "border-red-600 bg-red-50"
                                     )}
                                 />
                                 {error && (
@@ -107,7 +109,7 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                             </button>
                             <button
                                 onClick={handleSubmit}
-                                className="flex-1 brutalist-button bg-[#c6e2ff] text-brand-black py-3 text-xs uppercase flex justify-center items-center gap-2 hover:bg-blue-200"
+                                className="flex-1 brutalist-button bg-brand-black text-white py-3 text-xs uppercase flex justify-center items-center gap-2 hover:bg-zinc-800"
                             >
                                 <LogIn className="w-4 h-4" />
                                 AUTHENTICATE

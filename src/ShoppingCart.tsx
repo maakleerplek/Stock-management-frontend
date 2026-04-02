@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { type ItemData } from './sendCodeHandler';
 import ImageDisplay from './ImageDisplay';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Plus, Minus, ShoppingCart as ShoppingCartIcon, Heart, CheckCircle, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingCart as ShoppingCartIcon, Heart, CheckCircle, Loader2, MapPin, Tag, Package } from 'lucide-react';
 import { cn } from './lib/utils';
 import WeroQrCode from './QrCode';
 import { useToast } from './ToastContext';
@@ -63,33 +63,33 @@ function ShoppingCart({
 
     return (
         <div className={cn(
-            "brutalist-card w-full flex flex-col bg-white",
-            isVolunteerMode && "border-t-2 border-t-amber-400"
+            "w-full flex flex-col bg-white border-l-0",
+            isVolunteerMode && "border-t-4 border-t-amber-400"
         )}>
             {/* Header */}
-            <div className="flex items-center justify-center gap-3 p-4 bg-brand-beige-dark border-b-2 border-brand-black text-brand-black">
+            <div className="flex items-center justify-center gap-3 px-4 py-3 bg-gray-100 border-b-3 border-brand-black text-brand-black">
                 {isVolunteerMode ? (
-                    <Heart className="w-6 h-6 text-brand-black" />
+                    <Heart className="w-5 h-5 text-brand-black" />
                 ) : (
-                    <ShoppingCartIcon className="w-6 h-6 text-brand-black" />
+                    <ShoppingCartIcon className="w-5 h-5 text-brand-black" />
                 )}
-                <h2 className="text-base font-black uppercase tracking-widest text-brand-black">
+                <h2 className="text-sm font-black uppercase tracking-widest text-brand-black">
                     {isVolunteerMode ? (isSetMode ? "SET STOCK" : "ADD TO STOCK") : "SHOPPING CART"}
                 </h2>
             </div>
 
             {/* Volunteer Mode Toggle */}
             {isVolunteerMode && onSetModeChange && (
-                <div className="px-5 py-4 border-b-2 border-brand-black bg-brand-beige">
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="px-4 py-3 border-b-3 border-brand-black bg-gray-50">
+                    <div className="grid grid-cols-2 gap-2">
                         <button
                             onClick={() => {
                                 if ('vibrate' in navigator) navigator.vibrate(20);
                                 onSetModeChange(false);
                             }}
                             className={cn(
-                                "brutalist-button py-3 text-xs sm:text-sm font-black transition-colors uppercase cursor-pointer",
-                                !isSetMode ? "bg-brand-black text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
+                                "py-2 text-[10px] font-black transition-colors uppercase cursor-pointer border-3 border-brand-black",
+                                !isSetMode ? "bg-brand-black text-white" : "bg-white text-brand-black hover:bg-gray-100"
                             )}
                         >
                             Add / Remove
@@ -100,8 +100,8 @@ function ShoppingCart({
                                 onSetModeChange(true);
                             }}
                             className={cn(
-                                "brutalist-button py-3 text-xs sm:text-sm font-black transition-colors uppercase cursor-pointer",
-                                isSetMode ? "bg-brand-black text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
+                                "py-2 text-[10px] font-black transition-colors uppercase cursor-pointer border-3 border-brand-black",
+                                isSetMode ? "bg-brand-black text-white" : "bg-white text-brand-black hover:bg-gray-100"
                             )}
                         >
                             Set Absolute
@@ -113,16 +113,16 @@ function ShoppingCart({
             {/* Content */}
             <div className="flex-1 flex flex-col bg-white overflow-y-auto">
                 {checkedOutTotal !== null ? (
-                    <div className="text-center py-12 px-6 flex flex-col items-center gap-6 animate-in fade-in duration-500 bg-white">
+                    <div className="text-center py-8 px-4 flex flex-col items-center gap-4 animate-in fade-in duration-500 bg-white">
                         <div className="text-emerald-500">
-                            <CheckCircle className="w-16 h-16" />
+                            <CheckCircle className="w-12 h-12" />
                         </div>
-                        <h3 className="text-3xl font-black uppercase">DONE!</h3>
-                        <p className="text-xl font-bold uppercase p-4 border-2 border-brand-black bg-white">
+                        <h3 className="text-2xl font-black uppercase">DONE!</h3>
+                        <p className="text-lg font-bold uppercase px-4 py-2 border-3 border-brand-black bg-white">
                             TOTAL: €{checkedOutTotal?.toFixed(2)}
                         </p>
                         
-                        <div className="w-full flex justify-center mt-4 min-h-[200px]">
+                        <div className="w-full flex justify-center mt-2">
                             <WeroQrCode 
                                 total={checkedOutTotal} 
                                 description={checkedOutDescription || "Inventree Stock Purchase"} 
@@ -132,7 +132,7 @@ function ShoppingCart({
                         {onClearCheckout && (
                             <button
                                 onClick={onClearCheckout}
-                                className="brutalist-button mt-6 px-8 py-4 text-sm bg-white"
+                                className="brutalist-button mt-4 px-6 py-3 text-xs bg-white"
                             >
                                 START NEW TRANSACTION
                             </button>
@@ -141,148 +141,198 @@ function ShoppingCart({
                 ) : (
                     <>
                         {cartItems.length > 0 ? (
-                            <div className="divide-y-2 divide-brand-black">
-                                {/* Table Header Row */}
-                                <div className="flex flex-row items-center p-3 sm:px-4 sm:py-2 border-b-2 border-brand-black bg-brand-beige/30">
-                                    <div className="w-[50px] flex-shrink-0"></div>
-                                    <div className="min-w-0 flex-1 px-4">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/70">ITEM</span>
-                                    </div>
-                                    <div className="flex items-center gap-4 sm:gap-6 w-[140px] sm:w-[180px] justify-between pr-8">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/70">STOCK</span>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/70">PRICE</span>
-                                    </div>
-                                </div>
-                                <AnimatePresence mode="popLayout">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 min-[1600px]:grid-cols-3 gap-6 p-4 sm:p-6">
-                                        {cartItems.map((item) => (
+                            <>
+                                {/* Items List */}
+                                <div className="flex-1 overflow-y-auto">
+                                    <AnimatePresence mode="popLayout">
+                                {cartItems.map((item) => {
+                                            // Calculate what will happen to stock
+                                            const currentStock = item.quantity;
+                                            let newStock: number;
+                                            let stockChangeText: string;
+                                            let stockChangeColor: string;
+                                            
+                                            if (isVolunteerMode) {
+                                                if (isSetMode) {
+                                                    // Set mode: stock will be set to cartQuantity
+                                                    newStock = item.cartQuantity;
+                                                    stockChangeText = `SET TO ${newStock}`;
+                                                    stockChangeColor = 'text-blue-600';
+                                                } else {
+                                                    // Add/Remove mode: positive = add (green), negative = remove (red)
+                                                    newStock = currentStock + item.cartQuantity;
+                                                    if (item.cartQuantity >= 0) {
+                                                        stockChangeText = `+${item.cartQuantity}`;
+                                                        stockChangeColor = 'text-emerald-600';
+                                                    } else {
+                                                        stockChangeText = `${item.cartQuantity}`;
+                                                        stockChangeColor = 'text-red-600';
+                                                    }
+                                                }
+                                            } else {
+                                                // Checkout mode: stock will decrease
+                                                newStock = currentStock - item.cartQuantity;
+                                                stockChangeText = `-${item.cartQuantity}`;
+                                                stockChangeColor = 'text-red-600';
+                                            }
+
+                                            return (
                                             <motion.div
                                                 key={item.id}
                                                 layout
-                                                initial={{ opacity: 0, scale: 0.95 }}
+                                                initial={{ opacity: 0, x: 20 }}
                                                 animate={{ 
                                                     opacity: 1, 
-                                                    scale: lastActionId === item.id ? [1, 1.05, 1] : 1,
-                                                    borderColor: lastActionId === item.id ? '#34d399' : '#1e1b18',
-                                                    backgroundColor: 'white'
+                                                    x: 0,
+                                                    backgroundColor: lastActionId === item.id 
+                                                        ? (stockChangeColor === 'text-red-600' ? '#fee2e2' : '#d1fae5') 
+                                                        : '#ffffff'
                                                 }}
-                                                exit={{ 
-                                                    opacity: 0, 
-                                                    scale: 0.9,
-                                                    transition: { duration: 0.2 } 
-                                                }}
-                                                transition={{ 
-                                                    type: 'spring', 
-                                                    stiffness: 500, 
-                                                    damping: 30, 
-                                                    mass: 1,
-                                                    scale: { duration: 0.2 }
-                                                }}
-                                                className="flex flex-col border-2 border-brand-black bg-white overflow-hidden transition-colors"
+                                                exit={{ opacity: 0, x: -20, transition: { duration: 0.15 } }}
+                                                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                                                className="px-3 py-3 border-b-3 border-brand-black/10 hover:bg-gray-50"
                                             >
-                                                {/* Card Header: Image & Name */}
-                                                <div className="p-4 flex gap-4 border-b-2 border-brand-black bg-brand-beige/10">
-                                                    <div className="flex-shrink-0 border-2 border-brand-black bg-white w-16 h-16 flex items-center justify-center">
+                                                {/* Top row: Image, Name, Remove */}
+                                                <div className="flex items-start gap-3">
+                                                    {/* Image */}
+                                                    <div className="w-14 h-14 flex-shrink-0 border-2 border-brand-black bg-white overflow-hidden">
                                                         <ImageDisplay
                                                             imagePath={item.image}
                                                             alt={item.name}
-                                                            width={60}
-                                                            height={60}
+                                                            width={56}
+                                                            height={56}
                                                             sx={{ border: 'none', bgcolor: 'transparent', borderRadius: 0 }}
                                                         />
                                                     </div>
-                                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                        <p className="font-black text-xs uppercase tracking-tight leading-tight line-clamp-2">
+                                                    
+                                                    {/* Info */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-black text-sm uppercase leading-tight truncate">
                                                             {item.name}
                                                         </p>
-                                                        <p className="text-[10px] font-bold text-brand-black/50 mt-1 uppercase">
-                                                            €{item.price.toFixed(2)} / EA
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                                        
+                                                        {/* Meta info: Location & Category */}
+                                                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                                                            {item.location && (
+                                                                <span className="flex items-center gap-1 text-[10px] text-brand-black/60">
+                                                                    <MapPin size={10} />
+                                                                    {item.location}
+                                                                </span>
+                                                            )}
+                                                            {item.category && (
+                                                                <span className="flex items-center gap-1 text-[10px] text-brand-black/60">
+                                                                    <Tag size={10} />
+                                                                    {item.category}
+                                                                </span>
+                                                            )}
+                                                        </div>
 
-                                                {/* Card Body: Controls */}
-                                                <div className="p-4 space-y-4">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <div className="flex items-center gap-3">
-                                                            <button
-                                                                onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity - 1)}
-                                                                className="p-1.5 border-2 border-brand-black bg-rose-400 hover:brightness-95 active:translate-x-[1px] active:translate-y-[1px] transition-all"
-                                                            >
-                                                                <Minus size={14} className="text-brand-black" />
-                                                            </button>
-                                                            <span className="font-black text-sm text-center w-8">
-                                                                {item.cartQuantity}
+                                                        {/* Stock info with change preview */}
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className="flex items-center gap-1 text-xs font-bold">
+                                                                <Package size={12} />
+                                                                <span className="text-brand-black/60">Stock:</span>
+                                                                <span>{currentStock}</span>
+                                                                <span className="text-brand-black/40">→</span>
+                                                                <span className={cn("font-black", newStock < 0 ? "text-red-600" : stockChangeColor)}>
+                                                                    {newStock}
+                                                                </span>
+                                                                <span className={cn("text-[10px] font-black", stockChangeColor)}>
+                                                                    ({stockChangeText})
+                                                                </span>
                                                             </span>
-                                                            <button
-                                                                onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity + 1)}
-                                                                className="p-1.5 border-2 border-brand-black bg-emerald-400 hover:brightness-95 active:translate-x-[1px] active:translate-y-[1px] transition-all"
-                                                            >
-                                                                <Plus size={14} className="text-brand-black" />
-                                                            </button>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <div className="text-[10px] font-black text-brand-black/40 uppercase">SUBTOTAL</div>
-                                                            <div className="font-black text-sm">€{(item.price * item.cartQuantity).toFixed(2)}</div>
                                                         </div>
                                                     </div>
-                                                </div>
 
-                                                {/* Card Footer: Actions */}
-                                                <div className="mt-auto border-t-2 border-brand-black p-2 bg-brand-beige/5 flex justify-end">
+                                                    {/* Remove button */}
                                                     <button
                                                         onClick={() => handleRemoveItem(item.id)}
-                                                        className="p-2 border-2 border-brand-black bg-white hover:bg-rose-500 hover:text-white transition-all text-[10px] font-black uppercase flex items-center gap-2"
+                                                        className="w-8 h-8 flex items-center justify-center bg-red-500 text-white border-2 border-brand-black hover:bg-red-600 active:scale-95 transition-all flex-shrink-0"
                                                     >
-                                                        <Trash2 size={12} /> REMOVE
+                                                        <Trash2 size={14} />
                                                     </button>
                                                 </div>
+
+                                                {/* Bottom row: Quantity controls & Price */}
+                                                <div className="flex items-center justify-between mt-3 pt-2 border-t border-brand-black/10">
+                                                {/* Quantity Controls */}
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity - 1)}
+                                                            className="w-8 h-8 flex items-center justify-center border-2 border-brand-black bg-red-400 hover:bg-red-500 active:scale-95 transition-all"
+                                                        >
+                                                            <Minus size={14} />
+                                                        </button>
+                                                        <span className={cn(
+                                                            "w-12 text-center font-black text-lg",
+                                                            item.cartQuantity < 0 ? "text-red-600" : "text-brand-black"
+                                                        )}>
+                                                            {item.cartQuantity > 0 && !isVolunteerMode ? '' : ''}{item.cartQuantity}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity + 1)}
+                                                            className="w-8 h-8 flex items-center justify-center border-2 border-brand-black bg-emerald-400 hover:bg-emerald-500 active:scale-95 transition-all"
+                                                        >
+                                                            <Plus size={14} />
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    {/* Price */}
+                                                    {!isVolunteerMode && (
+                                                        <div className="text-right">
+                                                            <span className="text-[10px] text-brand-black/50 block">€{item.price.toFixed(2)} × {item.cartQuantity}</span>
+                                                            <span className="font-black text-lg">€{(item.price * item.cartQuantity).toFixed(2)}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </motion.div>
-                                        ))}
-                                    </div>
-                                </AnimatePresence>
-                            </div>
+                                            );
+                                        })}
+                                    </AnimatePresence>
+                                </div>
+                            </>
                         ) : (
-                            <div className="py-16 flex flex-col items-center justify-center bg-white border-b-2 border-brand-black text-brand-black/50">
-                                <ShoppingCartIcon size={48} className="mb-4 opacity-20" />
-                                <p className="font-black text-sm uppercase tracking-widest">CART IS EMPTY</p>
+                            <div className="py-12 flex flex-col items-center justify-center bg-white text-brand-black/40">
+                                <ShoppingCartIcon size={36} className="mb-3 opacity-30" />
+                                <p className="font-black text-xs uppercase tracking-widest">CART IS EMPTY</p>
+                                <p className="text-[10px] mt-1 opacity-60">SCAN ITEMS TO ADD</p>
                             </div>
                         )}
 
-                        <div className="px-5 pb-5 pt-5 bg-white">
-                            {(cartItems.length > 0 || extraCosts > 0) && (
-                                <div className="">
-                                    {!isVolunteerMode && (
-                                        <p className="text-right border-t-2 border-brand-black pt-4 pb-2 font-black text-lg sm:text-xl uppercase tracking-wider">
-                                            TOTAL: €{(totalPrice + extraCosts).toFixed(2)}
-                                        </p>
+                        {/* Footer: Total & Checkout */}
+                        {(cartItems.length > 0 || extraCosts > 0) && (
+                            <div className="mt-auto border-t-3 border-brand-black bg-white p-4">
+                                {!isVolunteerMode && (
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="text-sm font-black uppercase text-brand-black/60">TOTAL</span>
+                                        <span className="font-black text-2xl">€{(totalPrice + extraCosts).toFixed(2)}</span>
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        if ('vibrate' in navigator) navigator.vibrate(50);
+                                        onCheckout();
+                                    }}
+                                    disabled={isCheckingOut}
+                                    className={cn(
+                                        "w-full py-3 text-sm font-black flex items-center justify-center gap-2 tracking-widest border-3 border-brand-black transition-all",
+                                        isVolunteerMode 
+                                            ? "bg-brand-black text-white hover:bg-zinc-800" 
+                                            : "bg-emerald-400 text-brand-black hover:brightness-95",
+                                        isCheckingOut && "opacity-75 cursor-not-allowed"
                                     )}
-                                    <button
-                                        onClick={() => {
-                                            if ('vibrate' in navigator) navigator.vibrate(50);
-                                            onCheckout();
-                                        }}
-                                        disabled={isCheckingOut}
-                                        className={cn(
-                                            "brutalist-button w-full mt-4 py-4 text-base font-black flex items-center justify-center gap-2 tracking-widest",
-                                            isVolunteerMode 
-                                                ? "bg-brand-black text-white hover:bg-zinc-800" 
-                                                : "bg-emerald-400 text-brand-black hover:bg-emerald-500",
-                                            isCheckingOut && "opacity-75 cursor-not-allowed"
-                                        )}
-                                    >
-                                        {isCheckingOut ? (
-                                            <>
-                                                <Loader2 className="w-5 h-5 animate-spin" />
-                                                PROCESSING...
-                                            </>
-                                        ) : (
-                                            isVolunteerMode ? (isSetMode ? 'SET STOCK' : 'ADD TO STOCK') : 'CHECKOUT'
-                                        )}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                                >
+                                    {isCheckingOut ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            PROCESSING...
+                                        </>
+                                    ) : (
+                                        isVolunteerMode ? (isSetMode ? 'SET STOCK' : 'ADD TO STOCK') : 'CHECKOUT'
+                                    )}
+                                </button>
+                            </div>
+                        )}
                     </>
                 )}
             </div>

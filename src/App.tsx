@@ -9,7 +9,6 @@ import ItemList from './ItemList';
 import Footer from './components/Footer';
 import { StockProvider } from './StockContext';
 import Header from './components/Header';
-import VolunteerScanView from './VolunteerScanView';
 import InvenTreePage from './InvenTreePage';
 import { ToastProvider, useToast } from './ToastContext';
 import { VolunteerProvider, useVolunteer } from './VolunteerContext';
@@ -23,7 +22,7 @@ import {
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
-import { Info, Tag, MapPin, Plus, AlertCircle, Loader2, Settings } from 'lucide-react';
+import { Info, Tag, MapPin, Plus, AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from './lib/utils';
 import './index.css';
 
@@ -239,7 +238,7 @@ function AppContent() {
             </div>
 
             {/* Right Sidebar: Shopping Cart */}
-            <aside className="w-full lg:w-[50%] xl:w-[50%] border-l-0 lg:border-l-2 border-t-2 lg:border-t-0 border-brand-black bg-white flex flex-col">
+            <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col">
               <ShoppingWindow
                 scanEvent={scanEvent}
                 onCheckoutResultChange={(result) => setCheckoutResult(result)}
@@ -255,154 +254,136 @@ function AppContent() {
             {currentPage === 'volunteer' && (
               <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
                 {/* Left Sidebar for volunteer overview */}
-                <aside className="w-full lg:w-80 border-r-0 md:border-r-2 border-b-2 md:border-b-0 border-brand-black flex flex-col bg-white">
-                  <div className="p-6 border-b-2 border-brand-black">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="bg-brand-beige p-1 border-2 border-brand-black">
-                        <Info size={16} />
-                      </div>
-                      <h3 className="text-sm font-black uppercase tracking-widest text-brand-black">QUICK STATS</h3>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="border-2 border-brand-black p-4 bg-white shadow-[2px_2px_0px_0px_rgba(30,27,24,1)]">
+                <aside className="w-full lg:w-72 border-r-0 md:border-r-2 border-b-2 md:border-b-0 border-brand-black flex flex-col bg-white">
+                  <div className="p-5 border-b-2 border-brand-black">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-brand-black mb-4">QUICK STATS</h3>
+                    <div className="space-y-3">
+                      <div className="border-2 border-brand-black p-3 bg-white">
                         <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">CATEGORIES</div>
                         <div className="text-2xl font-black">{categories.length}</div>
                       </div>
-                      <div className="border-2 border-brand-black p-4 bg-white shadow-[2px_2px_0px_0px_rgba(30,27,24,1)]">
+                      <div className="border-2 border-brand-black p-3 bg-white">
                         <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">LOCATIONS</div>
                         <div className="text-2xl font-black">{locations.length}</div>
                       </div>
                       {lowStockItems.length > 0 && (
-                        <div className="border-2 border-red-600 p-4 bg-red-50 shadow-[2px_2px_0px_0px_rgba(220,38,38,1)]">
+                        <div className="border-2 border-red-600 p-3 bg-red-50">
                           <div className="text-[10px] font-black uppercase tracking-widest text-red-600 mb-1">LOW STOCK</div>
                           <div className="text-2xl font-black text-red-600">{lowStockItems.length}</div>
                         </div>
                       )}
                     </div>
                   </div>
-                  <div className="p-6 flex-1 overflow-auto">
-                    <div className="flex items-center gap-2 mb-4">
-                       <div className="bg-brand-beige p-1 border-2 border-brand-black">
-                         <Settings size={16} />
-                       </div>
-                       <h3 className="text-sm font-black uppercase tracking-widest">ADMIN TOOLS</h3>
-                    </div>
-                    <div className="flex flex-col gap-3">
+                  <div className="p-5 flex-1 overflow-auto">
+                    <h3 className="text-xs font-black uppercase tracking-widest mb-4">ADMIN TOOLS</h3>
+                    <div className="flex flex-col gap-2">
                       <button
                         onClick={() => setAddPartFormModalOpen(true)}
-                        className="brutalist-button w-full flex items-center gap-2 px-4 py-3 bg-amber-400 text-brand-black"
+                        className="brutalist-button w-full flex items-center gap-2 px-3 py-2 bg-amber-300 text-brand-black text-xs"
                       >
-                        <Plus size={16} />
+                        <Plus size={14} />
                         <span>NEW ITEM</span>
                       </button>
                       <button
                         onClick={() => setAddCategoryModalOpen(true)}
-                        className="brutalist-button w-full flex items-center gap-2 px-4 py-3 bg-blue-200 text-brand-black"
+                        className="brutalist-button w-full flex items-center gap-2 px-3 py-2 bg-blue-200 text-brand-black text-xs"
                       >
-                        <Tag size={16} />
+                        <Tag size={14} />
                         <span>ADD CATEGORY</span>
                       </button>
                       <button
                         onClick={() => setAddLocationModalOpen(true)}
-                        className="brutalist-button w-full flex items-center gap-2 px-4 py-3 bg-emerald-200 text-brand-black"
+                        className="brutalist-button w-full flex items-center gap-2 px-3 py-2 bg-emerald-200 text-brand-black text-xs"
                       >
-                        <MapPin size={16} />
+                        <MapPin size={14} />
                         <span>ADD LOCATION</span>
                       </button>
                     </div>
                   </div>
-                  <div className="p-4 border-t-2 border-brand-black bg-white font-black tracking-widest text-[8px] sm:text-[10px] uppercase">
+                  <div className="p-3 border-t-2 border-brand-black bg-emerald-100 font-black tracking-widest text-[10px] uppercase">
                     <div className="flex justify-between">
                       <span>VOLUNTEER MODE</span>
-                      <span className="text-blue-600">ACTIVE</span>
+                      <span className="text-emerald-600">ACTIVE</span>
                     </div>
                   </div>
                 </aside>
 
                 {/* Dashboard Content */}
-                <main className="flex-1 p-6 space-y-8 overflow-auto bg-white">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 border-b-2 border-brand-black pb-4">
-                    <div>
-                      <h2 className="text-3xl font-black uppercase tracking-widest text-brand-black">SYSTEM OVERVIEW</h2>
-                      <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">REAL-TIME METRICS & STATUS</p>
-                    </div>
+                <main className="flex-1 p-6 space-y-6 overflow-auto bg-white">
+                  <div className="border-b-2 border-brand-black pb-4">
+                    <h2 className="text-2xl font-black uppercase tracking-widest text-brand-black">DASHBOARD</h2>
+                    <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">SYSTEM STATUS</p>
                   </div>
 
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                    {/* Left Column: Alerts and Info */}
-                    <div className="space-y-8">
-                      {/* Low Stock Warning */}
-                      {lowStockItems.length > 0 && (
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-2 text-red-600">
-                            <AlertCircle size={20} /> LOW STOCK ALERT
-                          </h3>
-                          <div className="border-2 border-red-600 bg-red-50 p-4 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)]">
-                            <ul className="space-y-2">
-                              {lowStockItems.map((item: any) => (
-                                <li key={item.pk} className="flex justify-between items-center bg-white border-2 border-red-600 p-2 text-xs font-black uppercase">
-                                  <span>{item.name}</span>
-                                  <span className="text-red-600">OUT OF STOCK / LOW</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Stock Summary */}
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-2">
-                          <Info size={20} /> STOCK STATUS
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {/* Left Column: Low Stock Alert */}
+                    {lowStockItems.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-red-600">
+                          <AlertCircle size={16} /> LOW STOCK ITEMS
                         </h3>
-                        <div className="border-2 border-brand-black bg-white p-6 shadow-[4px_4px_0px_0px_rgba(30,27,24,1)]">
-                          <p className="font-bold text-sm leading-relaxed">
-                            THE SYSTEM IS CURRENTLY TRACKING <span className="bg-brand-beige px-1 border border-brand-black">{categories.length} CATEGORIES</span> ACROSS <span className="bg-brand-beige px-1 border border-brand-black">{locations.length} LOCATIONS</span>.
-                            <br/><br/>
-                            USE THE "STOCK LIST" TAB TO VIEW AND MANAGE INDIVIDUAL ITEMS OR "VOLUNTEER SCAN" TO BULK ADJUST STOCK VIA BARCODES.
-                          </p>
-                          <div className="mt-8 flex gap-4">
-                            <button
-                              onClick={() => setCurrentPage('inventory')}
-                              className="brutalist-button py-2 text-xs"
-                            >
-                              VIEW STOCK LIST
-                            </button>
-                            <button
-                              onClick={() => setCurrentPage('scan')}
-                              className="brutalist-button py-2 bg-brand-black text-white hover:bg-zinc-800 text-xs"
-                            >
-                              OPEN SCANNER
-                            </button>
-                          </div>
+                        <div className="border-2 border-red-600 bg-white">
+                          <ul className="divide-y divide-red-200">
+                            {lowStockItems.map((item: any) => (
+                              <li key={item.pk} className="px-4 py-2 text-xs font-bold uppercase text-brand-black">
+                                {item.name}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quick Actions */}
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                        <Info size={16} /> QUICK ACTIONS
+                      </h3>
+                      <div className="border-2 border-brand-black bg-white p-4">
+                        <p className="font-bold text-xs leading-relaxed text-brand-black/70 mb-4">
+                          USE THE TABS ABOVE TO MANAGE STOCK OR SCAN ITEMS.
+                        </p>
+                        <div className="flex gap-3 flex-wrap">
+                          <button
+                            onClick={() => setCurrentPage('inventory')}
+                            className="brutalist-button py-2 px-4 text-xs"
+                          >
+                            STOCK LIST
+                          </button>
+                          <button
+                            onClick={() => setCurrentPage('scan')}
+                            className="brutalist-button py-2 px-4 bg-brand-black text-white hover:bg-zinc-800 text-xs"
+                          >
+                            SCANNER
+                          </button>
                         </div>
                       </div>
                     </div>
 
-                    {/* Right Column: Recent Activity */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-2">
-                        <Loader2 size={20} /> RECENT MOVEMENTS
+                    {/* Recent Activity */}
+                    <div className="space-y-3 xl:col-span-2">
+                      <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                        <Loader2 size={16} /> RECENT ACTIVITY
                       </h3>
-                      <div className="border-2 border-brand-black bg-white shadow-[4px_4px_0px_0px_rgba(30,27,24,1)] overflow-hidden">
+                      <div className="border-2 border-brand-black bg-white overflow-hidden">
                         {recentMovements.length > 0 ? (
-                          <div className="divide-y-2 divide-brand-black">
+                          <div className="divide-y divide-brand-black/10">
                             {recentMovements.map((move) => (
-                              <div key={move.pk} className="p-4 flex flex-col gap-1 hover:bg-brand-beige-dark/10 transition-colors">
-                                <div className="flex justify-between items-start">
-                                  <span className="text-xs font-black uppercase">{move.label}</span>
-                                  <span className="text-[10px] font-mono opacity-60">{move.date}</span>
+                              <div key={move.pk} className="p-3 flex justify-between items-center">
+                                <div>
+                                  <span className="text-xs font-bold uppercase">{move.label}</span>
+                                  {move.notes && <p className="text-[10px] text-brand-black/60 mt-0.5">{move.notes}</p>}
                                 </div>
-                                <p className="text-[10px] font-bold text-brand-black/70 italic">"{move.notes || 'NO NOTES'}"</p>
+                                <span className="text-[10px] font-mono text-brand-black/50">{move.date}</span>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div className="p-8 text-center text-xs font-black uppercase text-brand-black/40">
-                            NO RECENT ACTIVITY RECORDED
+                          <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">
+                            NO RECENT ACTIVITY
                           </div>
                         )}
-                        <div className="p-3 bg-brand-beige-dark/20 border-t-2 border-brand-black flex justify-center">
+                        <div className="p-2 bg-gray-50 border-t border-brand-black/10 flex justify-center">
                           <button 
                              onClick={() => setCurrentPage('inventree')}
                              className="text-[10px] font-black uppercase tracking-widest hover:underline"
@@ -417,7 +398,22 @@ function AppContent() {
               </div>
             )}
 
-            {currentPage === 'scan' && <VolunteerScanView />}
+            {currentPage === 'scan' && (
+              <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+                {/* Main Content Area (Scanner) - same as checkout */}
+                <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white relative">
+                  <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={null} />
+                </div>
+
+                {/* Right Sidebar: Shopping Cart in volunteer mode */}
+                <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col">
+                  <ShoppingWindow
+                    scanEvent={scanEvent}
+                    onCheckoutResultChange={() => {}}
+                  />
+                </aside>
+              </div>
+            )}
             {currentPage === 'inventory' && <ItemList />}
             {currentPage === 'inventree' && <InvenTreePage onBack={() => setCurrentPage('volunteer')} />}
 

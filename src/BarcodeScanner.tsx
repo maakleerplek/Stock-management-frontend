@@ -254,7 +254,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
               <button
                 onClick={startScan}
                 disabled={isLoading}
-                className="brutalist-button flex items-center gap-2"
+                className="brutalist-button bg-blue-500 text-white flex items-center gap-2"
               >
                 <QrCode size={18} />
                 <span className="text-sm sm:text-base">{isLoading ? 'Starting...' : 'Use Camera'}</span>
