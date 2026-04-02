@@ -1,5 +1,11 @@
 import { ExternalLink, Info } from 'lucide-react';
-import { ORGANIZATION, FOOTER_LINKS } from './constants';
+import { ORGANIZATION } from '../constants';
+
+const FOOTER_LINKS = {
+  docs: import.meta.env.VITE_DOCS_URL || 'https://docs.inventree.org/en/stable/',
+  feedback: import.meta.env.VITE_FEEDBACK_URL || '',
+  github: import.meta.env.VITE_GITHUB_URL || 'https://github.com/maakleerplek/stock-management',
+};
 
 export default function Footer() {
   return (
@@ -11,12 +17,12 @@ export default function Footer() {
             <p className="text-sm font-bold mb-1">
               Powered by{' '}
               <a 
-                href={ORGANIZATION.url} 
+                href={import.meta.env.VITE_ORGANIZATION_URL || 'https://maakleerplek.be/'}
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="underline hover:no-underline font-black"
               >
-                {ORGANIZATION.name}
+                {import.meta.env.VITE_ORGANIZATION_NAME || 'Maakleerplek vzw'}
               </a>
             </p>
             <p className="text-xs opacity-60 font-mono">

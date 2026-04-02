@@ -1,6 +1,6 @@
 import { Box, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ORGANIZATION } from './constants';
+import { ORGANIZATION } from '../constants';
 
 interface HeaderProps {
   currentView: 'checkout' | 'volunteer' | 'inventory';
@@ -32,7 +32,7 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
             Inventree Assistant
           </h1>
           <p className="text-[10px] sm:text-xs font-mono opacity-60">
-            by {ORGANIZATION.name}
+            by {import.meta.env.VITE_ORGANIZATION_NAME || 'Maakleerplek vzw'}
           </p>
         </div>
       </div>
