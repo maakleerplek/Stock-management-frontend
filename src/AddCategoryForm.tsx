@@ -1,19 +1,7 @@
 import React, { useState } from 'react';
-import {
-    TextField,
-    Button,
-    Box,
-    Alert,
-    CircularProgress,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    Grid,
-} from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
-import ClearIcon from '@mui/icons-material/Clear';
+import { Save, X, Loader2 } from 'lucide-react';
 import type { SelectOption } from './AddPartForm';
+import { cn } from './lib/utils';
 
 export interface CategoryFormData {
     name: string;
@@ -71,114 +59,147 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
     };
 
     return (
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            <Grid container spacing={2}>
-                <Grid item xs={12}>
-                    <TextField
-                        fullWidth
-                        label="Category Name"
+        <form onSubmit={handleSubmit} className="mt-4">
+            {error && (
+                <div className="brutalist-card bg-yellow-100 border-yellow-500 p-4 mb-4">
+                    <p className="text-sm font-bold text-black">{error}</p>
+                </div>
+            )}
+            
+            <div className="grid grid-cols-1 gap-4">
+                {/* Category Name */}
+                <div>
+                    <label className="block text-sm font-bold mb-2 uppercase">
+                        Category Name <span className="text-red-600">*</span>
+                    </label>
+                    <input
+                        type="text"
                         name="name"
                         value={formData.name}
                         onChange={handleChange}
                         required
                         autoFocus
+                        className="brutalist-input w-full px-3 py-2"
                     />
-                </Grid>
-                <Grid item xs={12}>
-                    <TextField
-                        fullWidth
-                        label="Description"
+                </div>
+
+                {/* Description */}
+                <div>
+                    <label className="block text-sm font-bold mb-2 uppercase">Description</label>
+                    <textarea
                         name="description"
                         value={formData.description}
-                        onChange={handleChange}
-                        multiline
+                        onChange={handleChange as any}
                         rows={2}
+                        className="brutalist-input w-full px-3 py-2 resize-y"
                     />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                        <InputLabel>Parent Category</InputLabel>
-                        <Select
+                </div>
+
+                {/* Parent Category & Default Location */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-bold mb-2 uppercase">Parent Category</label>
+                        <select
                             name="parent"
                             value={formData.parent}
                             onChange={handleChange as any}
-                            label="Parent Category"
+                            className="brutalist-input w-full px-3 py-2"
                         >
-                            <MenuItem value="">
-                                <em>None</em>
-                            </MenuItem>
+                            <option value="">None</option>
                             {categories.map((cat) => (
-                                <MenuItem key={cat.id} value={String(cat.id)}>
+                                <option key={cat.id} value={String(cat.id)}>
                                     {cat.name}
-                                </MenuItem>
+                                </option>
                             ))}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                        <InputLabel>Default Location</InputLabel>
-                        <Select
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold mb-2 uppercase">Default Location</label>
+                        <select
                             name="defaultLocation"
                             value={formData.defaultLocation}
                             onChange={handleChange as any}
-                            label="Default Location"
+                            className="brutalist-input w-full px-3 py-2"
                         >
-                            <MenuItem value="">
-                                <em>None</em>
-                            </MenuItem>
+                            <option value="">None</option>
                             {locations.map((loc) => (
-                                <MenuItem key={loc.id} value={String(loc.id)}>
+                                <option key={loc.id} value={String(loc.id)}>
                                     {loc.name}
-                                </MenuItem>
+                                </option>
                             ))}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                <Grid item xs={12}>
-                    <TextField
-                        fullWidth
-                        label="Default Keywords"
+                        </select>
+                    </div>
+                </div>
+
+                {/* Default Keywords */}
+                <div>
+                    <label className="block text-sm font-bold mb-2 uppercase">Default Keywords</label>
+                    <input
+                        type="text"
                         name="defaultKeywords"
                         value={formData.defaultKeywords}
                         onChange={handleChange}
                         placeholder="Comma separated keywords"
-                        helperText="Default keywords for parts in this category"
+                        className="brutalist-input w-full px-3 py-2"
                     />
-                </Grid>
+                    <p className="text-xs text-gray-600 mt-1">Default keywords for parts in this category</p>
+                </div>
 
-                <Grid item xs={12} sm={6} display="flex" alignItems="center">
-                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                {/* Structural Checkbox */}
+                <div className="flex items-center">
+                    <label className="flex items-center cursor-pointer">
                         <input
                             type="checkbox"
                             name="structural"
                             checked={formData.structural}
                             onChange={handleChange}
-                            style={{ width: '20px', height: '20px', marginRight: '8px' }}
+                            className="brutalist-border w-5 h-5 mr-3"
                         />
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: 'bold' }}>Structural</span>
-                            <span style={{ fontSize: '12px', color: 'gray' }}>Parts may not be directly assigned</span>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-sm">Structural</span>
+                            <span className="text-xs text-gray-600">Parts may not be directly assigned</span>
                         </div>
                     </label>
-                </Grid>
-                <Grid item xs={12} sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 1 }}>
-                    <Button variant="outlined" startIcon={<ClearIcon />} onClick={onCancel} disabled={loading}>
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        type="submit"
-                        startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
+                </div>
+
+                {/* Buttons */}
+                <div className="flex gap-3 justify-end mt-2">
+                    <button
+                        type="button"
+                        onClick={onCancel}
                         disabled={loading}
+                        className={cn(
+                            "brutalist-button px-4 py-2 flex items-center gap-2",
+                            loading && "opacity-50 cursor-not-allowed"
+                        )}
                     >
-                        {loading ? 'Creating...' : 'Create Category'}
-                    </Button>
-                </Grid>
-            </Grid>
-        </Box>
+                        <X className="w-4 h-4" />
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className={cn(
+                            "brutalist-button px-4 py-2 bg-black text-beige flex items-center gap-2",
+                            loading && "opacity-75 cursor-not-allowed"
+                        )}
+                    >
+                        {loading ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Creating...
+                            </>
+                        ) : (
+                            <>
+                                <Save className="w-4 h-4" />
+                                Create Category
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+        </form>
     );
 };
 
