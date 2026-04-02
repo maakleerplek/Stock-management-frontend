@@ -1,12 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import {
-  Card, CardHeader, CardContent, Button, Typography, Box,
-  CircularProgress, TextField, InputAdornment, IconButton, Alert,
-  Select, MenuItem, FormControl, InputLabel,
-} from '@mui/material';
-import type { SelectChangeEvent } from '@mui/material';
-import { QrCode2, Stop, AddCircle, Refresh, CameraAlt } from '@mui/icons-material';
+import { QrCode, StopCircle, Plus, RefreshCw, Camera, AlertTriangle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ScannerProps {
   onScan: (barcode: string) => void;
@@ -191,7 +186,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
   };
 
   // Switch camera while scanning — restarts the scanner with the new device
-  const handleCameraChange = (e: SelectChangeEvent<string>) => {
+  const handleCameraChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const deviceId = e.target.value;
     setSelectedCameraId(deviceId);
     localStorage.setItem(CAMERA_STORAGE_KEY, deviceId);
@@ -222,131 +217,97 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
   const hasMediaDevices = typeof navigator !== 'undefined' && !!navigator.mediaDevices;
 
   return (
-    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-      <Card sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: { xs: 1, sm: 2 },
-        width: '100%',
-        maxWidth: { xs: 320, sm: 360 },
-        bgcolor: compact ? 'transparent' : 'background.paper',
-        boxShadow: compact ? 'none' : '0 4px 20px rgba(0,0,0,0.08)',
-        border: compact ? 'none' : undefined,
-        overflow: 'hidden'
-      }}>
+    <div className="w-full flex flex-col items-center gap-4">
+      <div className={cn(
+        "flex flex-col gap-3 sm:gap-4 w-full max-w-[320px] sm:max-w-[360px]",
+        compact ? "" : "brutalist-card p-4 sm:p-6"
+      )}>
         {!compact && (
-          <CardHeader
-            title="Barcode Scanner"
-            avatar={<QrCode2 />}
-            titleTypographyProps={{ variant: 'subtitle2', fontWeight: 'bold' }}
-            sx={{ p: { xs: 1.5, sm: 2 } }}
-          />
+          <div className="flex items-center gap-2 pb-2 border-b-2 border-brand-black">
+            <QrCode size={24} className="text-brand-black" />
+            <h3 className="text-base sm:text-lg font-black uppercase tracking-tight">Barcode Scanner</h3>
+          </div>
         )}
 
-        <CardContent sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: { xs: 1, sm: 2 },
-          p: { xs: 1.5, sm: 2 },
-          pt: 0
-        }}>
+        <div className="flex flex-col items-center gap-3 sm:gap-4">
           {/* Camera Error Alert */}
           {cameraError && (
-            <Alert
-              severity="warning"
-              sx={{ width: '100%', mb: 1 }}
-              action={
-                <IconButton size="small" onClick={retryCamera} color="inherit">
-                  <Refresh fontSize="small" />
-                </IconButton>
-              }
-            >
-              {cameraError}
-            </Alert>
+            <div className="w-full brutalist-border bg-yellow-100 p-3 flex items-start gap-2">
+              <AlertTriangle size={18} className="text-yellow-800 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs sm:text-sm font-bold text-yellow-900">{cameraError}</p>
+              </div>
+              <button
+                onClick={retryCamera}
+                className="flex-shrink-0 p-1 hover:bg-yellow-200 brutalist-border"
+                aria-label="Retry camera"
+              >
+                <RefreshCw size={16} />
+              </button>
+            </div>
           )}
 
-          <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', gap: 1 }}>
+          <div className="flex justify-center w-full gap-2">
             {!isScanning ? (
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<QrCode2 />}
+              <button
                 onClick={startScan}
                 disabled={isLoading}
-                sx={{ borderRadius: 3, px: 2, py: 0.8, textTransform: 'none', fontSize: '0.9rem' }}
+                className="brutalist-button flex items-center gap-2"
               >
-                {isLoading ? 'Starting...' : 'Use Camera'}
-              </Button>
+                <QrCode size={18} />
+                <span className="text-sm sm:text-base">{isLoading ? 'Starting...' : 'Use Camera'}</span>
+              </button>
             ) : (
               <>
-                <Button
-                  variant="contained"
-                  color="error"
-                  size="small"
-                  startIcon={<Stop />}
+                <button
                   onClick={stopScan}
-                  sx={{ borderRadius: 3, px: 2, py: 0.8, textTransform: 'none', fontSize: '0.9rem' }}
+                  className="brutalist-button bg-red-500 text-white flex items-center gap-2"
                 >
-                  Stop
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<Refresh />}
+                  <StopCircle size={18} />
+                  <span className="text-sm sm:text-base">Stop</span>
+                </button>
+                <button
                   onClick={retryCamera}
-                  sx={{ borderRadius: 3, px: 1.5, py: 0.8, textTransform: 'none', fontSize: '0.9rem' }}
+                  className="brutalist-button flex items-center gap-2"
                 >
-                  Retry
-                </Button>
+                  <RefreshCw size={18} />
+                  <span className="text-sm sm:text-base">Retry</span>
+                </button>
               </>
             )}
-          </Box>
+          </div>
 
           {/* Camera selector — shown when multiple cameras are available */}
           {cameras.length > 1 && (
-            <FormControl fullWidth size="small">
-              <InputLabel id="camera-select-label" sx={{ fontSize: '0.8rem' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <CameraAlt sx={{ fontSize: '0.9rem' }} />
-                  Camera
-                </Box>
-              </InputLabel>
-              <Select
-                labelId="camera-select-label"
-                id="camera-select"
+            <div className="w-full">
+              <label className="flex items-center gap-1 text-xs font-bold uppercase mb-1">
+                <Camera size={14} />
+                Camera
+              </label>
+              <select
                 value={selectedCameraId}
-                label="Camera"
                 onChange={handleCameraChange}
-                sx={{ fontSize: '0.8rem' }}
+                className="brutalist-input w-full text-xs sm:text-sm"
               >
                 {cameras.map((device, index) => (
-                  <MenuItem key={device.deviceId} value={device.deviceId} sx={{ fontSize: '0.8rem' }}>
+                  <option key={device.deviceId} value={device.deviceId}>
                     {cameraLabel(device, index)}
-                  </MenuItem>
+                  </option>
                 ))}
-              </Select>
-            </FormControl>
+              </select>
+            </div>
           )}
 
           {isScanning && (
-            <Box sx={{
-              width: '100%',
-              aspectRatio: '1 / 1',
-              borderRadius: 3,
-              overflow: 'hidden',
-              position: 'relative',
-              mt: 1,
-              bgcolor: 'black',
-              border: '2px solid',
-              borderColor: cameraError ? 'warning.main' : 'primary.main',
-              boxShadow: '0 4px 20px rgba(37, 99, 235, 0.2)'
-            }}>
+            <div className={cn(
+              "w-full aspect-square overflow-hidden relative bg-black brutalist-border",
+              cameraError ? "border-yellow-600" : "border-brand-black"
+            )}>
               {isLoading ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', gap: 1 }}>
-                  <CircularProgress color="primary" />
-                  <Typography variant="caption" color="grey.500">Initializing camera...</Typography>
-                </Box>
+                <div className="flex flex-col justify-center items-center h-full gap-2">
+                  <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <p className="text-xs text-gray-400 font-mono">Initializing camera...</p>
+                </div>
               ) : (
                 <Scanner
                   key={scannerKey}
@@ -376,77 +337,80 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
                     finder: true,
                   }}
                   styles={{
-                    container: { width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden' },
+                    container: { width: '100%', height: '100%', overflow: 'hidden' },
                     video: { width: '100%', height: '100%', objectFit: 'cover' }
                   }}
                 />
               )}
-            </Box>
+            </div>
           )}
 
           {/* Manual input - always visible */}
-          <Box component="form" onSubmit={handleManualSubmit} sx={{ width: '100%', mt: 1 }}>
-            <TextField
-              fullWidth
-              size="small"
-              variant="outlined"
-              placeholder="Type or scan with USB scanner..."
-              value={manualInput}
-              onChange={(e) => setManualInput(e.target.value)}
-              inputRef={inputRef}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton type="submit" edge="end" color="primary" disabled={!manualInput.trim()}>
-                      <AddCircle fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
+          <form onSubmit={handleManualSubmit} className="w-full">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Type or scan with USB scanner..."
+                value={manualInput}
+                onChange={(e) => setManualInput(e.target.value)}
+                ref={inputRef}
+                className="brutalist-input w-full pr-10 text-sm"
+              />
+              <button
+                type="submit"
+                disabled={!manualInput.trim()}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 disabled:opacity-30"
+                aria-label="Submit barcode"
+              >
+                <Plus size={18} className="text-brand-black" />
+              </button>
+            </div>
+          </form>
 
-          <Box sx={{
-            mt: 1,
-            p: 1,
-            width: '100%',
-            bgcolor: 'action.hover',
-            borderRadius: 2,
-            textAlign: 'center'
-          }}>
-            <Typography variant="body2" color="text.secondary">
+          <div className="w-full brutalist-border bg-gray-100 p-3 text-center">
+            <p className="text-xs sm:text-sm text-gray-600 font-bold">
               Last Scanned:
-              <Typography component="span" variant="body2" sx={{ ml: 1, fontWeight: 'bold', color: 'primary.main' }}>
-                {barcode}
-              </Typography>
-            </Typography>
-          </Box>
-        </CardContent>
-      </Card>
+              <span className="ml-2 text-brand-black font-black">{barcode}</span>
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Debug Info for Mobile troubleshooting */}
       {(cameraError || !isScanning) && (
-        <Box sx={{ mt: 1, p: 1.5, bgcolor: 'action.hover', borderRadius: 2, border: '1px solid', borderColor: 'divider', width: '100%', maxWidth: 360 }}>
-          <Typography variant="caption" fontWeight="bold" color="text.secondary" display="block" gutterBottom>
+        <div className="w-full max-w-[360px] brutalist-border bg-gray-50 p-3">
+          <p className="text-[10px] sm:text-xs font-black uppercase mb-2 text-gray-600">
             Browser Diagnostics:
-          </Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: isSecure ? 'success.main' : 'error.main' }} />
-              <Typography variant="caption" color={isSecure ? 'text.secondary' : 'error.main'}>
-                Secure Context: {isSecure ? 'Yes' : 'No'}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: hasMediaDevices ? 'success.main' : 'error.main' }} />
-              <Typography variant="caption" color={hasMediaDevices ? 'text.secondary' : 'error.main'}>
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                isSecure ? "bg-green-500" : "bg-red-500"
+              )} />
+              <p className={cn(
+                "text-[10px] sm:text-xs",
+                isSecure ? "text-gray-600" : "text-red-600"
+              )}>
+                Secure: {isSecure ? 'Yes' : 'No'}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                hasMediaDevices ? "bg-green-500" : "bg-red-500"
+              )} />
+              <p className={cn(
+                "text-[10px] sm:text-xs",
+                hasMediaDevices ? "text-gray-600" : "text-red-600"
+              )}>
                 Camera API: {hasMediaDevices ? 'Yes' : 'No'}
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
+              </p>
+            </div>
+          </div>
+        </div>
       )}
-    </Box>
+    </div>
   );
 }
 
