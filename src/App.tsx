@@ -9,7 +9,6 @@ import BarcodeScannerContainer from './BarcodeScannerContainer';
 import ItemList from './ItemList';
 import Footer from './components/Footer';
 import Header from './components/Header';
-import { Dialog, DialogContent } from '@mui/material';
 import { ToastProvider, useToast } from './ToastContext';
 import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
@@ -250,51 +249,70 @@ function AppContent() {
         onClose={() => setVolunteerModalOpen(false)}
       />
 
-      <Dialog 
-        open={addPartFormModalOpen} 
-        onClose={() => setAddPartFormModalOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogContent>
-          <AddPartForm
-            onSubmit={handleAddPartSubmit}
-            onCancel={() => setAddPartFormModalOpen(false)}
-            categories={categories}
-            locations={locations}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Add Part Modal */}
+      {addPartFormModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto"
+          onClick={() => setAddPartFormModalOpen(false)}
+        >
+          <div 
+            className="brutalist-card bg-white w-full max-w-3xl my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <AddPartForm
+                onSubmit={handleAddPartSubmit}
+                onCancel={() => setAddPartFormModalOpen(false)}
+                categories={categories}
+                locations={locations}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
-      <Dialog 
-        open={addCategoryModalOpen} 
-        onClose={() => setAddCategoryModalOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogContent>
-          <AddCategoryForm
-            onSubmit={handleAddCategorySubmit}
-            onCancel={() => setAddCategoryModalOpen(false)}
-            categories={categories}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Add Category Modal */}
+      {addCategoryModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setAddCategoryModalOpen(false)}
+        >
+          <div 
+            className="brutalist-card bg-white w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <AddCategoryForm
+                onSubmit={handleAddCategorySubmit}
+                onCancel={() => setAddCategoryModalOpen(false)}
+                categories={categories}
+                locations={locations}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
-      <Dialog 
-        open={addLocationModalOpen} 
-        onClose={() => setAddLocationModalOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogContent>
-          <AddLocationForm
-            onSubmit={handleAddLocationSubmit}
-            onCancel={() => setAddLocationModalOpen(false)}
-            locations={locations}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Add Location Modal */}
+      {addLocationModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setAddLocationModalOpen(false)}
+        >
+          <div 
+            className="brutalist-card bg-white w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <AddLocationForm
+                onSubmit={handleAddLocationSubmit}
+                onCancel={() => setAddLocationModalOpen(false)}
+                locations={locations}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
