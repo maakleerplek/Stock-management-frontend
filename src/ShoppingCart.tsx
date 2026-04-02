@@ -3,7 +3,7 @@ import { type ItemData } from './sendCodeHandler';
 import Extras from './Extras';
 import ImageDisplay from './ImageDisplay';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Plus, Minus, ShoppingCart, Heart, CheckCircle, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingCart as ShoppingCartIcon, Heart, CheckCircle, Loader2 } from 'lucide-react';
 import { cn } from './lib/utils';
 
 
@@ -28,7 +28,7 @@ interface ShoppingCartProps {
 
 
 function ShoppingCart({
-    cartItems,
+    cartItems = [],
     onUpdateQuantity,
     onRemoveItem,
     onCheckout,
@@ -43,7 +43,7 @@ function ShoppingCart({
 }: ShoppingCartProps) {
     const [lastActionId, setLastActionId] = useState<number | null>(null);
 
-    const totalPrice = cartItems.reduce(
+    const totalPrice = (cartItems || []).reduce(
         (total, item) => total + item.price * item.cartQuantity,
         0
     );
@@ -71,7 +71,7 @@ function ShoppingCart({
                 {isVolunteerMode ? (
                     <Heart className="w-5 h-5 sm:w-6 sm:h-6" />
                 ) : (
-                    <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <ShoppingCartIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                 )}
                 <h2 className="text-base sm:text-lg font-bold uppercase">
                     {isVolunteerMode ? (isSetMode ? "Set Stock" : "Add to Stock") : "Shopping Cart"}
