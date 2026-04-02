@@ -13,6 +13,7 @@ import InvenTreePage from './InvenTreePage';
 import { ToastProvider, useToast } from './ToastContext';
 import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
+import AdminToolsBar from './components/AdminToolsBar';
 import {
     type InvenTreeTrackingEntry,
     type InvenTreePartListResponse
@@ -22,7 +23,8 @@ import {
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
-import { Info, Tag, MapPin, Plus, AlertCircle, Loader2 } from 'lucide-react';
+import { Info, AlertCircle, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import './index.css';
 
@@ -250,73 +252,53 @@ function AppContent() {
         {(currentPage === 'volunteer' || currentPage === 'scan' || currentPage === 'inventory' || currentPage === 'inventree') && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <VolunteerNavigation />
+            
+            {/* Admin Tools Bar - visible on all volunteer views except inventree */}
+            {currentPage !== 'inventree' && (
+              <AdminToolsBar
+                onNewItem={() => setAddPartFormModalOpen(true)}
+                onAddCategory={() => setAddCategoryModalOpen(true)}
+                onAddLocation={() => setAddLocationModalOpen(true)}
+              />
+            )}
 
+            <AnimatePresence mode="wait">
             {currentPage === 'volunteer' && (
-              <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                {/* Left Sidebar for volunteer overview */}
-                <aside className="w-full lg:w-72 border-r-0 md:border-r-2 border-b-2 md:border-b-0 border-brand-black flex flex-col bg-white">
-                  <div className="p-5 border-b-2 border-brand-black">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-brand-black mb-4">QUICK STATS</h3>
-                    <div className="space-y-3">
-                      <div className="border-2 border-brand-black p-3 bg-white">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">CATEGORIES</div>
-                        <div className="text-2xl font-black">{categories.length}</div>
-                      </div>
-                      <div className="border-2 border-brand-black p-3 bg-white">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">LOCATIONS</div>
-                        <div className="text-2xl font-black">{locations.length}</div>
-                      </div>
-                      {lowStockItems.length > 0 && (
-                        <div className="border-2 border-red-600 p-3 bg-red-50">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-red-600 mb-1">LOW STOCK</div>
-                          <div className="text-2xl font-black text-red-600">{lowStockItems.length}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="p-5 flex-1 overflow-auto">
-                    <h3 className="text-xs font-black uppercase tracking-widest mb-4">ADMIN TOOLS</h3>
-                    <div className="flex flex-col gap-2">
-                      <button
-                        onClick={() => setAddPartFormModalOpen(true)}
-                        className="brutalist-button w-full flex items-center gap-2 px-3 py-2 bg-amber-300 text-brand-black text-xs"
-                      >
-                        <Plus size={14} />
-                        <span>NEW ITEM</span>
-                      </button>
-                      <button
-                        onClick={() => setAddCategoryModalOpen(true)}
-                        className="brutalist-button w-full flex items-center gap-2 px-3 py-2 bg-blue-200 text-brand-black text-xs"
-                      >
-                        <Tag size={14} />
-                        <span>ADD CATEGORY</span>
-                      </button>
-                      <button
-                        onClick={() => setAddLocationModalOpen(true)}
-                        className="brutalist-button w-full flex items-center gap-2 px-3 py-2 bg-emerald-200 text-brand-black text-xs"
-                      >
-                        <MapPin size={14} />
-                        <span>ADD LOCATION</span>
-                      </button>
-                    </div>
-                  </div>
-                  <div className="p-3 border-t-2 border-brand-black bg-emerald-100 font-black tracking-widest text-[10px] uppercase">
-                    <div className="flex justify-between">
-                      <span>VOLUNTEER MODE</span>
-                      <span className="text-emerald-600">ACTIVE</span>
-                    </div>
-                  </div>
-                </aside>
-
+              <motion.div
+                key="volunteer"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.15 }}
+                className="flex-1 overflow-auto bg-white"
+              >
                 {/* Dashboard Content */}
-                <main className="flex-1 p-6 space-y-6 overflow-auto bg-white">
+                <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
                   <div className="border-b-2 border-brand-black pb-4">
                     <h2 className="text-2xl font-black uppercase tracking-widest text-brand-black">DASHBOARD</h2>
                     <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">SYSTEM STATUS</p>
                   </div>
 
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {/* Left Column: Low Stock Alert */}
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="border-2 border-brand-black p-3 bg-white">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">CATEGORIES</div>
+                      <div className="text-2xl font-black">{categories.length}</div>
+                    </div>
+                    <div className="border-2 border-brand-black p-3 bg-white">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">LOCATIONS</div>
+                      <div className="text-2xl font-black">{locations.length}</div>
+                    </div>
+                    {lowStockItems.length > 0 && (
+                      <div className="border-2 border-red-600 p-3 bg-red-50 col-span-2">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-red-600 mb-1">LOW STOCK ITEMS</div>
+                        <div className="text-2xl font-black text-red-600">{lowStockItems.length}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Low Stock Alert */}
                     {lowStockItems.length > 0 && (
                       <div className="space-y-3">
                         <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-red-600">
@@ -361,7 +343,7 @@ function AppContent() {
                     </div>
 
                     {/* Recent Activity */}
-                    <div className="space-y-3 xl:col-span-2">
+                    <div className="space-y-3 lg:col-span-2">
                       <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
                         <Loader2 size={16} /> RECENT ACTIVITY
                       </h3>
@@ -394,12 +376,19 @@ function AppContent() {
                       </div>
                     </div>
                   </div>
-                </main>
-              </div>
+                </div>
+              </motion.div>
             )}
 
             {currentPage === 'scan' && (
-              <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+              <motion.div
+                key="scan"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.15 }}
+                className="flex-1 flex flex-col lg:flex-row overflow-hidden"
+              >
                 {/* Main Content Area (Scanner) - same as checkout */}
                 <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white relative">
                   <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={null} />
@@ -412,10 +401,33 @@ function AppContent() {
                     onCheckoutResultChange={() => {}}
                   />
                 </aside>
-              </div>
+              </motion.div>
             )}
-            {currentPage === 'inventory' && <ItemList />}
-            {currentPage === 'inventree' && <InvenTreePage onBack={() => setCurrentPage('volunteer')} />}
+            {currentPage === 'inventory' && (
+              <motion.div
+                key="inventory"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.15 }}
+                className="flex-1 overflow-hidden"
+              >
+                <ItemList />
+              </motion.div>
+            )}
+            {currentPage === 'inventree' && (
+              <motion.div
+                key="inventree"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.15 }}
+                className="flex-1 overflow-hidden"
+              >
+                <InvenTreePage onBack={() => setCurrentPage('volunteer')} />
+              </motion.div>
+            )}
+            </AnimatePresence>
 
           </div>
         )}

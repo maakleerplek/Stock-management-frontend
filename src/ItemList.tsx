@@ -112,7 +112,7 @@ export default function ItemList() {
     }
 
     return (
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-brand-beige">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-white">
             {/* Main Table Area */}
             <main className="flex-1 flex flex-col min-h-0 p-4 sm:p-6 overflow-hidden">
                 {/* Header - Fixed at top */}
@@ -122,7 +122,7 @@ export default function ItemList() {
                         <h2 className="text-lg font-black tracking-widest uppercase">STOCK LIST</h2>
                     </div>
                     <div className="flex gap-4 items-center flex-grow max-w-full md:max-w-[500px]">
-                        <div className="brutalist-input flex items-center flex-1 px-4 py-2 border-2 border-brand-black bg-brand-beige">
+                        <div className="brutalist-input flex items-center flex-1 px-4 py-2 border-2 border-brand-black bg-gray-50">
                             <Search className="w-5 h-5 text-brand-black mr-2" />
                             <input
                                 type="text"
@@ -155,7 +155,7 @@ export default function ItemList() {
                     <div className="flex-1 overflow-auto">
                         <table className="w-full min-w-[600px] border-collapse">
                             <thead className="sticky top-0 z-10">
-                                <tr className="border-b-2 border-brand-black bg-brand-beige-dark/50">
+                                <tr className="border-b-2 border-brand-black bg-gray-100">
                                     <th className="p-3 pl-6 text-left w-[80px]" />
                                     <th className="p-3 text-left">
                                         <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/70">ITEM</span>
@@ -180,7 +180,7 @@ export default function ItemList() {
                                         const delta = getAdjustmentDelta(item.id);
                                         return (
                                             <tr key={item.id} className={cn(
-                                                "hover:bg-brand-beige-dark/20 transition-colors",
+                                                "hover:bg-gray-50 transition-colors",
                                                 delta !== 0 && "bg-emerald-50",
                                                 item.quantity === 0 && "bg-rose-50/50"
                                             )}>
@@ -236,7 +236,7 @@ export default function ItemList() {
                                     })}
                                 {filteredItems.length === 0 && !loading && (
                                     <tr>
-                                        <td colSpan={isVolunteerMode ? 5 : 4} className="p-16 text-center bg-brand-beige">
+                                        <td colSpan={isVolunteerMode ? 5 : 4} className="p-16 text-center bg-gray-50">
                                             <p className="text-sm font-black tracking-widest uppercase opacity-40">NO ITEMS FOUND</p>
                                         </td>
                                     </tr>
@@ -246,7 +246,7 @@ export default function ItemList() {
                     </div>
 
                     {/* Pagination - Fixed at bottom of table */}
-                    <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-t-2 border-brand-black bg-brand-beige/30">
+                    <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-t-2 border-brand-black bg-gray-50">
                         <div className="flex items-center gap-4">
                             <label className="text-[10px] font-black tracking-widest uppercase">ROWS:</label>
                             <select value={rowsPerPage} onChange={handleChangeRowsPerPage} className="brutalist-input px-3 py-1 text-xs font-bold border-2 border-brand-black bg-white">
@@ -272,14 +272,14 @@ export default function ItemList() {
             {/* Right Sidebar: Pending Adjustments (only in volunteer mode) */}
             {isVolunteerMode && (
                 <aside className="w-full lg:w-80 xl:w-96 flex-shrink-0 border-l-0 lg:border-l-2 border-t-2 lg:border-t-0 border-brand-black bg-white flex flex-col">
-                    <div className="px-4 py-4 border-b-2 border-brand-black bg-brand-beige-dark">
+                    <div className="px-4 py-4 border-b-2 border-brand-black bg-gray-100">
                         <h2 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-brand-black">
                             <RefreshCw size={14} /> PENDING CHANGES
                         </h2>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60 mt-1">{adjustments.length} ITEM(S) MODIFIED</p>
                     </div>
 
-                    <div className="flex-1 overflow-auto bg-brand-beige p-4 space-y-3">
+                    <div className="flex-1 overflow-auto bg-gray-50 p-4 space-y-3">
                         <AnimatePresence mode="popLayout">
                             {adjustments.length === 0 ? (
                                 <motion.div

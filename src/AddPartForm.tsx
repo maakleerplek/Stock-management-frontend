@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, X, QrCode, Upload, Loader2, Image as ImageIcon } from 'lucide-react';
-import Scanner from './BarcodeScanner';
+import { Save, X, QrCode, Loader2, Image as ImageIcon } from 'lucide-react';
 import { cn } from './lib/utils';
 
 export interface SelectOption {
@@ -168,13 +167,6 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
   }, [handleImageFile]);
-
-  const handleBarcodeScanned = (barcode: string) => {
-    setFormData((prev) => ({ ...prev, barcode }));
-    if (errors.barcode) {
-      setErrors((prev) => ({ ...prev, barcode: undefined }));
-    }
-  };
 
   const handleFinalSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -375,14 +367,14 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     className={cn(
-                      "flex flex-col items-center justify-center p-6 border-2 border-dashed transition-all",
-                      isDragging ? "border-brand-black bg-brand-beige" : "border-brand-black/30 bg-gray-50",
+                      "flex flex-col items-center justify-center p-6 border-2 border-dashed transition-all min-h-[200px]",
+                      isDragging ? "border-brand-black bg-gray-100" : "border-brand-black/30 bg-gray-50",
                       imagePreview && "p-4"
                     )}
                   >
                     {imagePreview ? (
                       <div className="flex flex-col items-center w-full gap-4">
-                        <img src={imagePreview} alt="Preview" className="w-48 h-48 object-contain border-2 border-brand-black bg-white" />
+                        <img src={imagePreview} alt="Preview" className="w-40 h-40 object-contain border-2 border-brand-black bg-white" />
                         <div className="flex gap-4">
                           <label className="brutalist-button py-2 px-4 text-xs cursor-pointer">
                             CHANGE
@@ -399,11 +391,11 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                       </div>
                     ) : (
                       <div className="flex flex-col items-center text-center">
-                        <ImageIcon size={48} className="text-brand-black/20 mb-4" />
-                        <p className="text-xs font-black uppercase tracking-widest text-brand-black/60 mb-4">
+                        <ImageIcon size={40} className="text-brand-black/20 mb-3" />
+                        <p className="text-xs font-black uppercase tracking-widest text-brand-black/60 mb-3">
                           DRAG & DROP OR PASTE IMAGE
                         </p>
-                        <label className="brutalist-button py-2 px-6 text-xs cursor-pointer">
+                        <label className="brutalist-button py-2 px-4 text-xs cursor-pointer">
                           UPLOAD IMAGE
                           <input type="file" hidden accept="image/*" onChange={handleImageChange} />
                         </label>
@@ -412,24 +404,26 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                   </div>
                 </div>
 
-                <div className="border-2 border-brand-black bg-brand-beige p-6 space-y-4">
-                  <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                    <QrCode size={18} /> BARCODE (OPTIONAL)
+                <div className="border-2 border-brand-black bg-white p-4 space-y-3">
+                  <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-brand-black/20">
+                    <QrCode size={16} /> BARCODE (OPTIONAL)
                   </h3>
-                  <div className="border-2 border-brand-black bg-white p-2 text-center h-48 flex items-center justify-center overflow-hidden">
-                    <Scanner onScan={handleBarcodeScanned} compact />
-                  </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase mb-1 tracking-widest">OR ENTER MANUALLY</label>
+                    <label className="block text-[10px] font-black uppercase mb-1 tracking-widest text-brand-black/60">SCAN OR ENTER BARCODE</label>
                     <input
                       type="text"
                       name="barcode"
                       value={formData.barcode || ''}
                       onChange={handleChange}
-                      placeholder="SCAN OR TYPE BARCODE"
-                      className="brutalist-input w-full uppercase"
+                      placeholder="TYPE OR SCAN WITH USB SCANNER"
+                      className="brutalist-input w-full uppercase text-sm"
                     />
                   </div>
+                  {formData.barcode && (
+                    <div className="text-xs font-bold text-emerald-600 uppercase">
+                      BARCODE SET: {formData.barcode}
+                    </div>
+                  )}
                 </div>
               </div>
 

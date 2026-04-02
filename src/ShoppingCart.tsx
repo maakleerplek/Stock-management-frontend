@@ -62,10 +62,7 @@ function ShoppingCart({
     };
 
     return (
-        <div className={cn(
-            "w-full flex flex-col bg-white border-l-0",
-            isVolunteerMode && "border-t-4 border-t-amber-400"
-        )}>
+        <div className="w-full flex flex-col bg-white border-l-0">
             {/* Header */}
             <div className="flex items-center justify-center gap-3 px-4 py-3 bg-gray-100 border-b-3 border-brand-black text-brand-black">
                 {isVolunteerMode ? (
