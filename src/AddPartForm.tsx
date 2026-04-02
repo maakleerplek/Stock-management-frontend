@@ -1,30 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  TextField,
-  Button,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Box,
-  Alert,
-  CircularProgress,
-  FormHelperText,
-  Stepper,
-  Step,
-  StepLabel,
-  Typography,
-  InputAdornment, // Add InputAdornment
-  Avatar,
-} from '@mui/material';
-import type { SelectChangeEvent } from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
-import ClearIcon from '@mui/icons-material/Clear';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import QrCode2Icon from '@mui/icons-material/QrCode2';
+import { Save, X, ArrowRight, ArrowLeft, QrCode, Upload, Loader2 } from 'lucide-react';
 import Scanner from './BarcodeScanner'; // Import the Barcode Scanner
+import { cn } from './lib/utils';
 
 // Define interfaces for common data structures
 export interface SelectOption {
@@ -135,7 +112,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -319,87 +296,103 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
   };
 
   return (
-    <Box sx={{ maxWidth: 800, margin: '0 auto', width: '100%' }}>
-      <Stepper activeStep={step - 1} alternativeLabel sx={{ pt: 1, pb: { xs: 2, sm: 3 } }}>
-        <Step>
-          <StepLabel>Basic Details</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>Category & Location</StepLabel>
-        </Step>
-      </Stepper>
-      <Box>
-        {successMessage && <Alert severity="success">{successMessage}</Alert>}
-        {errors.submit && <Alert severity="error">{errors.submit}</Alert>}
+    <div className="max-w-[800px] mx-auto w-full">
+      {/* Stepper */}
+      <div className="flex items-center justify-center gap-4 pt-2 pb-4 sm:pb-6">
+        <div className="flex flex-col items-center gap-2">
+          <div className={cn(
+            "w-8 h-8 sm:w-10 sm:h-10 brutalist-border flex items-center justify-center font-bold",
+            step >= 1 ? "bg-black text-beige" : "bg-white"
+          )}>
+            1
+          </div>
+          <span className="text-xs sm:text-sm font-bold uppercase">Basic Details</span>
+        </div>
+        <div className={cn(
+          "w-12 sm:w-16 h-1 brutalist-border",
+          step >= 2 ? "bg-black" : "bg-white"
+        )} />
+        <div className="flex flex-col items-center gap-2">
+          <div className={cn(
+            "w-8 h-8 sm:w-10 sm:h-10 brutalist-border flex items-center justify-center font-bold",
+            step >= 2 ? "bg-black text-beige" : "bg-white"
+          )}>
+            2
+          </div>
+          <span className="text-xs sm:text-sm font-bold uppercase">Category & Location</span>
+        </div>
+      </div>
+      
+      <div>
+        {successMessage && (
+          <div className="brutalist-card bg-green-100 border-green-500 p-4 mb-4">
+            <p className="text-sm font-bold text-black">{successMessage}</p>
+          </div>
+        )}
+        {errors.submit && (
+          <div className="brutalist-card bg-yellow-100 border-yellow-500 p-4 mb-4">
+            <p className="text-sm font-bold text-black">{errors.submit}</p>
+          </div>
+        )}
 
-        <Box component="form" onSubmit={handleFinalSubmit} sx={{ mt: 3 }}>
+        <form onSubmit={handleFinalSubmit} className="mt-6">
           {step === 1 && (
-            <Grid container spacing={2}>
+            <div className="grid grid-cols-1 gap-4">
               {/* Part Name */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Part Name"
+              <div className="sm:col-span-6">
+                <label className="block text-sm font-bold mb-2 uppercase">
+                  Part Name <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="text"
                   name="partName"
                   value={formData.partName}
                   onChange={handleChange}
-                  error={!!errors.partName}
-                  helperText={errors.partName}
                   required
                   placeholder="e.g., Resistor 10k"
+                  className={cn("brutalist-input w-full px-3 py-2", errors.partName && "border-red-500")}
                 />
-              </Grid>
+                {errors.partName && <p className="text-xs text-red-600 mt-1 font-bold">{errors.partName}</p>}
+              </div>
 
               {/* Description */}
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Description"
+              <div>
+                <label className="block text-sm font-bold mb-2 uppercase">Description</label>
+                <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
-                  multiline
                   rows={3}
                   placeholder="Detailed description of the part"
+                  className="brutalist-input w-full px-3 py-2 resize-y"
                 />
-              </Grid>
+              </div>
 
               {/* Image Upload */}
-              <Grid item xs={12}>
-                <Box
+              <div>
+                <div
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 2,
-                    p: 2,
-                    border: '2px dashed',
-                    borderColor: isDragging ? 'primary.main' : 'divider',
-                    borderRadius: 2,
-                    backgroundColor: isDragging ? 'action.hover' : 'transparent',
-                    transition: 'all 0.2s',
-                  }}
+                  className={cn(
+                    "flex flex-col gap-4 p-4 border-3 border-dashed transition-all",
+                    isDragging ? "border-black bg-beige" : "border-gray-300 bg-transparent"
+                  )}
                 >
-                  <Typography variant="subtitle2">Part Image (Optional)</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <p className="text-sm font-bold uppercase">Part Image (Optional)</p>
+                  <p className="text-xs text-gray-600">
                     Drag and drop an image here, paste from clipboard, or click to upload
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                  </p>
+                  <div className="flex gap-4 items-center flex-wrap">
                     {imagePreview && (
-                      <Avatar
+                      <img
                         src={imagePreview}
                         alt="Preview"
-                        sx={{ width: 100, height: 100 }}
-                        variant="rounded"
+                        className="w-24 h-24 object-cover brutalist-border"
                       />
                     )}
-                    <Button
-                      variant="outlined"
-                      component="label"
-                      sx={{ minWidth: 150 }}
-                    >
+                    <label className="brutalist-button px-4 py-2 cursor-pointer inline-flex items-center gap-2">
+                      <Upload className="w-4 h-4" />
                       {formData.image ? 'Change Image' : 'Upload Image'}
                       <input
                         type="file"
@@ -407,255 +400,268 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                         accept="image/*"
                         onChange={handleImageChange}
                       />
-                    </Button>
+                    </label>
                     {formData.image && (
-                      <Button
-                        variant="text"
-                        color="error"
+                      <button
+                        type="button"
                         onClick={() => {
                           setFormData((prev) => ({ ...prev, image: undefined }));
                           setImagePreview(null);
                         }}
+                        className="text-red-600 font-bold text-sm hover:underline"
                       >
                         Remove
-                      </Button>
+                      </button>
                     )}
-                  </Box>
-                  {errors.image && (
-                    <FormHelperText error>{errors.image}</FormHelperText>
-                  )}
+                  </div>
+                  {errors.image && <p className="text-xs text-red-600 font-bold">{errors.image}</p>}
                   {formData.image && (
-                    <Typography variant="caption" color="text.secondary">
+                    <p className="text-xs text-gray-600">
                       Selected: {formData.image.name} ({(formData.image.size / 1024).toFixed(2)} KB)
-                    </Typography>
+                    </p>
                   )}
-                </Box>
-              </Grid>
+                </div>
+              </div>
 
-              {/* Initial Quantity */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Initial Quantity"
-                  name="initialQuantity"
-                  value={formData.initialQuantity}
-                  onChange={handleChange}
-                  error={!!errors.initialQuantity}
-                  helperText={errors.initialQuantity}
-                  type="number"
-                  inputProps={{ step: '0.01', min: '0' }}
-                  placeholder="0"
-                  required
-                />
-              </Grid>
+              {/* Initial Quantity & Minimum Stock */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold mb-2 uppercase">
+                    Initial Quantity <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="initialQuantity"
+                    value={formData.initialQuantity}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                    placeholder="0"
+                    required
+                    className={cn("brutalist-input w-full px-3 py-2", errors.initialQuantity && "border-red-500")}
+                  />
+                  {errors.initialQuantity && <p className="text-xs text-red-600 mt-1 font-bold">{errors.initialQuantity}</p>}
+                </div>
 
-              {/* Minimum Stock */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Minimum Stock"
-                  name="minimumStock"
-                  value={formData.minimumStock}
-                  onChange={handleChange}
-                  error={!!errors.minimumStock}
-                  helperText={errors.minimumStock}
-                  type="number"
-                  inputProps={{ step: '1', min: '0' }}
-                  placeholder="0"
-                />
-              </Grid>
+                <div>
+                  <label className="block text-sm font-bold mb-2 uppercase">Minimum Stock</label>
+                  <input
+                    type="number"
+                    name="minimumStock"
+                    value={formData.minimumStock}
+                    onChange={handleChange}
+                    step="1"
+                    min="0"
+                    placeholder="0"
+                    className={cn("brutalist-input w-full px-3 py-2", errors.minimumStock && "border-red-500")}
+                  />
+                  {errors.minimumStock && <p className="text-xs text-red-600 mt-1 font-bold">{errors.minimumStock}</p>}
+                </div>
+              </div>
 
-              {/* Unit Price */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Purchase Price"
-                  name="purchasePrice"
-                  value={formData.purchasePrice}
-                  onChange={handleChange}
-                  error={!!errors.purchasePrice}
-                  helperText={errors.purchasePrice}
-                  type="number"
-                  inputProps={{ step: '0.01', min: '0' }}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">{formData.purchasePriceCurrency}</InputAdornment>,
-                  }}
-                  placeholder="0.00"
-                />
-              </Grid>
-              {/* Purchase Price Currency */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Currency</InputLabel>
-                  <Select
+              {/* Purchase Price & Currency */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold mb-2 uppercase">Purchase Price</label>
+                  <div className="flex items-center brutalist-input px-0 py-0 overflow-hidden">
+                    <span className="px-3 py-2 bg-beige border-r-3 border-black font-bold text-sm">
+                      {formData.purchasePriceCurrency}
+                    </span>
+                    <input
+                      type="number"
+                      name="purchasePrice"
+                      value={formData.purchasePrice}
+                      onChange={handleChange}
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      className={cn("flex-1 px-3 py-2 border-none outline-none", errors.purchasePrice && "border-red-500")}
+                    />
+                  </div>
+                  {errors.purchasePrice && <p className="text-xs text-red-600 mt-1 font-bold">{errors.purchasePrice}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2 uppercase">Currency</label>
+                  <select
                     name="purchasePriceCurrency"
                     value={formData.purchasePriceCurrency}
                     onChange={handleChange}
-                    label="Currency"
+                    className="brutalist-input w-full px-3 py-2"
                   >
-                    <MenuItem value="EUR">EUR</MenuItem>
-                    <MenuItem value="USD">USD</MenuItem>
-                    <MenuItem value="GBP">GBP</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="GBP">GBP</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Action Buttons for Step 1 */}
-              <Grid item xs={12} sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 3 }}>
+              <div className="flex gap-3 justify-end mt-6">
                 {onCancel && (
-                  <Button
-                    variant="outlined"
-                    startIcon={<ClearIcon />}
+                  <button
+                    type="button"
                     onClick={onCancel}
                     disabled={loading}
+                    className={cn("brutalist-button px-4 py-2 flex items-center gap-2", loading && "opacity-50")}
                   >
+                    <X className="w-4 h-4" />
                     Cancel
-                  </Button>
+                  </button>
                 )}
-                <Button
-                  variant="outlined"
-                  startIcon={<ClearIcon />}
+                <button
+                  type="button"
                   onClick={handleReset}
                   disabled={loading}
+                  className={cn("brutalist-button px-4 py-2 flex items-center gap-2", loading && "opacity-50")}
                 >
+                  <X className="w-4 h-4" />
                   Reset
-                </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
+                </button>
+                <button
+                  type="button"
                   onClick={handleNextStep}
-                  startIcon={loading ? <CircularProgress size={20} /> : <ArrowForwardIcon />}
                   disabled={loading}
+                  className={cn(
+                    "brutalist-button px-4 py-2 bg-black text-beige flex items-center gap-2",
+                    loading && "opacity-75"
+                  )}
                 >
-                  {loading ? 'Creating Part...' : 'Next Step'}
-                </Button>
-              </Grid>
-            </Grid>
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Creating Part...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="w-4 h-4" />
+                      Next Step
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           )}
 
           {step === 2 && (
-            <Grid container spacing={2}>
-              {/* Category */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={!!errors.category} required>
-                  <InputLabel>Category *</InputLabel>
-                  <Select
+            <div className="grid grid-cols-1 gap-4">
+              {/* Category & Storage Location */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold mb-2 uppercase">
+                    Category <span className="text-red-600">*</span>
+                  </label>
+                  <select
                     name="category"
                     value={formData.category}
                     onChange={handleChange}
-                    label="Category"
+                    required
+                    className={cn("brutalist-input w-full px-3 py-2", errors.category && "border-red-500")}
                   >
-                    <MenuItem value="">
-                      <em>Select a category</em>
-                    </MenuItem>
+                    <option value="">Select a category</option>
                     {categories.map((cat) => (
-                      <MenuItem key={cat.id} value={String(cat.id)}>
+                      <option key={cat.id} value={String(cat.id)}>
                         {cat.name}
-                      </MenuItem>
+                      </option>
                     ))}
-                  </Select>
-                  {errors.category && <FormHelperText>{errors.category}</FormHelperText>}
-                </FormControl>
-              </Grid>
+                  </select>
+                  {errors.category && <p className="text-xs text-red-600 mt-1 font-bold">{errors.category}</p>}
+                </div>
 
-              {/* Storage Location */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={!!errors.storageLocation} required>
-                  <InputLabel>Storage Location *</InputLabel>
-                  <Select
+                <div>
+                  <label className="block text-sm font-bold mb-2 uppercase">
+                    Storage Location <span className="text-red-600">*</span>
+                  </label>
+                  <select
                     name="storageLocation"
                     value={formData.storageLocation}
                     onChange={handleChange}
-                    label="Storage Location"
+                    required
+                    className={cn("brutalist-input w-full px-3 py-2", errors.storageLocation && "border-red-500")}
                   >
-                    <MenuItem value="">
-                      <em>Select location</em>
-                    </MenuItem>
+                    <option value="">Select location</option>
                     {locations.map((loc) => (
-                      <MenuItem key={loc.id} value={String(loc.id)}>
+                      <option key={loc.id} value={String(loc.id)}>
                         {loc.name}
-                      </MenuItem>
+                      </option>
                     ))}
-                  </Select>
-                  {errors.storageLocation && <FormHelperText>{errors.storageLocation}</FormHelperText>}
-                </FormControl>
-              </Grid>
+                  </select>
+                  {errors.storageLocation && <p className="text-xs text-red-600 mt-1 font-bold">{errors.storageLocation}</p>}
+                </div>
+              </div>
 
-              {/* Barcode Scanner and Display */}
-              <Grid item xs={12}>
-                <Box sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 2,
-                  mt: 1,
-                  p: 2,
-                  border: '1px dashed',
-                  borderColor: 'divider',
-                  borderRadius: 3,
-                  bgcolor: 'action.hover'
-                }}>
-                  <Scanner onScan={handleBarcodeScanned} compact />
+              {/* Barcode Scanner */}
+              <div className="flex flex-col items-center gap-4 mt-2 p-4 border-3 border-dashed border-gray-300 bg-beige/30">
+                <Scanner onScan={handleBarcodeScanned} compact />
 
-                  <TextField
-                    fullWidth
-                    label="Barcode (Manual Entry)"
-                    name="barcode"
-                    value={formData.barcode || ''}
-                    onChange={handleChange}
-                    placeholder="Scan or type barcode"
-                    helperText="Last scanned or manually entered barcode"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <QrCode2Icon color="primary" />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{ maxWidth: 450 }}
-                  />
+                <div className="w-full max-w-[450px]">
+                  <label className="block text-sm font-bold mb-2 uppercase">Barcode (Manual Entry)</label>
+                  <div className="flex items-center brutalist-input px-0 py-0 overflow-hidden">
+                    <span className="px-3 py-2 bg-beige border-r-3 border-black">
+                      <QrCode className="w-5 h-5" />
+                    </span>
+                    <input
+                      type="text"
+                      name="barcode"
+                      value={formData.barcode || ''}
+                      onChange={handleChange}
+                      placeholder="Scan or type barcode"
+                      className="flex-1 px-3 py-2 border-none outline-none"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">Last scanned or manually entered barcode</p>
+                  {errors.barcode && <p className="text-xs text-red-600 mt-1 font-bold">{errors.barcode}</p>}
+                </div>
+              </div>
 
-                  {errors.barcode && (
-                    <FormHelperText error sx={{ mt: -1 }}>
-                      {errors.barcode}
-                    </FormHelperText>
-                  )}
-                </Box>
-              </Grid>
               {/* Action Buttons for Step 2 */}
-              <Grid item xs={12} sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 3 }}>
+              <div className="flex gap-3 justify-end mt-6">
                 {onCancel && (
-                  <Button
-                    variant="outlined"
-                    startIcon={<ClearIcon />}
+                  <button
+                    type="button"
                     onClick={onCancel}
                     disabled={loading}
+                    className={cn("brutalist-button px-4 py-2 flex items-center gap-2", loading && "opacity-50")}
                   >
+                    <X className="w-4 h-4" />
                     Cancel
-                  </Button>
+                  </button>
                 )}
-                <Button
-                  variant="outlined"
-                  startIcon={<ArrowBackIcon />}
+                <button
+                  type="button"
                   onClick={() => setStep(1)}
                   disabled={loading}
+                  className={cn("brutalist-button px-4 py-2 flex items-center gap-2", loading && "opacity-50")}
                 >
+                  <ArrowLeft className="w-4 h-4" />
                   Back
-                </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
+                </button>
+                <button
                   type="submit"
-                  startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
                   disabled={loading}
+                  className={cn(
+                    "brutalist-button px-4 py-2 bg-black text-beige flex items-center gap-2",
+                    loading && "opacity-75"
+                  )}
                 >
-                  {loading ? 'Saving...' : 'Add Part'}
-                </Button>
-              </Grid>
-            </Grid>
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Add Part
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           )}
-        </Box>
-      </Box>
-    </Box>
+        </form>
+      </div>
+    </div>
   );
 };
 
