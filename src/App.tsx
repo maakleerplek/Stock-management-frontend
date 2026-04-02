@@ -23,7 +23,7 @@ import {
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
-import { Info, AlertCircle, Loader2 } from 'lucide-react';
+import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import './index.css';
@@ -202,45 +202,47 @@ function AppContent() {
   const VolunteerNavigation = () => (
     <div className="border-b-2 border-brand-black bg-white px-2 sm:px-6 py-0 flex gap-1 sm:gap-4 overflow-x-auto">
       {[
-        { id: 'volunteer', label: 'OVERVIEW' },
-        { id: 'scan', label: 'VOLUNTEER SCAN' },
-        { id: 'inventory', label: 'STOCK LIST' },
-        { id: 'inventree', label: 'INVENTREE PANEL' }
+        { id: 'volunteer', label: 'OVERVIEW', icon: LayoutDashboard },
+        { id: 'scan', label: 'VOLUNTEER SCAN', icon: ScanBarcode },
+        { id: 'inventory', label: 'STOCK LIST', icon: Package },
+        { id: 'inventree', label: 'INVENTREE PANEL', icon: ExternalLink }
       ].map(tab => (
         <button
           key={tab.id}
           onClick={() => setCurrentPage(tab.id as AppView)}
           className={cn(
-            "px-4 py-3 font-black uppercase tracking-widest text-[10px] sm:text-xs border-b-4 transition-all block",
+            "px-3 sm:px-4 py-3 font-black uppercase tracking-widest text-[10px] sm:text-xs border-b-4 transition-all flex items-center gap-1.5",
             currentPage === tab.id 
               ? "border-brand-black text-brand-black" 
               : "border-transparent text-brand-black/50 hover:text-brand-black hover:border-brand-black/30"
           )}
         >
-          {tab.label}
+          <tab.icon size={14} className="flex-shrink-0" />
+          <span className="hidden sm:inline">{tab.label}</span>
+          <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
         </button>
       ))}
     </div>
   );
 
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden">
+    <div className="h-screen flex flex-col bg-white">
       <Header
         currentView={currentPage === 'checkout' ? 'checkout' : (currentPage === 'volunteer' ? 'volunteer' : 'inventory')}
         onViewChange={(v) => handleViewChange(v as AppView)}
         onVolunteerClick={handleVolunteerClick}
       />
 
-      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+      <main className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-auto">
         {currentPage === 'checkout' && (
           <>
             {/* Main Content Area (Scanner) */}
-            <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white relative">
+            <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white min-h-[50vh] lg:min-h-0">
               <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={checkoutResult} />
             </div>
 
             {/* Right Sidebar: Shopping Cart */}
-            <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col">
+            <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col min-h-[50vh] lg:min-h-0">
               <ShoppingWindow
                 scanEvent={scanEvent}
                 onCheckoutResultChange={(result) => setCheckoutResult(result)}
@@ -250,7 +252,7 @@ function AppContent() {
         )}
 
         {(currentPage === 'volunteer' || currentPage === 'scan' || currentPage === 'inventory' || currentPage === 'inventree') && (
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-auto">
             <VolunteerNavigation />
             
             {/* Admin Tools Bar - visible on all volunteer views except inventree */}
@@ -387,15 +389,15 @@ function AppContent() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.15 }}
-                className="flex-1 flex flex-col lg:flex-row overflow-hidden"
+                className="flex-1 flex flex-col lg:flex-row overflow-auto"
               >
                 {/* Main Content Area (Scanner) - same as checkout */}
-                <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white relative">
+                <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white min-h-[50vh] lg:min-h-0">
                   <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={null} />
                 </div>
 
                 {/* Right Sidebar: Shopping Cart in volunteer mode */}
-                <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col">
+                <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col min-h-[50vh] lg:min-h-0">
                   <ShoppingWindow
                     scanEvent={scanEvent}
                     onCheckoutResultChange={() => {}}
@@ -410,7 +412,7 @@ function AppContent() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.15 }}
-                className="flex-1 overflow-hidden"
+                className="flex-1 overflow-auto"
               >
                 <ItemList />
               </motion.div>
@@ -422,7 +424,7 @@ function AppContent() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.15 }}
-                className="flex-1 overflow-hidden"
+                className="flex-1 overflow-auto"
               >
                 <InvenTreePage onBack={() => setCurrentPage('volunteer')} />
               </motion.div>
@@ -444,11 +446,11 @@ function AppContent() {
       {/* Add Part Modal */}
       {addPartFormModalOpen && (
         <div
-          className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 bg-brand-black/80 z-50 flex items-start sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
           onClick={() => setAddPartFormModalOpen(false)}
         >
           <div
-            className="border-2 border-brand-black bg-white w-full max-w-3xl my-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+            className="border-2 border-brand-black bg-white w-full max-w-3xl my-0 sm:my-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-h-screen overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">

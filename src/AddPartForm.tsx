@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, X, QrCode, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Save, X, QrCode, Loader2, Image as ImageIcon, Package, FileText, Tag, MapPin, Hash, Euro, Camera, StopCircle } from 'lucide-react';
 import { cn } from './lib/utils';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 export interface SelectOption {
   id: string | number;
@@ -55,6 +56,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
     if (formData.image && !imagePreview) {
@@ -68,7 +70,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
 
   const validateForm = () => {
     const newErrors: PartFormErrors = {};
-    const requiredFields: Array<keyof PartFormData> = ['partName', 'initialQuantity', 'category', 'storageLocation'];
+    const requiredFields: Array<keyof PartFormData> = ['partName', 'initialQuantity', 'minimumStock', 'purchasePrice', 'category', 'storageLocation'];
     
     requiredFields.forEach((field) => {
       if (!formData[field]?.toString().trim()) {

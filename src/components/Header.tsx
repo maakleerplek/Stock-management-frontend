@@ -96,19 +96,19 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
         onClick={() => setExitConfirmOpen(false)}
       >
         <div 
-          className="border-2 border-brand-black bg-white w-full max-w-sm"
+          className="border-3 border-brand-black bg-white w-full max-w-sm shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between p-4 border-b-2 border-brand-black bg-amber-200">
+          <div className="flex items-center justify-between p-4 border-b-3 border-brand-black bg-red-500">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-brand-black" />
-              <h2 className="text-sm font-black uppercase tracking-widest text-brand-black">EXIT VOLUNTEER MODE</h2>
+              <AlertTriangle className="w-5 h-5 text-white" />
+              <h2 className="text-sm font-black uppercase tracking-widest text-white">EXIT VOLUNTEER MODE</h2>
             </div>
             <button
               onClick={() => setExitConfirmOpen(false)}
-              className="p-1 hover:bg-white border-2 border-transparent hover:border-brand-black transition-colors"
+              className="p-1 hover:bg-red-600 border-2 border-transparent hover:border-white transition-colors"
             >
-              <X className="w-5 h-5 text-brand-black" />
+              <X className="w-5 h-5 text-white" />
             </button>
           </div>
           <div className="p-6 bg-white">
@@ -119,7 +119,7 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
               You will return to the checkout view.
             </p>
           </div>
-          <div className="flex gap-4 p-4 border-t-2 border-brand-black bg-white">
+          <div className="flex gap-4 p-4 border-t-3 border-brand-black bg-gray-50">
             <button
               onClick={() => setExitConfirmOpen(false)}
               className="flex-1 brutalist-button bg-white text-brand-black py-3 text-xs uppercase"
@@ -128,7 +128,7 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
             </button>
             <button
               onClick={handleConfirmExit}
-              className="flex-1 brutalist-button bg-brand-black text-white py-3 text-xs uppercase hover:bg-zinc-800"
+              className="flex-1 brutalist-button bg-red-500 text-white py-3 text-xs uppercase hover:bg-red-600 border-brand-black"
             >
               EXIT
             </button>
