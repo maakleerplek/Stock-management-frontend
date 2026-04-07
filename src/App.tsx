@@ -15,8 +15,8 @@ import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
 import AdminToolsBar from './components/AdminToolsBar';
 import {
-    type InvenTreeTrackingEntry,
-    type InvenTreePartListResponse
+  type InvenTreeTrackingEntry,
+  type InvenTreePartListResponse
 } from './api/types';
 import inventreeClient from './api/inventreeClient';
 import {
@@ -212,8 +212,8 @@ function AppContent() {
           onClick={() => setCurrentPage(tab.id as AppView)}
           className={cn(
             "px-3 sm:px-4 py-3 font-black uppercase tracking-widest text-[10px] sm:text-xs border-b-4 transition-all flex items-center gap-1.5",
-            currentPage === tab.id 
-              ? "border-brand-black text-brand-black" 
+            currentPage === tab.id
+              ? "border-brand-black text-brand-black"
               : "border-transparent text-brand-black/50 hover:text-brand-black hover:border-brand-black/30"
           )}
         >
@@ -254,7 +254,7 @@ function AppContent() {
         {(currentPage === 'volunteer' || currentPage === 'scan' || currentPage === 'inventory' || currentPage === 'inventree') && (
           <div className="flex-1 flex flex-col overflow-auto">
             <VolunteerNavigation />
-            
+
             {/* Admin Tools Bar - visible on all volunteer views except inventree */}
             {currentPage !== 'inventree' && (
               <AdminToolsBar
@@ -265,170 +265,170 @@ function AppContent() {
             )}
 
             <AnimatePresence mode="wait">
-            {currentPage === 'volunteer' && (
-              <motion.div
-                key="volunteer"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.15 }}
-                className="flex-1 overflow-auto bg-white"
-              >
-                {/* Dashboard Content */}
-                <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
-                  <div className="border-b-2 border-brand-black pb-4">
-                    <h2 className="text-2xl font-black uppercase tracking-widest text-brand-black">DASHBOARD</h2>
-                    <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">SYSTEM STATUS</p>
-                  </div>
+              {currentPage === 'volunteer' && (
+                <motion.div
+                  key="volunteer"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex-1 overflow-auto bg-white"
+                >
+                  {/* Dashboard Content */}
+                  <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
+                    <div className="border-b-2 border-brand-black pb-4">
+                      <h2 className="text-2xl font-black uppercase tracking-widest text-brand-black">DASHBOARD</h2>
+                      <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">SYSTEM STATUS</p>
+                    </div>
 
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="border-2 border-brand-black p-3 bg-white">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">CATEGORIES</div>
-                      <div className="text-2xl font-black">{categories.length}</div>
-                    </div>
-                    <div className="border-2 border-brand-black p-3 bg-white">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">LOCATIONS</div>
-                      <div className="text-2xl font-black">{locations.length}</div>
-                    </div>
-                    {lowStockItems.length > 0 && (
-                      <div className="border-2 border-red-600 p-3 bg-red-50 col-span-2">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-red-600 mb-1">LOW STOCK ITEMS</div>
-                        <div className="text-2xl font-black text-red-600">{lowStockItems.length}</div>
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="border-2 border-brand-black p-3 bg-white">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">CATEGORIES</div>
+                        <div className="text-2xl font-black">{categories.length}</div>
                       </div>
-                    )}
-                  </div>
+                      <div className="border-2 border-brand-black p-3 bg-white">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">LOCATIONS</div>
+                        <div className="text-2xl font-black">{locations.length}</div>
+                      </div>
+                      {lowStockItems.length > 0 && (
+                        <div className="border-2 border-red-600 p-3 bg-red-50 col-span-2">
+                          <div className="text-[10px] font-black uppercase tracking-widest text-red-600 mb-1">LOW STOCK ITEMS</div>
+                          <div className="text-2xl font-black text-red-600">{lowStockItems.length}</div>
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Low Stock Alert */}
-                    {lowStockItems.length > 0 && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Low Stock Alert */}
+                      {lowStockItems.length > 0 && (
+                        <div className="space-y-3">
+                          <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-red-600">
+                            <AlertCircle size={16} /> LOW STOCK ITEMS
+                          </h3>
+                          <div className="border-2 border-red-600 bg-white">
+                            <ul className="divide-y divide-red-200">
+                              {lowStockItems.map((item: any) => (
+                                <li key={item.pk} className="px-4 py-2 text-xs font-bold uppercase text-brand-black">
+                                  {item.name}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Quick Actions */}
                       <div className="space-y-3">
-                        <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-red-600">
-                          <AlertCircle size={16} /> LOW STOCK ITEMS
+                        <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                          <Info size={16} /> QUICK ACTIONS
                         </h3>
-                        <div className="border-2 border-red-600 bg-white">
-                          <ul className="divide-y divide-red-200">
-                            {lowStockItems.map((item: any) => (
-                              <li key={item.pk} className="px-4 py-2 text-xs font-bold uppercase text-brand-black">
-                                {item.name}
-                              </li>
-                            ))}
-                          </ul>
+                        <div className="border-2 border-brand-black bg-white p-4">
+                          <p className="font-bold text-xs leading-relaxed text-brand-black/70 mb-4">
+                            USE THE TABS ABOVE TO MANAGE STOCK OR SCAN ITEMS.
+                          </p>
+                          <div className="flex gap-3 flex-wrap">
+                            <button
+                              onClick={() => setCurrentPage('inventory')}
+                              className="brutalist-button py-2 px-4 text-xs"
+                            >
+                              STOCK LIST
+                            </button>
+                            <button
+                              onClick={() => setCurrentPage('scan')}
+                              className="brutalist-button py-2 px-4 bg-brand-accent text-brand-black text-xs"
+                            >
+                              SCANNER
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    )}
 
-                    {/* Quick Actions */}
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                        <Info size={16} /> QUICK ACTIONS
-                      </h3>
-                      <div className="border-2 border-brand-black bg-white p-4">
-                        <p className="font-bold text-xs leading-relaxed text-brand-black/70 mb-4">
-                          USE THE TABS ABOVE TO MANAGE STOCK OR SCAN ITEMS.
-                        </p>
-                        <div className="flex gap-3 flex-wrap">
-                          <button
-                            onClick={() => setCurrentPage('inventory')}
-                            className="brutalist-button py-2 px-4 text-xs"
-                          >
-                            STOCK LIST
-                          </button>
-                          <button
-                            onClick={() => setCurrentPage('scan')}
-                            className="brutalist-button py-2 px-4 bg-brand-black text-white hover:bg-zinc-800 text-xs"
-                          >
-                            SCANNER
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Recent Activity */}
-                    <div className="space-y-3 lg:col-span-2">
-                      <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                        <Loader2 size={16} /> RECENT ACTIVITY
-                      </h3>
-                      <div className="border-2 border-brand-black bg-white overflow-hidden">
-                        {recentMovements.length > 0 ? (
-                          <div className="divide-y divide-brand-black/10">
-                            {recentMovements.map((move) => (
-                              <div key={move.pk} className="p-3 flex justify-between items-center">
-                                <div>
-                                  <span className="text-xs font-bold uppercase">{move.label}</span>
-                                  {move.notes && <p className="text-[10px] text-brand-black/60 mt-0.5">{move.notes}</p>}
+                      {/* Recent Activity */}
+                      <div className="space-y-3 lg:col-span-2">
+                        <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                          <Loader2 size={16} /> RECENT ACTIVITY
+                        </h3>
+                        <div className="border-2 border-brand-black bg-white overflow-hidden">
+                          {recentMovements.length > 0 ? (
+                            <div className="divide-y divide-brand-black/10">
+                              {recentMovements.map((move) => (
+                                <div key={move.pk} className="p-3 flex justify-between items-center">
+                                  <div>
+                                    <span className="text-xs font-bold uppercase">{move.label}</span>
+                                    {move.notes && <p className="text-[10px] text-brand-black/60 mt-0.5">{move.notes}</p>}
+                                  </div>
+                                  <span className="text-[10px] font-mono text-brand-black/50">{move.date}</span>
                                 </div>
-                                <span className="text-[10px] font-mono text-brand-black/50">{move.date}</span>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">
+                              NO RECENT ACTIVITY
+                            </div>
+                          )}
+                          <div className="p-2 bg-gray-50 border-t border-brand-black/10 flex justify-center">
+                            <button
+                              onClick={() => setCurrentPage('inventree')}
+                              className="text-[10px] font-black uppercase tracking-widest hover:underline"
+                            >
+                              VIEW ALL IN INVENTREE
+                            </button>
                           </div>
-                        ) : (
-                          <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">
-                            NO RECENT ACTIVITY
-                          </div>
-                        )}
-                        <div className="p-2 bg-gray-50 border-t border-brand-black/10 flex justify-center">
-                          <button 
-                             onClick={() => setCurrentPage('inventree')}
-                             className="text-[10px] font-black uppercase tracking-widest hover:underline"
-                          >
-                            VIEW ALL IN INVENTREE
-                          </button>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            )}
+                </motion.div>
+              )}
 
-            {currentPage === 'scan' && (
-              <motion.div
-                key="scan"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.15 }}
-                className="flex-1 flex flex-col lg:flex-row overflow-auto"
-              >
-                {/* Main Content Area (Scanner) - same as checkout */}
-                <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white min-h-[50vh] lg:min-h-0">
-                  <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={null} />
-                </div>
+              {currentPage === 'scan' && (
+                <motion.div
+                  key="scan"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex-1 flex flex-col lg:flex-row overflow-auto"
+                >
+                  {/* Main Content Area (Scanner) - same as checkout */}
+                  <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white min-h-[50vh] lg:min-h-0">
+                    <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={null} />
+                  </div>
 
-                {/* Right Sidebar: Shopping Cart in volunteer mode */}
-                <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col min-h-[50vh] lg:min-h-0">
-                  <ShoppingWindow
-                    scanEvent={scanEvent}
-                    onCheckoutResultChange={() => {}}
-                  />
-                </aside>
-              </motion.div>
-            )}
-            {currentPage === 'inventory' && (
-              <motion.div
-                key="inventory"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.15 }}
-                className="flex-1 overflow-auto"
-              >
-                <ItemList />
-              </motion.div>
-            )}
-            {currentPage === 'inventree' && (
-              <motion.div
-                key="inventree"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.15 }}
-                className="flex-1 overflow-auto"
-              >
-                <InvenTreePage onBack={() => setCurrentPage('volunteer')} />
-              </motion.div>
-            )}
+                  {/* Right Sidebar: Shopping Cart in volunteer mode */}
+                  <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col min-h-[50vh] lg:min-h-0">
+                    <ShoppingWindow
+                      scanEvent={scanEvent}
+                      onCheckoutResultChange={() => { }}
+                    />
+                  </aside>
+                </motion.div>
+              )}
+              {currentPage === 'inventory' && (
+                <motion.div
+                  key="inventory"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex-1 overflow-auto"
+                >
+                  <ItemList />
+                </motion.div>
+              )}
+              {currentPage === 'inventree' && (
+                <motion.div
+                  key="inventree"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex-1 overflow-auto"
+                >
+                  <InvenTreePage onBack={() => setCurrentPage('volunteer')} />
+                </motion.div>
+              )}
             </AnimatePresence>
 
           </div>

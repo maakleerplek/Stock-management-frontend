@@ -38,7 +38,7 @@ export default function StockConfirmationModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-brand-black text-white p-5 flex items-center justify-between">
+        <div className="bg-brand-accent text-brand-black p-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <AlertCircle size={24} className="text-emerald-400" />
             <h3 className="font-black uppercase tracking-[0.2em] text-lg">{title}</h3>
@@ -76,9 +76,9 @@ export default function StockConfirmationModal({
                 <div className="flex-1 min-w-0">
                   <h4 className="font-black text-lg uppercase truncate leading-tight mb-1">{adj.name}</h4>
                   <div className="flex items-center gap-3 text-sm font-bold text-brand-black/60">
-                    <span className="bg-brand-black text-white px-2 py-0.5">{adj.currentQty ?? '?'}</span>
+                    <span className="bg-brand-accent text-brand-black px-2 py-0.5">{adj.currentQty ?? '?'}</span>
                     <ArrowRight size={16} />
-                    <span className="bg-brand-black text-white px-2 py-0.5">
+                    <span className="bg-brand-accent text-brand-black px-2 py-0.5">
                       {adj.targetQty !== undefined ? adj.targetQty : (adj.currentQty !== undefined ? adj.currentQty + adj.delta : '?')}
                     </span>
                   </div>

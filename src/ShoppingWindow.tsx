@@ -184,7 +184,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
             {confirmOpen && (
                 <div className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4">
                     <div className="border-2 border-brand-black bg-brand-beige w-full max-w-2xl flex flex-col">
-                        <div className="bg-brand-black text-white p-5 flex items-center justify-between">
+                        <div className="bg-brand-accent text-brand-black p-5 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <AlertCircle size={24} className="text-emerald-400" />
                                 <h3 className="font-black uppercase tracking-[0.2em] text-lg">CONFIRM TRANSACTION</h3>
@@ -197,7 +197,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
                             <p className="text-xs font-black uppercase tracking-widest text-brand-black/50 border-b-2 border-brand-black pb-2">
                                 ITEMS IN CART
                             </p>
-                            
+
                             <div className="space-y-3">
                                 {cartItems.map((item) => (
                                     <div key={item.id} className="flex justify-between items-center p-3 border-2 border-brand-black bg-white">

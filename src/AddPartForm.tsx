@@ -446,7 +446,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 type="submit"
                 disabled={loading}
                 className={cn(
-                  "brutalist-button py-3 px-8 text-sm bg-brand-black text-white hover:bg-zinc-800 flex items-center gap-3",
+                  "brutalist-button py-3 px-8 text-sm bg-brand-accent text-brand-black flex items-center gap-3",
                   loading && "opacity-75 cursor-not-allowed"
                 )}
               >

@@ -195,7 +195,7 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                             type="submit"
                             disabled={loading}
                             className={cn(
-                                "brutalist-button px-4 py-2 bg-brand-black text-white flex items-center gap-2",
+                                "brutalist-button px-4 py-2 bg-brand-accent text-brand-black flex items-center gap-2",
                                 loading && "opacity-75 cursor-not-allowed"
                             )}
                         >

@@ -1,9 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-beige: #eadec4;
-  --color-brand-beige-dark: #dfcea9;
-  --color-brand-black: #1e1b18;
+  --color-brand-beige: #F5F2EB;
+  --color-brand-beige-dark: #E6D5B8;
+  --color-brand-accent: #C8A98B;
+  --color-brand-black: #2C1E16;
   
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
@@ -26,7 +27,7 @@
 }
 
 @utility brutalist-card {
-  background-color: white;
+  background-color: var(--color-brand-beige);
   border-width: 2px;
   border-color: var(--color-brand-black);
   border-style: solid;
@@ -37,7 +38,7 @@
   border-width: 2px;
   border-color: var(--color-brand-black);
   border-style: solid;
-  background-color: white;
+  background-color: var(--color-brand-beige);
   padding-left: 1rem;
   padding-right: 1rem;
   padding-top: 0.5rem;
@@ -66,7 +67,7 @@
   border-width: 2px;
   border-color: var(--color-brand-black);
   border-style: solid;
-  background-color: white;
+  background-color: var(--color-brand-beige);
   padding-left: 0.75rem;
   padding-right: 0.75rem;
   padding-top: 0.5rem;
@@ -75,7 +76,7 @@
   outline: none;
 
   &:focus {
-    background-color: #f5f5f5;
+    background-color: var(--color-brand-beige-dark);
     box-shadow: inset 0 0 0 1px var(--color-brand-black);
   }
 }

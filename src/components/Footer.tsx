@@ -15,14 +15,14 @@ export default function Footer() {
     <>
       <footer className="border-t-2 border-brand-black bg-brand-beige py-2 px-4 sm:px-6 mt-auto flex-shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-4">
-          
+
           {/* Left Side: All Links Clustered */}
           <div className="flex items-center gap-3 sm:gap-6 md:gap-10 overflow-x-auto w-full sm:w-auto justify-center sm:justify-start">
-            
+
             {/* Docs */}
-            <a 
+            <a
               href={FOOTER_LINKS.docs}
-              target="_blank" 
+              target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
               title="Documentation"
@@ -42,9 +42,9 @@ export default function Footer() {
 
             {/* Feedback */}
             {FOOTER_LINKS.feedback && (
-              <a 
+              <a
                 href={FOOTER_LINKS.feedback}
-                target="_blank" 
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
                 title="Give Feedback"
@@ -64,9 +64,9 @@ export default function Footer() {
             )}
 
             {/* GitHub */}
-            <a 
+            <a
               href={FOOTER_LINKS.github}
-              target="_blank" 
+              target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
               title="GitHub Repository"

@@ -9,7 +9,7 @@ interface InvenTreePageProps {
 function InvenTreePage({ onBack }: InvenTreePageProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // Use InvenTree URL from constants (reads from VITE_INVENTREE_URL or builds from hostname:8443)
   const targetUrl = INVENTREE_CONFIG.URL;
 
@@ -48,7 +48,7 @@ function InvenTreePage({ onBack }: InvenTreePageProps) {
     <div ref={containerRef} className="flex-1 flex flex-col h-full bg-white overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b-2 border-brand-black bg-white">
         <div className="flex items-center gap-4">
-          <button 
+          <button
             onClick={onBack}
             className="p-2 border-2 border-brand-black bg-gray-100 hover:bg-gray-200 transition-colors"
             title="Back to Overview"
@@ -59,9 +59,9 @@ function InvenTreePage({ onBack }: InvenTreePageProps) {
             INVENTREE PANEL
           </h2>
         </div>
-        
+
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={toggleFullscreen}
             className="brutalist-button py-2 px-4 flex items-center gap-2 text-xs"
             title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
@@ -69,7 +69,7 @@ function InvenTreePage({ onBack }: InvenTreePageProps) {
             {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             {isFullscreen ? 'EXIT FULLSCREEN' : 'FULLSCREEN'}
           </button>
-          <button 
+          <button
             onClick={handleOpenInNewTab}
             className="brutalist-button py-2 px-4 flex items-center gap-2 text-xs"
           >

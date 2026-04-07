@@ -109,7 +109,7 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                             </button>
                             <button
                                 onClick={handleSubmit}
-                                className="flex-1 brutalist-button bg-brand-black text-white py-3 text-xs uppercase flex justify-center items-center gap-2 hover:bg-zinc-800"
+                                className="flex-1 brutalist-button bg-brand-accent text-brand-black py-3 text-xs uppercase flex justify-center items-center gap-2"
                             >
                                 <LogIn className="w-4 h-4" />
                                 AUTHENTICATE

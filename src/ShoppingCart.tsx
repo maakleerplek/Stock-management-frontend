@@ -86,7 +86,7 @@ function ShoppingCart({
                             }}
                             className={cn(
                                 "py-2 text-[10px] font-black transition-colors uppercase cursor-pointer border-3 border-brand-black",
-                                !isSetMode ? "bg-brand-black text-white" : "bg-white text-brand-black hover:bg-gray-100"
+                                !isSetMode ? "bg-[linear-gradient(110deg,#e11d48_calc(50%-1.5px),#2c1e16_calc(50%-1.5px),#2c1e16_calc(50%+1.5px),#059669_calc(50%+1.5px))] text-white" : "bg-white text-brand-black hover:bg-gray-100"
                             )}
                         >
                             Add / Remove
@@ -98,7 +98,7 @@ function ShoppingCart({
                             }}
                             className={cn(
                                 "py-2 text-[10px] font-black transition-colors uppercase cursor-pointer border-3 border-brand-black",
-                                isSetMode ? "bg-brand-black text-white" : "bg-white text-brand-black hover:bg-gray-100"
+                                isSetMode ? "bg-blue-600 text-white" : "bg-white text-brand-black hover:bg-gray-100"
                             )}
                         >
                             Set Absolute
@@ -314,7 +314,7 @@ function ShoppingCart({
                                     className={cn(
                                         "w-full py-3 text-sm font-black flex items-center justify-center gap-2 tracking-widest border-3 border-brand-black transition-all",
                                         isVolunteerMode 
-                                            ? "bg-brand-black text-white hover:bg-zinc-800" 
+                                            ? "bg-brand-accent text-brand-black" 
                                             : "bg-emerald-400 text-brand-black hover:brightness-95",
                                         isCheckingOut && "opacity-75 cursor-not-allowed"
                                     )}

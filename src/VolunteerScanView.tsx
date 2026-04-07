@@ -22,7 +22,7 @@ export default function VolunteerScanView() {
   const [isCommitting, setIsCommitting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  
+
   const { addToast } = useToast();
   const { refreshInventory } = useStock();
 
@@ -108,10 +108,10 @@ export default function VolunteerScanView() {
       setAdjustments([]);
       setLastScanned(null);
       setIsConfirmOpen(false);
-      
+
       // Refresh global cache
       await refreshInventory();
-      
+
     } catch (error) {
       addToast('Unexpected error during stock update', 'error');
     } finally {
@@ -163,7 +163,7 @@ export default function VolunteerScanView() {
               onClick={() => setMode('add')}
               className={cn(
                 "brutalist-button py-3 text-xs sm:text-sm font-black uppercase transition-colors tracking-widest",
-                mode === 'add' ? "bg-brand-black text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
+                mode === 'add' ? "bg-[linear-gradient(110deg,#e11d48_calc(50%-1.5px),#2c1e16_calc(50%-1.5px),#2c1e16_calc(50%+1.5px),#059669_calc(50%+1.5px))] text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
               )}
             >
               ADD / REMOVE
@@ -172,7 +172,7 @@ export default function VolunteerScanView() {
               onClick={() => setMode('set')}
               className={cn(
                 "brutalist-button py-3 text-xs sm:text-sm font-black uppercase transition-colors tracking-widest",
-                mode === 'set' ? "bg-brand-black text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
+                mode === 'set' ? "bg-blue-600 text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
               )}
             >
               SET ABSOLUTE
@@ -204,9 +204,9 @@ export default function VolunteerScanView() {
                 >
                   <div className="w-12 h-12 border-2 border-brand-black bg-gray-100 flex-shrink-0 flex items-center justify-center">
                     {item.image ? (
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                     ) : (
-                        <Box size={20} className="opacity-20" />
+                      <Box size={20} className="opacity-20" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">

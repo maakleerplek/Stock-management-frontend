@@ -200,7 +200,7 @@ export default function ItemList() {
                                                         {item.quantity}
                                                     </span>
                                                     {delta !== 0 && (
-                                                        <span className="ml-2 font-bold text-xs bg-brand-black text-white px-2 py-1">
+                                                        <span className="ml-2 font-bold text-xs bg-brand-accent text-brand-black px-2 py-1">
                                                             ({delta > 0 ? `+${delta}` : delta})
                                                         </span>
                                                     )}

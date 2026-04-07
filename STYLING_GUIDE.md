@@ -9,9 +9,9 @@ This application follows a **brutalist design** aesthetic - raw, unpolished, and
 ## Core Principles
 
 ### 1. Borders
-- Use **3px solid black borders** (`border-3 border-brand-black`)
+- Use **2px solid black borders** (`border-2 border-brand-black` or raw equivalent)
 - No rounded corners - all elements should have sharp edges (`rounded-none` or no border-radius)
-- Borders should be visible and prominent
+- Borders should be visible and prominent; use structural grid lines (`border-l-2`, `border-b-2`) to divide up layout cleanly instead of spacing.
 
 ### 2. Shadows
 - **Drop shadows only on clickable buttons** - not on static elements
@@ -29,16 +29,14 @@ This application follows a **brutalist design** aesthetic - raw, unpolished, and
 
 ### 4. Colors
 
-#### Checkout Mode (Customer-facing)
-- Background: `bg-brand-beige` (#eadec4)
-- Accents: `bg-brand-beige-dark` (#dfcea9)
-- Primary text: `text-brand-black` (#1e1b18)
+#### Primary Theme (Used everywhere as default)
+- Background: `bg-brand-beige` (#F5F2EB)
+- Header/Accent sections: `bg-brand-accent` (#C8A98B)
+- Empty image placeholders / contrast: `bg-brand-beige-dark` (#E6D5B8)
+- Primary text & Borders: `text-brand-black` (#2C1E16)
 
 #### Volunteer Mode (Admin/Staff)
-- Background: **White/Gray only** (`bg-white`, `bg-gray-50`, `bg-gray-100`)
-- **NO beige/brown colors** in volunteer mode
-- Header accent: `bg-amber-200` to indicate volunteer mode
-- Primary text: `text-brand-black`
+- Can use same beige theme, but rely more heavily on `bg-brand-beige-dark` to signify a different state, or continue using `bg-brand-beige` but clearly mark headings.
 
 #### Feedback Colors
 - **Adding stock**: Green (`text-emerald-600`, `bg-emerald-400`)
@@ -88,9 +86,9 @@ This application follows a **brutalist design** aesthetic - raw, unpolished, and
 ```
 
 ### 6. Cards and Containers
-- Use `border-2 border-brand-black` for all card borders
-- Background: `bg-white`
-- No shadows on static cards
+- Use `border-2 border-brand-black` for all card borders and grid partitions
+- Background: `bg-brand-beige`
+- No shadows on static cards or containers, build tight layouts (`gap-0`) partitioned by borders.
 - Modal backgrounds use `bg-brand-black/80` overlay
 
 ### 7. Spacing
@@ -148,9 +146,10 @@ Use **Framer Motion** for animations:
 Defined in `src/index.css`:
 ```css
 @theme {
-  --color-brand-beige: #eadec4;
-  --color-brand-beige-dark: #dfcea9;
-  --color-brand-black: #1e1b18;
+  --color-brand-beige: #F5F2EB;
+  --color-brand-beige-dark: #E6D5B8;
+  --color-brand-accent: #C8A98B;
+  --color-brand-black: #2C1E16;
 }
 ```
 
