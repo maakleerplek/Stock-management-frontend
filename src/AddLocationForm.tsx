@@ -1,19 +1,7 @@
 import React, { useState } from 'react';
-import {
-    TextField,
-    Button,
-    Box,
-    Alert,
-    CircularProgress,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    Grid,
-} from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
-import ClearIcon from '@mui/icons-material/Clear';
+import { Save, X, Loader2 } from 'lucide-react';
 import type { SelectOption } from './AddPartForm';
+import { cn } from './lib/utils';
 
 export interface LocationFormData {
     name: string;
@@ -70,96 +58,142 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
     };
 
     return (
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            <Grid container spacing={2}>
-                <Grid item xs={12}>
-                    <TextField
-                        fullWidth
-                        label="Location Name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                        autoFocus
-                    />
-                </Grid>
-                <Grid item xs={12}>
-                    <TextField
-                        fullWidth
-                        label="Description"
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        multiline
-                        rows={2}
-                    />
-                </Grid>
-                <Grid item xs={12}>
-                    <FormControl fullWidth>
-                        <InputLabel>Parent Location</InputLabel>
-                        <Select
+        <div className="w-full">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b-2 border-brand-black bg-white">
+                <h2 className="text-lg font-black uppercase tracking-widest text-brand-black">
+                    CREATE LOCATION
+                </h2>
+                <button 
+                    onClick={onCancel}
+                    className="p-1 border-2 border-brand-black bg-white hover:bg-brand-beige transition-colors"
+                >
+                    <X size={18} className="text-brand-black" />
+                </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6">
+                {error && (
+                    <div className="brutalist-card bg-yellow-100 border-yellow-500 p-4 mb-4">
+                        <p className="text-sm font-bold text-black">{error}</p>
+                    </div>
+                )}
+                
+                <div className="grid grid-cols-1 gap-4">
+                    {/* Location Name */}
+                    <div>
+                        <label className="block text-sm font-bold mb-2 uppercase">
+                            Location Name <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            required
+                            autoFocus
+                            className="brutalist-input w-full px-3 py-2"
+                        />
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                        <label className="block text-sm font-bold mb-2 uppercase">Description</label>
+                        <textarea
+                            name="description"
+                            value={formData.description}
+                            onChange={handleChange as any}
+                            rows={2}
+                            className="brutalist-input w-full px-3 py-2 resize-y"
+                        />
+                    </div>
+
+                    {/* Parent Location */}
+                    <div>
+                        <label className="block text-sm font-bold mb-2 uppercase">Parent Location</label>
+                        <select
                             name="parent"
                             value={formData.parent}
                             onChange={handleChange as any}
-                            label="Parent Location"
+                            className="brutalist-input w-full px-3 py-2"
                         >
-                            <MenuItem value="">
-                                <em>None</em>
-                            </MenuItem>
+                            <option value="">None</option>
                             {locations.map((loc) => (
-                                <MenuItem key={loc.id} value={String(loc.id)}>
+                                <option key={loc.id} value={String(loc.id)}>
                                     {loc.name}
-                                </MenuItem>
+                                </option>
                             ))}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6} display="flex" flexDirection="column" gap={2}>
-                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                        <input
-                            type="checkbox"
-                            name="structural"
-                            checked={formData.structural}
-                            onChange={handleChange}
-                            style={{ width: '20px', height: '20px', marginRight: '8px' }}
-                        />
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: 'bold' }}>Structural</span>
-                            <span style={{ fontSize: '12px', color: 'gray' }}>Stock items may not be directly located</span>
-                        </div>
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                        <input
-                            type="checkbox"
-                            name="external"
-                            checked={formData.external}
-                            onChange={handleChange}
-                            style={{ width: '20px', height: '20px', marginRight: '8px' }}
-                        />
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: 'bold' }}>External</span>
-                            <span style={{ fontSize: '12px', color: 'gray' }}>This is an external stock location</span>
-                        </div>
-                    </label>
-                </Grid>
+                        </select>
+                    </div>
 
-                <Grid item xs={12} sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 1 }}>
-                    <Button variant="outlined" startIcon={<ClearIcon />} onClick={onCancel} disabled={loading}>
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        type="submit"
-                        startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
-                        disabled={loading}
-                    >
-                        {loading ? 'Creating...' : 'Create Location'}
-                    </Button>
-                </Grid>
-            </Grid>
-        </Box>
+                    {/* Checkboxes */}
+                    <div className="flex flex-col gap-3">
+                        <label className="flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="structural"
+                                checked={formData.structural}
+                                onChange={handleChange}
+                                className="brutalist-border w-5 h-5 mr-3"
+                            />
+                            <div className="flex flex-col">
+                                <span className="font-bold text-sm uppercase">Structural</span>
+                                <span className="text-[10px] uppercase font-bold opacity-60">Stock items may not be directly located</span>
+                            </div>
+                        </label>
+                        <label className="flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="external"
+                                checked={formData.external}
+                                onChange={handleChange}
+                                className="brutalist-border w-5 h-5 mr-3"
+                            />
+                            <div className="flex flex-col">
+                                <span className="font-bold text-sm uppercase">External</span>
+                                <span className="text-[10px] uppercase font-bold opacity-60">This is an external stock location</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="flex gap-3 justify-end mt-2">
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            disabled={loading}
+                            className={cn(
+                                "brutalist-button px-4 py-2 flex items-center gap-2",
+                                loading && "opacity-50 cursor-not-allowed"
+                            )}
+                        >
+                            <X className="w-4 h-4" />
+                            <span>CANCEL</span>
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className={cn(
+                                "brutalist-button px-4 py-2 bg-brand-accent text-brand-black flex items-center gap-2",
+                                loading && "opacity-75 cursor-not-allowed"
+                            )}
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>CREATING...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-4 h-4" />
+                                    <span>CREATE LOCATION</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
     );
 };
 

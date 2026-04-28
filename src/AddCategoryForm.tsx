@@ -1,19 +1,7 @@
 import React, { useState } from 'react';
-import {
-    TextField,
-    Button,
-    Box,
-    Alert,
-    CircularProgress,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    Grid,
-} from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
-import ClearIcon from '@mui/icons-material/Clear';
+import { Save, X, Loader2 } from 'lucide-react';
 import type { SelectOption } from './AddPartForm';
+import { cn } from './lib/utils';
 
 export interface CategoryFormData {
     name: string;
@@ -71,114 +59,162 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
     };
 
     return (
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            <Grid container spacing={2}>
-                <Grid item xs={12}>
-                    <TextField
-                        fullWidth
-                        label="Category Name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                        autoFocus
-                    />
-                </Grid>
-                <Grid item xs={12}>
-                    <TextField
-                        fullWidth
-                        label="Description"
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        multiline
-                        rows={2}
-                    />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                        <InputLabel>Parent Category</InputLabel>
-                        <Select
-                            name="parent"
-                            value={formData.parent}
-                            onChange={handleChange as any}
-                            label="Parent Category"
-                        >
-                            <MenuItem value="">
-                                <em>None</em>
-                            </MenuItem>
-                            {categories.map((cat) => (
-                                <MenuItem key={cat.id} value={String(cat.id)}>
-                                    {cat.name}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                        <InputLabel>Default Location</InputLabel>
-                        <Select
-                            name="defaultLocation"
-                            value={formData.defaultLocation}
-                            onChange={handleChange as any}
-                            label="Default Location"
-                        >
-                            <MenuItem value="">
-                                <em>None</em>
-                            </MenuItem>
-                            {locations.map((loc) => (
-                                <MenuItem key={loc.id} value={String(loc.id)}>
-                                    {loc.name}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Grid>
-                <Grid item xs={12}>
-                    <TextField
-                        fullWidth
-                        label="Default Keywords"
-                        name="defaultKeywords"
-                        value={formData.defaultKeywords}
-                        onChange={handleChange}
-                        placeholder="Comma separated keywords"
-                        helperText="Default keywords for parts in this category"
-                    />
-                </Grid>
+        <div className="w-full">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b-2 border-brand-black bg-white">
+                <h2 className="text-lg font-black uppercase tracking-widest text-brand-black">
+                    CREATE CATEGORY
+                </h2>
+                <button 
+                    onClick={onCancel}
+                    className="p-1 border-2 border-brand-black bg-white hover:bg-brand-beige transition-colors"
+                >
+                    <X size={18} className="text-brand-black" />
+                </button>
+            </div>
 
-                <Grid item xs={12} sm={6} display="flex" alignItems="center">
-                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+            <form onSubmit={handleSubmit} className="p-6">
+                {error && (
+                    <div className="brutalist-card bg-yellow-100 border-yellow-500 p-4 mb-4">
+                        <p className="text-sm font-bold text-black">{error}</p>
+                    </div>
+                )}
+                
+                <div className="grid grid-cols-1 gap-4">
+                    {/* Category Name */}
+                    <div>
+                        <label className="block text-sm font-bold mb-2 uppercase">
+                            Category Name <span className="text-red-600">*</span>
+                        </label>
                         <input
-                            type="checkbox"
-                            name="structural"
-                            checked={formData.structural}
+                            type="text"
+                            name="name"
+                            value={formData.name}
                             onChange={handleChange}
-                            style={{ width: '20px', height: '20px', marginRight: '8px' }}
+                            required
+                            autoFocus
+                            className="brutalist-input w-full px-3 py-2"
                         />
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: 'bold' }}>Structural</span>
-                            <span style={{ fontSize: '12px', color: 'gray' }}>Parts may not be directly assigned</span>
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                        <label className="block text-sm font-bold mb-2 uppercase">Description</label>
+                        <textarea
+                            name="description"
+                            value={formData.description}
+                            onChange={handleChange as any}
+                            rows={2}
+                            className="brutalist-input w-full px-3 py-2 resize-y"
+                        />
+                    </div>
+
+                    {/* Parent Category & Default Location */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-bold mb-2 uppercase">Parent Category</label>
+                            <select
+                                name="parent"
+                                value={formData.parent}
+                                onChange={handleChange as any}
+                                className="brutalist-input w-full px-3 py-2"
+                            >
+                                <option value="">None</option>
+                                {categories.map((cat) => (
+                                    <option key={cat.id} value={String(cat.id)}>
+                                        {cat.name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
-                    </label>
-                </Grid>
-                <Grid item xs={12} sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 1 }}>
-                    <Button variant="outlined" startIcon={<ClearIcon />} onClick={onCancel} disabled={loading}>
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        type="submit"
-                        startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
-                        disabled={loading}
-                    >
-                        {loading ? 'Creating...' : 'Create Category'}
-                    </Button>
-                </Grid>
-            </Grid>
-        </Box>
+
+                        <div>
+                            <label className="block text-sm font-bold mb-2 uppercase">Default Location</label>
+                            <select
+                                name="defaultLocation"
+                                value={formData.defaultLocation}
+                                onChange={handleChange as any}
+                                className="brutalist-input w-full px-3 py-2"
+                            >
+                                <option value="">None</option>
+                                {locations.map((loc) => (
+                                    <option key={loc.id} value={String(loc.id)}>
+                                        {loc.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Default Keywords */}
+                    <div>
+                        <label className="block text-sm font-bold mb-2 uppercase">Default Keywords</label>
+                        <input
+                            type="text"
+                            name="defaultKeywords"
+                            value={formData.defaultKeywords}
+                            onChange={handleChange}
+                            placeholder="Comma separated keywords"
+                            className="brutalist-input w-full px-3 py-2"
+                        />
+                        <p className="text-xs text-gray-600 mt-1 text-[10px] uppercase font-bold opacity-60">Default keywords for parts in this category</p>
+                    </div>
+
+                    {/* Structural Checkbox */}
+                    <div className="flex items-center">
+                        <label className="flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="structural"
+                                checked={formData.structural}
+                                onChange={handleChange}
+                                className="brutalist-border w-5 h-5 mr-3"
+                            />
+                            <div className="flex flex-col">
+                                <span className="font-bold text-sm">STRUCTURAL</span>
+                                <span className="text-[10px] uppercase font-bold opacity-60">Parts may not be directly assigned</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="flex gap-3 justify-end mt-2">
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            disabled={loading}
+                            className={cn(
+                                "brutalist-button px-4 py-2 flex items-center gap-2",
+                                loading && "opacity-50 cursor-not-allowed"
+                            )}
+                        >
+                            <X className="w-4 h-4" />
+                            <span>CANCEL</span>
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className={cn(
+                                "brutalist-button px-4 py-2 bg-brand-accent text-brand-black flex items-center gap-2",
+                                loading && "opacity-75 cursor-not-allowed"
+                            )}
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>CREATING...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-4 h-4" />
+                                    <span>CREATE CATEGORY</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
     );
 };
 

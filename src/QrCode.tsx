@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
-import { Card, Typography, Box } from '@mui/material';
-import { Payment } from '@mui/icons-material';
+import { CreditCard } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useMemo } from 'react';
 import { PAYMENT } from './constants';
@@ -44,35 +43,24 @@ function WeroQrCode({ total = 0, description = 'Stock Purchase' }: WeroQrCodePro
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
         >
-            <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, p: 3, textAlign: 'center', width: '100%', maxWidth: 400 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Payment sx={{ fontSize: '1.8rem', color: 'secondary.main' }} />
-                    <Typography variant="h5" component="h2" fontWeight="bold">Pay Now</Typography>
-                </Box>
+            <div className="brutalist-card flex flex-col items-center gap-4 p-6 text-center w-full max-w-[400px] mx-auto">
+                <div className="flex items-center gap-2">
+                    <CreditCard className="w-7 h-7" />
+                    <h2 className="text-2xl font-bold uppercase">Pay Now</h2>
+                </div>
                 
                 {total > 0 ? (
                     <>
-                        <Typography variant="h4" color="primary.main" fontWeight="bold">
+                        <p className="text-4xl font-bold">
                             {displayTotal}
-                        </Typography>
+                        </p>
 
                         {payconiqLink ? (
-                            <Box
-                                component="a"
+                            <a
                                 href={payconiqLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                sx={{
-                                    p: 2,
-                                    bgcolor: 'white',
-                                    borderRadius: 2,
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    my: 1,
-                                    display: 'block',
-                                    transition: 'transform 0.2s',
-                                    '&:hover': { transform: 'scale(1.02)' }
-                                }}
+                                className="brutalist-card p-4 bg-white my-2 block transition-transform hover:scale-105"
                             >
                                 <QRCodeSVG
                                     value={epcQrString}
@@ -80,37 +68,28 @@ function WeroQrCode({ total = 0, description = 'Stock Purchase' }: WeroQrCodePro
                                     level="M"
                                     includeMargin={false}
                                 />
-                            </Box>
+                            </a>
                         ) : (
-                            <Box
-                                sx={{
-                                    p: 2,
-                                    bgcolor: 'white',
-                                    borderRadius: 2,
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    my: 1,
-                                }}
-                            >
+                            <div className="brutalist-card p-4 bg-white my-2">
                                 <QRCodeSVG
                                     value={epcQrString}
                                     size={180}
                                     level="M"
                                     includeMargin={false}
                                 />
-                            </Box>
+                            </div>
                         )}
 
-                        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: '28ch', mb: 1 }}>
+                        <p className="text-sm text-gray-600 max-w-[28ch] mb-2">
                             Scan with your bank app{payconiqLink ? <> or <strong>tap the QR code</strong> to open Payconiq</> : ''}.
-                        </Typography>
+                        </p>
                     </>
                 ) : (
-                    <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
+                    <p className="text-sm text-gray-600 py-8">
                         Nothing to pay at the moment.
-                    </Typography>
+                    </p>
                 )}
-            </Card>
+            </div>
         </motion.div>
     );
 }

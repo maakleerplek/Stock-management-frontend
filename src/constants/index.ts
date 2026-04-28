@@ -65,6 +65,7 @@ export const DEFAULTS = {
 // Extra Services Pricing (configurable via .env)
 export const PRICING = {
   LASER_PER_MINUTE: parseFloat(import.meta.env.VITE_LASER_PRICE_PER_MIN || '0.50'),
+  CNC_PER_MINUTE: parseFloat(import.meta.env.VITE_CNC_PRICE_PER_MIN || '0.50'),
   PRINTING_PER_GRAM: parseFloat(import.meta.env.VITE_PRINT_PRICE_PER_GRAM || '0.10'),
 } as const;
 

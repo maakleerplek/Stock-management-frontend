@@ -1,32 +1,37 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
 import AddPartForm, { type PartFormData, type SelectOption } from './AddPartForm';
 import AddCategoryForm, { type CategoryFormData } from './AddCategoryForm';
 import AddLocationForm, { type LocationFormData } from './AddLocationForm';
-import type { ScanEvent } from './sendCodeHandler';
+import type { ScanEvent, ItemData } from './sendCodeHandler';
 import ShoppingWindow from './ShoppingWindow';
 import BarcodeScannerContainer from './BarcodeScannerContainer';
 import ItemList from './ItemList';
-import Footer from './Footer';
-import Header from './Header';
+import Footer from './components/Footer';
+import { StockProvider } from './StockContext';
+import Header from './components/Header';
 import InvenTreePage from './InvenTreePage';
-import { CssBaseline, Box, Dialog, DialogContent, Typography, useMediaQuery, useTheme } from '@mui/material';
-import { ThemeProvider } from '@mui/material/styles';
-import { lightTheme, darkTheme } from './theme';
 import { ToastProvider, useToast } from './ToastContext';
-import { VolunteerProvider } from './VolunteerContext';
+import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
-import inventreeClient from './api/inventreeClient';
-import { STORAGE_KEYS, DEFAULTS } from './constants';
+import AdminToolsBar from './components/AdminToolsBar';
 import {
-  getInitialTheme,
+  type InvenTreeTrackingEntry,
+  type InvenTreePartListResponse
+} from './api/types';
+import inventreeClient from './api/inventreeClient';
+import {
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
+import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from './lib/utils';
+import './index.css';
+
+export type AppView = 'checkout' | 'volunteer' | 'inventory' | 'scan' | 'inventree';
 
 function AppContent() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(getInitialTheme);
-  const [currentPage, setCurrentPage] = useState<'main' | 'inventree' | 'inventory'>('main');
+  const [currentPage, setCurrentPage] = useState<AppView>('checkout');
   const [scanEvent, setScanEvent] = useState<ScanEvent | null>(null);
   const scanCounterRef = useRef(0);
   const [volunteerModalOpen, setVolunteerModalOpen] = useState(false);
@@ -35,10 +40,11 @@ function AppContent() {
   const [addLocationModalOpen, setAddLocationModalOpen] = useState(false);
   const [categories, setCategories] = useState<SelectOption[]>([]);
   const [locations, setLocations] = useState<SelectOption[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<InvenTreePartListResponse['results']>([]);
+  const [recentMovements, setRecentMovements] = useState<InvenTreeTrackingEntry[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
   const { addToast } = useToast();
-  const muiTheme = useTheme();
-  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+  const { isVolunteerMode } = useVolunteer();
 
   // Warn before refresh if a checkout result is active
   useEffect(() => {
@@ -46,14 +52,13 @@ function AppContent() {
       if (checkoutResult !== null) {
         console.log('[App] Preventing accidental refresh during active payment display');
         e.preventDefault();
-        e.returnValue = ''; // Required for modern browsers to show the dialog
+        e.returnValue = '';
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [checkoutResult]);
-
 
   const handleApiError = useCallback(
     (error: unknown, context: string, showWarning = false) => {
@@ -65,7 +70,7 @@ function AppContent() {
 
   const fetchCategoriesAndLocations = useCallback(async () => {
     try {
-      console.log('[App] Fetching categories and locations...');
+      console.log('[App] Fetching initial data...');
       const [categoriesResp, locationsResp] = await Promise.all([
         inventreeClient.getCategories(),
         inventreeClient.getLocations(),
@@ -73,16 +78,24 @@ function AppContent() {
 
       setCategories((Array.isArray(categoriesResp) ? categoriesResp : categoriesResp?.results || []).map(c => ({ id: c.pk, name: c.name })));
       setLocations((Array.isArray(locationsResp) ? locationsResp : locationsResp?.results || []).map(l => ({ id: l.pk, name: l.name })));
-      console.log(`[App] Loaded ${categoriesResp.results.length} categories and ${locationsResp.results.length} locations`);
+
+      if (isVolunteerMode) {
+        console.log('[App] Fetching dashboard metrics...');
+        const [lowStockResp, trackingResp] = await Promise.all([
+          inventreeClient.getLowStockParts(),
+          inventreeClient.getStockTracking(5),
+        ]);
+        setLowStockItems(lowStockResp.results || []);
+        setRecentMovements(trackingResp.results || []);
+      }
 
     } catch (error) {
       setCategories([]);
       setLocations([]);
-      handleApiError(error, 'fetching categories and locations');
+      handleApiError(error, 'fetching initial data');
     }
-  }, [handleApiError]);
+  }, [isVolunteerMode, handleApiError]);
 
-  // Fetch categories and locations on component mount
   useEffect(() => {
     fetchCategoriesAndLocations();
   }, [fetchCategoriesAndLocations]);
@@ -96,7 +109,7 @@ function AppContent() {
       });
       addToast('Category created successfully!', 'success');
       setAddCategoryModalOpen(false);
-      fetchCategoriesAndLocations(); // Refresh list
+      fetchCategoriesAndLocations();
     } catch (error) {
       handleApiError(error, 'creating category');
       throw error;
@@ -112,227 +125,400 @@ function AppContent() {
       });
       addToast('Location created successfully!', 'success');
       setAddLocationModalOpen(false);
-      fetchCategoriesAndLocations(); // Refresh list
+      fetchCategoriesAndLocations();
     } catch (error) {
       handleApiError(error, 'creating location');
       throw error;
     }
   };
 
-  // Helper function to upload image
-  const uploadPartImage = async (image: File, partId: string): Promise<void> => {
-    try {
-      await inventreeClient.uploadPartImage(parseInt(partId), image);
-      addToast('Image uploaded successfully!', 'success');
-    } catch (error) {
-      addToast(`Warning: Image upload failed: ${getErrorMessage(error)}`, 'warning');
-    }
-  };
-
-  // Helper function to create initial stock
-  const createInitialStock = async (formData: PartFormData, partId: string): Promise<void> => {
-    const { initialQuantity, locationId } = parseNumericFields(formData);
-
-    if (initialQuantity > 0 && partId && locationId > 0) {
-      addToast('Creating initial stock...', 'info');
-
-      await inventreeClient.createStockItem({
-        part: parseInt(partId),
-        quantity: initialQuantity,
-        location: locationId,
-        notes: `Initial stock for new part: ${formData.partName}`,
-      });
-
-      addToast('Initial stock created successfully!', 'success');
-    }
-  };
-
-  // Helper function to update existing part
-  const updateExistingPart = async (formData: PartFormData): Promise<void> => {
-    await inventreeClient.updatePart(parseInt(formData.partId!), {
-      category: parseInt(formData.category),
-      // Storage location and barcode are handled separately in InvenTree 
-      // but we can try to update metadata or basic fields if needed.
-    });
-    addToast('Part updated successfully!', 'success');
-  };
-
-  // Helper function to create new part
-  const createNewPart = async (formData: PartFormData): Promise<{ partId: string }> => {
-    const { minimumStock } = parseNumericFields(formData);
-    
-    const result = await inventreeClient.createPart({
-      name: formData.partName,
-      description: formData.description,
-      category: parseInt(formData.category),
-      minimum_stock: minimumStock,
-      active: true,
-    });
-    
-    addToast('Part created successfully!', 'success');
-    return { partId: String(result.pk) };
-  };
-
-  // Main form submission handler
   const handleAddPartSubmit = async (formData: PartFormData): Promise<{ partId: string }> => {
     try {
-      if (formData.partId) {
-        // Step 2: Update existing part
-        await updateExistingPart(formData);
+      const numericFields = parseNumericFields(formData);
+      const partData = {
+        name: formData.partName,
+        description: formData.description || '',
+        category: numericFields.categoryId,
+        IPN: formData.barcode || '',
+        default_location: numericFields.locationId,
+        active: true,
+      };
 
-        // Upload image if provided
-        if (formData.image) {
-          await uploadPartImage(formData.image, formData.partId);
-        }
+      const part = await inventreeClient.createPart(partData);
 
-        // Create initial stock
-        await createInitialStock(formData, formData.partId);
-
-        setAddPartFormModalOpen(false);
-        return { partId: formData.partId };
-      } else {
-        // Step 1: Create new part
-        return await createNewPart(formData);
+      if (formData.image) {
+        await inventreeClient.uploadPartImage(part.pk, formData.image);
       }
+
+      if (formData.initialQuantity && numericFields.locationId) {
+        await inventreeClient.createStockItem({
+          part: part.pk,
+          quantity: numericFields.initialQuantity,
+          location: numericFields.locationId,
+          notes: 'Initial stock from part creation'
+        });
+      }
+
+      addToast('Part created successfully!', 'success');
+      setAddPartFormModalOpen(false);
+      return { partId: String(part.pk) };
     } catch (error) {
-      handleApiError(error, 'part submission');
+      handleApiError(error, 'creating part');
       throw error;
     }
   };
 
-  const toggleTheme = useCallback(() => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
+  const handleItemScanned = useCallback(
+    (item: ItemData | null) => {
+      if (!item) return;
+      scanCounterRef.current += 1;
+      const newEvent: ScanEvent = { item, id: scanCounterRef.current };
+      console.log(`[App] Scan event #${newEvent.id}: ${item.name}`);
+      setScanEvent(newEvent);
+    },
+    []
+  );
 
-    const updateTheme = () => {
-      setTheme(newTheme);
-      localStorage.setItem(STORAGE_KEYS.THEME_PREFERENCE, newTheme);
-    };
+  const handleViewChange = (view: AppView) => {
+    setCurrentPage(view);
+  };
 
-    // Use the View Transitions API if available
-    if (!document.startViewTransition) {
-      updateTheme();
-      return;
+  const handleVolunteerClick = () => {
+    if (!isVolunteerMode) {
+      setVolunteerModalOpen(true);
     }
+  };
 
-    // Wrap the state update in startViewTransition
-    document.startViewTransition(updateTheme);
-  }, [theme]);
+  // Update currentPage when volunteer mode changes
+  useEffect(() => {
+    if (isVolunteerMode && currentPage === 'checkout') {
+      setCurrentPage('volunteer');
+    }
+    if (!isVolunteerMode && currentPage !== 'checkout') {
+      setCurrentPage('checkout');
+    }
+  }, [isVolunteerMode, currentPage]);
+
+  const VolunteerNavigation = () => (
+    <div className="border-b-2 border-brand-black bg-white px-2 sm:px-6 py-0 flex gap-1 sm:gap-4 overflow-x-auto">
+      {[
+        { id: 'volunteer', label: 'OVERVIEW', icon: LayoutDashboard },
+        { id: 'scan', label: 'VOLUNTEER SCAN', icon: ScanBarcode },
+        { id: 'inventory', label: 'STOCK LIST', icon: Package },
+        { id: 'inventree', label: 'INVENTREE PANEL', icon: ExternalLink }
+      ].map(tab => (
+        <button
+          key={tab.id}
+          onClick={() => setCurrentPage(tab.id as AppView)}
+          className={cn(
+            "px-3 sm:px-4 py-3 font-black uppercase tracking-widest text-[10px] sm:text-xs border-b-4 transition-all flex items-center gap-1.5",
+            currentPage === tab.id
+              ? "border-brand-black text-brand-black"
+              : "border-transparent text-brand-black/50 hover:text-brand-black hover:border-brand-black/30"
+          )}
+        >
+          <tab.icon size={14} className="flex-shrink-0" />
+          <span className="hidden sm:inline">{tab.label}</span>
+          <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+        </button>
+      ))}
+    </div>
+  );
 
   return (
-    <ThemeProvider theme={theme === 'light' ? lightTheme : darkTheme}>
-      <CssBaseline />
+    <div className="h-screen flex flex-col bg-white">
+      <Header
+        currentView={currentPage === 'checkout' ? 'checkout' : (currentPage === 'volunteer' ? 'volunteer' : 'inventory')}
+        onViewChange={(v) => handleViewChange(v as AppView)}
+        onVolunteerClick={handleVolunteerClick}
+      />
 
-      <motion.div
-        style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}
-      >
-        {currentPage === 'inventree' ? (
-          <InvenTreePage onBack={() => setCurrentPage('main')} />
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: 'background.default' }}>
-            <Header
-              theme={theme}
-              toggleTheme={toggleTheme}
-              setVolunteerModalOpen={setVolunteerModalOpen}
-              setAddPartFormModalOpen={setAddPartFormModalOpen}
-              setAddCategoryModalOpen={setAddCategoryModalOpen}
-              setAddLocationModalOpen={setAddLocationModalOpen}
-              onOpenInvenTree={() => setCurrentPage('inventree')}
-              onOpenInventory={() => setCurrentPage(currentPage === 'inventory' ? 'main' : 'inventory')}
-              isInventoryOpen={currentPage === 'inventory'}
-            />
-            <Box sx={{ flex: 1, py: { xs: 2, sm: 4 } }}>
-              <Box sx={{ maxWidth: 'none', mx: 'auto', px: 2 }}>
-                {currentPage === 'inventory' ? (
-                  <ItemList />
-                ) : (
-                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: DEFAULTS.GRID_COLUMNS.XS, md: DEFAULTS.GRID_COLUMNS.MD }, gap: 2 }}>
-                    <BarcodeScannerContainer
-                      onItemScanned={(item) => {
-                        if (item) setScanEvent({ item, id: ++scanCounterRef.current });
-                      }}
-                      checkoutResult={checkoutResult}
-                    />
-                    <Box>
-                      <ShoppingWindow
-                        scanEvent={scanEvent}
-                        onCheckoutResultChange={setCheckoutResult}
-                      />
-                    </Box>
-                  </Box>
-                )}
-              </Box>
-            </Box>
+      <main className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-auto">
+        {currentPage === 'checkout' && (
+          <>
+            {/* Main Content Area (Scanner) */}
+            <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white min-h-[50vh] lg:min-h-0">
+              <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={checkoutResult} />
+            </div>
 
-            <Footer />
-          </Box>
+            {/* Right Sidebar: Shopping Cart */}
+            <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col min-h-[50vh] lg:min-h-0">
+              <ShoppingWindow
+                scanEvent={scanEvent}
+                onCheckoutResultChange={(result) => setCheckoutResult(result)}
+              />
+            </aside>
+          </>
         )}
-      </motion.div>
-      <VolunteerModal open={volunteerModalOpen} onClose={() => setVolunteerModalOpen(false)} />
 
-      <Dialog
-        open={addPartFormModalOpen}
-        onClose={() => setAddPartFormModalOpen(false)}
-        maxWidth="md"
-        fullWidth
-        fullScreen={isMobile}
-      >
-        <DialogContent sx={{ p: isMobile ? 2 : 3 }}>
-          <AddPartForm
-            onSubmit={handleAddPartSubmit}
-            categories={categories}
-            locations={locations}
-            onCancel={() => setAddPartFormModalOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+        {(currentPage === 'volunteer' || currentPage === 'scan' || currentPage === 'inventory' || currentPage === 'inventree') && (
+          <div className="flex-1 flex flex-col overflow-auto">
+            <VolunteerNavigation />
 
-      <Dialog
-        open={addCategoryModalOpen}
-        onClose={() => setAddCategoryModalOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        fullScreen={isMobile}
-      >
-        <DialogContent sx={{ p: isMobile ? 2 : 3 }}>
-          <Typography variant="h6" gutterBottom>Add New Category</Typography>
-          <AddCategoryForm
-            onSubmit={handleAddCategorySubmit}
-            categories={categories}
-            locations={locations}
-            onCancel={() => setAddCategoryModalOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+            {/* Admin Tools Bar - visible on all volunteer views except inventree */}
+            {currentPage !== 'inventree' && (
+              <AdminToolsBar
+                onNewItem={() => setAddPartFormModalOpen(true)}
+                onAddCategory={() => setAddCategoryModalOpen(true)}
+                onAddLocation={() => setAddLocationModalOpen(true)}
+              />
+            )}
 
-      <Dialog
-        open={addLocationModalOpen}
-        onClose={() => setAddLocationModalOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        fullScreen={isMobile}
-      >
-        <DialogContent sx={{ p: isMobile ? 2 : 3 }}>
-          <Typography variant="h6" gutterBottom>Add New Location</Typography>
-          <AddLocationForm
-            onSubmit={handleAddLocationSubmit}
-            locations={locations}
-            onCancel={() => setAddLocationModalOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+            <AnimatePresence mode="wait">
+              {currentPage === 'volunteer' && (
+                <motion.div
+                  key="volunteer"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex-1 overflow-auto bg-white"
+                >
+                  {/* Dashboard Content */}
+                  <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
+                    <div className="border-b-2 border-brand-black pb-4">
+                      <h2 className="text-2xl font-black uppercase tracking-widest text-brand-black">DASHBOARD</h2>
+                      <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">SYSTEM STATUS</p>
+                    </div>
 
-    </ThemeProvider>
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="border-2 border-brand-black p-3 bg-white">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">CATEGORIES</div>
+                        <div className="text-2xl font-black">{categories.length}</div>
+                      </div>
+                      <div className="border-2 border-brand-black p-3 bg-white">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">LOCATIONS</div>
+                        <div className="text-2xl font-black">{locations.length}</div>
+                      </div>
+                      {lowStockItems.length > 0 && (
+                        <div className="border-2 border-red-600 p-3 bg-red-50 col-span-2">
+                          <div className="text-[10px] font-black uppercase tracking-widest text-red-600 mb-1">LOW STOCK ITEMS</div>
+                          <div className="text-2xl font-black text-red-600">{lowStockItems.length}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Low Stock Alert */}
+                      {lowStockItems.length > 0 && (
+                        <div className="space-y-3">
+                          <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-red-600">
+                            <AlertCircle size={16} /> LOW STOCK ITEMS
+                          </h3>
+                          <div className="border-2 border-red-600 bg-white">
+                            <ul className="divide-y divide-red-200">
+                              {lowStockItems.map((item: any) => (
+                                <li key={item.pk} className="px-4 py-2 text-xs font-bold uppercase text-brand-black">
+                                  {item.name}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Quick Actions */}
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                          <Info size={16} /> QUICK ACTIONS
+                        </h3>
+                        <div className="border-2 border-brand-black bg-white p-4">
+                          <p className="font-bold text-xs leading-relaxed text-brand-black/70 mb-4">
+                            USE THE TABS ABOVE TO MANAGE STOCK OR SCAN ITEMS.
+                          </p>
+                          <div className="flex gap-3 flex-wrap">
+                            <button
+                              onClick={() => setCurrentPage('inventory')}
+                              className="brutalist-button py-2 px-4 text-xs"
+                            >
+                              STOCK LIST
+                            </button>
+                            <button
+                              onClick={() => setCurrentPage('scan')}
+                              className="brutalist-button py-2 px-4 bg-brand-accent text-brand-black text-xs"
+                            >
+                              SCANNER
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Recent Activity */}
+                      <div className="space-y-3 lg:col-span-2">
+                        <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                          <Loader2 size={16} /> RECENT ACTIVITY
+                        </h3>
+                        <div className="border-2 border-brand-black bg-white overflow-hidden">
+                          {recentMovements.length > 0 ? (
+                            <div className="divide-y divide-brand-black/10">
+                              {recentMovements.map((move) => (
+                                <div key={move.pk} className="p-3 flex justify-between items-center">
+                                  <div>
+                                    <span className="text-xs font-bold uppercase">{move.label}</span>
+                                    {move.notes && <p className="text-[10px] text-brand-black/60 mt-0.5">{move.notes}</p>}
+                                  </div>
+                                  <span className="text-[10px] font-mono text-brand-black/50">{move.date}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">
+                              NO RECENT ACTIVITY
+                            </div>
+                          )}
+                          <div className="p-2 bg-gray-50 border-t border-brand-black/10 flex justify-center">
+                            <button
+                              onClick={() => setCurrentPage('inventree')}
+                              className="text-[10px] font-black uppercase tracking-widest hover:underline"
+                            >
+                              VIEW ALL IN INVENTREE
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {currentPage === 'scan' && (
+                <motion.div
+                  key="scan"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex-1 flex flex-col lg:flex-row overflow-auto"
+                >
+                  {/* Main Content Area (Scanner) - same as checkout */}
+                  <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white min-h-[50vh] lg:min-h-0">
+                    <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={null} />
+                  </div>
+
+                  {/* Right Sidebar: Shopping Cart in volunteer mode */}
+                  <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col min-h-[50vh] lg:min-h-0">
+                    <ShoppingWindow
+                      scanEvent={scanEvent}
+                      onCheckoutResultChange={() => { }}
+                    />
+                  </aside>
+                </motion.div>
+              )}
+              {currentPage === 'inventory' && (
+                <motion.div
+                  key="inventory"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex-1 overflow-auto"
+                >
+                  <ItemList />
+                </motion.div>
+              )}
+              {currentPage === 'inventree' && (
+                <motion.div
+                  key="inventree"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex-1 overflow-auto"
+                >
+                  <InvenTreePage onBack={() => setCurrentPage('volunteer')} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+          </div>
+        )}
+      </main>
+
+      <Footer />
+
+      {/* Modals */}
+      <VolunteerModal
+        open={volunteerModalOpen}
+        onClose={() => setVolunteerModalOpen(false)}
+      />
+
+      {/* Add Part Modal */}
+      {addPartFormModalOpen && (
+        <div
+          className="fixed inset-0 bg-brand-black/80 z-50 flex items-start sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+          onClick={() => setAddPartFormModalOpen(false)}
+        >
+          <div
+            className="border-2 border-brand-black bg-white w-full max-w-3xl my-0 sm:my-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-h-screen overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <AddPartForm
+                onSubmit={handleAddPartSubmit}
+                onCancel={() => setAddPartFormModalOpen(false)}
+                categories={categories}
+                locations={locations}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Category Modal */}
+      {addCategoryModalOpen && (
+        <div
+          className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setAddCategoryModalOpen(false)}
+        >
+          <div
+            className="border-2 border-brand-black bg-white w-full max-w-md shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <AddCategoryForm
+                onSubmit={handleAddCategorySubmit}
+                onCancel={() => setAddCategoryModalOpen(false)}
+                categories={categories}
+                locations={locations}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Location Modal */}
+      {addLocationModalOpen && (
+        <div
+          className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setAddLocationModalOpen(false)}
+        >
+          <div
+            className="border-2 border-brand-black bg-white w-full max-w-md shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <AddLocationForm
+                onSubmit={handleAddLocationSubmit}
+                onCancel={() => setAddLocationModalOpen(false)}
+                locations={locations}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-function App() {
+export default function App() {
   return (
-    <VolunteerProvider>
-      <ToastProvider>
-        <AppContent />
-      </ToastProvider>
-    </VolunteerProvider>
+    <ToastProvider>
+      <VolunteerProvider>
+        <StockProvider>
+          <AppContent />
+        </StockProvider>
+      </VolunteerProvider>
+    </ToastProvider>
   );
 }
-
-export default App;

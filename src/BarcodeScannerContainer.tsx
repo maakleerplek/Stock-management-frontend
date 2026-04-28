@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Box, CircularProgress } from '@mui/material';
 import Scanner from './BarcodeScanner';
 import QrCode from './QrCode';
 import { handleSend, type ItemData } from './sendCodeHandler';
 import { useToast } from './ToastContext';
+import { Loader2 } from 'lucide-react';
 
 interface BarcodeScannerContainerProps {
   onItemScanned: (item: ItemData | null) => void;
@@ -49,17 +49,17 @@ function BarcodeScannerContainer({ onItemScanned, checkoutResult = null }: Barco
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', position: 'relative' }}>
+    <div className="flex flex-col gap-3 items-center relative">
       <Scanner onScan={onScan} />
 
       {isProcessing && (
-        <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(255, 255, 255, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10, borderRadius: 2 }}>
-          <CircularProgress />
-        </Box>
+        <div className="absolute inset-0 bg-white/70 flex justify-center items-center z-10">
+          <Loader2 className="w-8 h-8 animate-spin text-brand-black" />
+        </div>
       )}
 
       {checkoutResult !== null && <QrCode total={checkoutResult.total} description={checkoutResult.description} />}
-    </Box>
+    </div>
   );
 }
 
