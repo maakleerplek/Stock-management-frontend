@@ -89,6 +89,9 @@ class InvenTreeClient {
 
             if (!response.ok) {
                 const errorText = await response.text().catch(() => 'No error details');
+                if (response.status === 401 || response.status === 403) {
+                    console.error(`[InvenTree] Authentication failed (${response.status}) — check VITE_INVENTREE_TOKEN.`, errorText);
+                }
                 throw new Error(`InvenTree API error ${response.status}: ${errorText}`);
             }
 
@@ -105,7 +108,16 @@ class InvenTreeClient {
             
             return normalizedData;
         } catch (error) {
-            console.error(`InvenTree API call failed: ${method} ${endpoint}`, error);
+            if (error instanceof TypeError && (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('NetworkError') || error.message.includes('Failed to fetch'))) {
+                console.error(
+                    `[InvenTree] Cannot connect to InvenTree at ${this.config.baseUrl} — server unreachable or CORS blocked.`,
+                    `\n  Endpoint: ${method} ${endpoint}`,
+                    `\n  Check VITE_INVENTREE_URL and that the server is running.`,
+                    error
+                );
+            } else {
+                console.error(`[InvenTree] API call failed: ${method} ${endpoint}`, error);
+            }
             throw error;
         }
     }
