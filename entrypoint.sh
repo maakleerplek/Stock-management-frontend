@@ -9,9 +9,10 @@ mkdir -p /etc/nginx/ssl
 
 # Generate self-signed SSL certificate based on HOST_IP
 echo "Generating self-signed certificate for ${HOST_IP}..."
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
     -keyout /etc/nginx/ssl/server.key -out /etc/nginx/ssl/server.crt \
-    -subj "/C=US/ST=State/L=City/O=Organization/CN=${HOST_IP}"
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=${HOST_IP}" \
+    -addext "subjectAltName=IP:${HOST_IP},IP:127.0.0.1,DNS:localhost"
 
 # Replace environment variables in nginx template
 echo "Substituting variables from nginx.conf.template -> default.conf"
