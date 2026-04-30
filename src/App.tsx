@@ -141,7 +141,7 @@ function AppContent() {
         name: formData.partName,
         description: formData.description || '',
         category: numericFields.categoryId,
-        IPN: formData.barcode || '',
+        ...(formData.barcode ? { IPN: formData.barcode } : {}),
         default_location: numericFields.locationId,
         active: true,
       };

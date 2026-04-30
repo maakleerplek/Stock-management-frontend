@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, X, QrCode, Loader2, Image as ImageIcon, Package, FileText, Tag, MapPin, Hash, Euro, Camera, StopCircle } from 'lucide-react';
+import { Save, X, QrCode, Loader2, Image as ImageIcon, Camera, StopCircle } from 'lucide-react';
 import { cn } from './lib/utils';
 import { Scanner } from '@yudiel/react-qr-scanner';
+import type { IDetectedBarcode } from '@yudiel/react-qr-scanner';
 
 export interface SelectOption {
   id: string | number;
@@ -397,10 +398,16 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                         <p className="text-xs font-black uppercase tracking-widest text-brand-black/60 mb-3">
                           DRAG & DROP OR PASTE IMAGE
                         </p>
-                        <label className="brutalist-button py-2 px-4 text-xs cursor-pointer">
-                          UPLOAD IMAGE
-                          <input type="file" hidden accept="image/*" onChange={handleImageChange} />
-                        </label>
+                        <div className="flex gap-2">
+                          <label className="brutalist-button py-2 px-4 text-xs cursor-pointer">
+                            UPLOAD
+                            <input type="file" hidden accept="image/*" onChange={handleImageChange} />
+                          </label>
+                          <label className="brutalist-button py-2 px-4 text-xs cursor-pointer flex items-center gap-1">
+                            <Camera size={14} /> TAKE PHOTO
+                            <input type="file" hidden accept="image/*" capture="environment" onChange={handleImageChange} />
+                          </label>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -408,22 +415,62 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
 
                 <div className="border-2 border-brand-black bg-white p-4 space-y-3">
                   <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-brand-black/20">
-                    <QrCode size={16} /> BARCODE (OPTIONAL)
+                    <QrCode size={16} /> BARCODE <span className="text-brand-black/40">(OPTIONAL)</span>
                   </h3>
-                  <div>
-                    <label className="block text-[10px] font-black uppercase mb-1 tracking-widest text-brand-black/60">SCAN OR ENTER BARCODE</label>
+                  <div className="flex gap-2">
                     <input
                       type="text"
                       name="barcode"
                       value={formData.barcode || ''}
                       onChange={handleChange}
-                      placeholder="TYPE OR SCAN WITH USB SCANNER"
-                      className="brutalist-input w-full uppercase text-sm"
+                      placeholder="TYPE OR SCAN"
+                      className="brutalist-input flex-1 text-sm"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setIsScanning(s => !s)}
+                      className={cn(
+                        "brutalist-button px-3 flex items-center gap-1 text-xs",
+                        isScanning && "bg-red-500 text-white"
+                      )}
+                    >
+                      {isScanning ? <StopCircle size={14} /> : <Camera size={14} />}
+                      {isScanning ? 'STOP' : 'SCAN'}
+                    </button>
                   </div>
-                  {formData.barcode && (
-                    <div className="text-xs font-bold text-emerald-600 uppercase">
-                      BARCODE SET: {formData.barcode}
+                  {isScanning && (
+                    <div className="w-full aspect-square overflow-hidden border-2 border-brand-black bg-black">
+                      <Scanner
+                        onScan={(codes: IDetectedBarcode[]) => {
+                          if (codes.length > 0) {
+                            setFormData(prev => ({ ...prev, barcode: codes[0].rawValue }));
+                            setIsScanning(false);
+                            if ('vibrate' in navigator) navigator.vibrate(50);
+                          }
+                        }}
+                        onError={(err) => console.error('[AddPartForm] barcode scan error:', err)}
+                        allowMultiple={false}
+                        scanDelay={500}
+                        formats={['qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','data_matrix','itf','codabar']}
+                        constraints={{ facingMode: 'environment' }}
+                        components={{ torch: true, finder: true }}
+                        styles={{
+                          container: { width: '100%', height: '100%', overflow: 'hidden' },
+                          video: { width: '100%', height: '100%', objectFit: 'cover' },
+                        }}
+                      />
+                    </div>
+                  )}
+                  {formData.barcode && !isScanning && (
+                    <div className="flex items-center justify-between text-xs font-bold text-emerald-700 uppercase">
+                      <span>BARCODE: {formData.barcode}</span>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, barcode: '' }))}
+                        className="text-red-500 hover:underline"
+                      >
+                        CLEAR
+                      </button>
                     </div>
                   )}
                 </div>
