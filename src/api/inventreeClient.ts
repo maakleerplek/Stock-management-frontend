@@ -359,12 +359,20 @@ class InvenTreeClient {
     }
 
     /**
-     * Convert relative image URLs to absolute URLs
+     * Convert image URLs so they route through the nginx proxy.
+     * InvenTree returns absolute URLs (http://10.x.x.x/media/...) which
+     * bypass the proxy and fail due to mixed-content or unreachable port.
+     * We always use just the pathname so /media/ is handled by nginx.
      */
     private getFullImageUrl(imageUrl: string | null | undefined): string | null {
         if (!imageUrl) return null;
-        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-            return imageUrl;
+        try {
+            // Absolute URL — extract pathname only so it goes via the proxy
+            if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+                return new URL(imageUrl).pathname;
+            }
+        } catch {
+            // fall through to relative handling
         }
         return `${this.config.baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
     }
