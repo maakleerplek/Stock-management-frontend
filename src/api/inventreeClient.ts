@@ -219,8 +219,10 @@ class InvenTreeClient {
         if (filters?.in_stock !== undefined) params.append('in_stock', String(filters.in_stock));
         if (filters?.search) params.append('search', filters.search);
 
+        params.append('part_detail', 'true');
+        params.append('location_detail', 'true');
         const queryString = params.toString();
-        const endpoint = queryString ? `/stock/?${queryString}` : '/stock/';
+        const endpoint = `/stock/?${queryString}`;
         
         return this.request<InvenTreeStockListResponse>(
             endpoint,

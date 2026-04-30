@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { inventreeClient } from './api/inventreeClient';
 import type { ItemData } from './api/types';
 
@@ -85,6 +85,10 @@ export function StockProvider({ children }: { children: ReactNode }) {
 
   const refreshInventory = useCallback(async () => {
     await fetchInventory(true);
+  }, [fetchInventory]);
+
+  useEffect(() => {
+    fetchInventory();
   }, [fetchInventory]);
 
   return (
