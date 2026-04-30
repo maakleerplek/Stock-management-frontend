@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Save, X, QrCode, Loader2, Image as ImageIcon, Camera, StopCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Save, X, QrCode, Loader2, Image as ImageIcon, Camera, StopCircle, ZoomIn } from 'lucide-react';
 import { cn } from './lib/utils';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import type { IDetectedBarcode } from '@yudiel/react-qr-scanner';
@@ -58,6 +58,11 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     if (formData.image && !imagePreview) {
@@ -129,6 +134,48 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
     if (file) handleImageFile(file);
   };
 
+  const openCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      streamRef.current = stream;
+      setIsCameraOpen(true);
+      // Assign stream after state update renders the video element
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+      }, 50);
+    } catch (err) {
+      console.error('[AddPartForm] Camera access failed:', err);
+      setErrors(prev => ({ ...prev, image: 'CAMERA ACCESS DENIED — USE UPLOAD INSTEAD' }));
+    }
+  }, []);
+
+  const closeCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  }, []);
+
+  const capturePhoto = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d')?.drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+      handleImageFile(file);
+      closeCamera();
+    }, 'image/jpeg', 0.92);
+  }, [handleImageFile, closeCamera]);
+
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(true);
@@ -190,6 +237,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
   };
 
   return (
+    <>
     <div className="w-full flex justify-center pb-8">
       <div className="w-full max-w-4xl bg-white border-2 border-brand-black shadow-[4px_4px_0px_0px_rgba(30,27,24,1)]">
         
@@ -403,10 +451,9 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                             UPLOAD
                             <input type="file" hidden accept="image/*" onChange={handleImageChange} />
                           </label>
-                          <label className="brutalist-button py-2 px-4 text-xs cursor-pointer flex items-center gap-1">
+                          <button type="button" onClick={openCamera} className="brutalist-button py-2 px-4 text-xs cursor-pointer flex items-center gap-1">
                             <Camera size={14} /> TAKE PHOTO
-                            <input type="file" hidden accept="image/*" capture="environment" onChange={handleImageChange} />
-                          </label>
+                          </button>
                         </div>
                       </div>
                     )}
@@ -505,6 +552,39 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
         </div>
       </div>
     </div>
+
+    {/* Camera modal */}
+    {isCameraOpen && (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full max-w-lg max-h-[70vh] object-contain"
+        />
+        <div className="flex gap-4 mt-4">
+          <button
+            type="button"
+            onClick={capturePhoto}
+            className="brutalist-button py-3 px-8 text-sm bg-brand-accent text-brand-black flex items-center gap-2"
+          >
+            <ZoomIn size={18} /> CAPTURE
+          </button>
+          <button
+            type="button"
+            onClick={closeCamera}
+            className="brutalist-button py-3 px-6 text-sm bg-white"
+          >
+            CANCEL
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* Hidden canvas for photo capture */}
+    <canvas ref={canvasRef} className="hidden" />
+    </>
   );
 };
 
