@@ -44,8 +44,9 @@ server {
         proxy_ssl_verify off;
     }
 
-    # Proxy Media requests
-    location /media/ {
+    # Proxy Media requests — ^~ beats regex so the static-asset rule below
+    # doesn't intercept .png/.jpg files under /media/
+    location ^~ /media/ {
         proxy_pass ${INVENTREE_BACKEND_URL}/media/;
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Real-IP $remote_addr;
