@@ -154,12 +154,16 @@ function AppContent() {
       }
 
       if (formData.initialQuantity && numericFields.locationId) {
-        await inventreeClient.createStockItem({
+        const stockItem = await inventreeClient.createStockItem({
           part: part.pk,
           quantity: numericFields.initialQuantity,
           location: numericFields.locationId,
           notes: 'Initial stock from part creation'
         });
+
+        if (formData.barcode) {
+          await inventreeClient.assignBarcode(formData.barcode, stockItem.pk);
+        }
       }
 
       addToast('Part created successfully!', 'success');

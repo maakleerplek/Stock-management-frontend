@@ -463,6 +463,19 @@ class InvenTreeClient {
         return result;
     }
 
+    /**
+     * Assign a barcode to a stock item in InvenTree's barcode registry
+     */
+    async assignBarcode(barcode: string, stockItemPk: number): Promise<void> {
+        await this.request(
+            '/barcode/assign/',
+            'POST',
+            { barcode, stockitem: stockItemPk },
+            false,
+            false
+        );
+    }
+
     // ==================== Categories ====================
 
     /**
