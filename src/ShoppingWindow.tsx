@@ -5,6 +5,7 @@ import { type ItemData, type ScanEvent, handleTakeItem, handleAddItem, handleSet
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import { AlertCircle, Check, X, Settings } from 'lucide-react';
+import { cn } from './lib/utils';
 
 interface ShoppingWindowProps {
     scanEvent: ScanEvent | null;
@@ -30,6 +31,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
     const [isSetMode, setIsSetMode] = useState<boolean>(false);
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'cart' | 'extras'>('cart');
     const { addToast } = useToast();
     const { isVolunteerMode } = useVolunteer();
 
@@ -148,34 +150,51 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
 
     return (
         <div className="flex flex-col h-full bg-white">
-            <div className="flex-1 overflow-auto">
-                <ShoppingCart
-                    cartItems={cartItems}
-                    onUpdateQuantity={handleUpdateQuantity}
-                    onRemoveItem={handleRemoveItem}
-                    onCheckout={handleCheckout}
-                    checkedOutTotal={checkedOutResult?.total ?? null}
-                    checkedOutDescription={checkedOutResult?.description ?? undefined}
-                    onClearCheckout={() => setCheckedOut(null)}
-                    extraCosts={extraCosts}
-                    isVolunteerMode={isVolunteerMode}
-                    isSetMode={isSetMode}
-                    onSetModeChange={handleSetModeChange}
-                    isCheckingOut={isCheckingOut}
-                />
+            {/* Tab bar — only shown when extras are available */}
+            {!isVolunteerMode && checkedOutResult === null && (
+                <div className="flex border-b-2 border-brand-black shrink-0">
+                    <button
+                        onClick={() => setActiveTab('cart')}
+                        className={cn(
+                            "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors",
+                            activeTab === 'cart' ? "bg-brand-black text-white" : "bg-white text-brand-black"
+                        )}
+                    >
+                        CART {cartItems.length > 0 && `(${cartItems.length})`}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('extras')}
+                        className={cn(
+                            "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors border-l-2 border-brand-black flex items-center justify-center gap-1",
+                            activeTab === 'extras' ? "bg-brand-black text-white" : "bg-white text-brand-black"
+                        )}
+                    >
+                        <Settings size={12} /> EXTRAS {extraCosts > 0 && `(€${extraCosts.toFixed(2)})`}
+                    </button>
+                </div>
+            )}
 
-                {/* Extra Services appended directly below Shopping Cart */}
-                {!isVolunteerMode && checkedOutResult === null && (
-                    <div className="border-t-2 border-brand-black bg-slate-50/50">
-                        <div className="flex items-center gap-2 p-3 bg-sky-600 border-b-2 border-brand-black text-white">
-                            <Settings size={18} className="text-white" />
-                            <h3 className="text-sm font-black uppercase tracking-widest">
-                                Extra Services
-                            </h3>
-                        </div>
-                        <div className="p-4 sm:p-6">
-                            <Extras onExtraCostChange={setExtraCosts} />
-                        </div>
+            <div className="flex-1 overflow-auto">
+                <div className={cn((!isVolunteerMode && checkedOutResult === null && activeTab !== 'cart') && "hidden")}>
+                    <ShoppingCart
+                        cartItems={cartItems}
+                        onUpdateQuantity={handleUpdateQuantity}
+                        onRemoveItem={handleRemoveItem}
+                        onCheckout={handleCheckout}
+                        checkedOutTotal={checkedOutResult?.total ?? null}
+                        checkedOutDescription={checkedOutResult?.description ?? undefined}
+                        onClearCheckout={() => setCheckedOut(null)}
+                        extraCosts={extraCosts}
+                        isVolunteerMode={isVolunteerMode}
+                        isSetMode={isSetMode}
+                        onSetModeChange={handleSetModeChange}
+                        isCheckingOut={isCheckingOut}
+                    />
+                </div>
+
+                {!isVolunteerMode && checkedOutResult === null && activeTab === 'extras' && (
+                    <div className="p-4 sm:p-6">
+                        <Extras onExtraCostChange={setExtraCosts} />
                     </div>
                 )}
             </div>

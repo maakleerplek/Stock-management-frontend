@@ -43,6 +43,7 @@ function AppContent() {
   const [lowStockItems, setLowStockItems] = useState<InvenTreePartListResponse['results']>([]);
   const [recentMovements, setRecentMovements] = useState<InvenTreeTrackingEntry[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
+  const [mobileCheckoutTab, setMobileCheckoutTab] = useState<'scan' | 'cart'>('scan');
   const { addToast } = useToast();
   const { isVolunteerMode } = useVolunteer();
 
@@ -177,6 +178,7 @@ function AppContent() {
       const newEvent: ScanEvent = { item, id: scanCounterRef.current };
       console.log(`[App] Scan event #${newEvent.id}: ${item.name}`);
       setScanEvent(newEvent);
+      setMobileCheckoutTab('cart');
     },
     []
   );
@@ -235,21 +237,66 @@ function AppContent() {
         onVolunteerClick={handleVolunteerClick}
       />
 
-      <main className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-auto">
+      <main className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
         {currentPage === 'checkout' && (
           <>
-            {/* Main Content Area (Scanner) */}
-            <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white min-h-[50vh] lg:min-h-0">
+            {/* ── Mobile: tab bar ── */}
+            <div className="lg:hidden flex border-b-2 border-brand-black bg-white shrink-0">
+              <button
+                onClick={() => setMobileCheckoutTab('scan')}
+                className={cn(
+                  "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors",
+                  mobileCheckoutTab === 'scan'
+                    ? "bg-brand-black text-white"
+                    : "bg-white text-brand-black"
+                )}
+              >
+                SCAN
+              </button>
+              <button
+                onClick={() => setMobileCheckoutTab('cart')}
+                className={cn(
+                  "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors border-l-2 border-brand-black",
+                  mobileCheckoutTab === 'cart'
+                    ? "bg-brand-black text-white"
+                    : "bg-white text-brand-black"
+                )}
+              >
+                CART
+              </button>
+            </div>
+
+            {/* ── Mobile: scanner tab ── */}
+            <div className={cn(
+              "lg:hidden flex-1 flex flex-col items-center justify-center p-4 bg-white overflow-hidden",
+              mobileCheckoutTab !== 'scan' && "hidden"
+            )}>
               <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={checkoutResult} />
             </div>
 
-            {/* Right Sidebar: Shopping Cart */}
-            <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col min-h-[50vh] lg:min-h-0">
+            {/* ── Mobile: cart tab ── */}
+            <div className={cn(
+              "lg:hidden flex-1 flex flex-col bg-white overflow-hidden",
+              mobileCheckoutTab !== 'cart' && "hidden"
+            )}>
               <ShoppingWindow
                 scanEvent={scanEvent}
                 onCheckoutResultChange={(result) => setCheckoutResult(result)}
               />
-            </aside>
+            </div>
+
+            {/* ── Desktop: side-by-side ── */}
+            <div className="hidden lg:flex flex-1 min-h-0">
+              <div className="flex-1 p-6 flex flex-col items-center justify-center bg-white">
+                <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={checkoutResult} />
+              </div>
+              <aside className="w-[40%] border-l-2 border-brand-black bg-white flex flex-col">
+                <ShoppingWindow
+                  scanEvent={scanEvent}
+                  onCheckoutResultChange={(result) => setCheckoutResult(result)}
+                />
+              </aside>
+            </div>
           </>
         )}
 
