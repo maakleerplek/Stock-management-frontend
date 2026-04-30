@@ -18,7 +18,17 @@ export const createApiUrl = (endpoint: string, baseUrl?: string): string => {
 // Error handling utilities
 export const getErrorMessage = (error: unknown, context?: string): string => {
   if (error instanceof Error) {
-    return error.message;
+    const msg = error.message;
+    if (
+      error instanceof TypeError &&
+      (msg.includes('fetch') || msg.includes('NetworkError') || msg.includes('Failed to fetch') || msg.includes('network'))
+    ) {
+      return 'Cannot reach InvenTree — check that the server is online and the API token is correct.';
+    }
+    if (msg.includes('401') || msg.includes('403') || msg.includes('Invalid token')) {
+      return 'InvenTree authentication failed — API token may be expired.';
+    }
+    return msg;
   }
   if (typeof error === 'string') {
     return error;
