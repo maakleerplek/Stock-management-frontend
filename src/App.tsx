@@ -90,6 +90,7 @@ function AppContent() {
       }
 
     } catch (error) {
+      console.error('[App] fetchCategoriesAndLocations failed:', error);
       setCategories([]);
       setLocations([]);
       handleApiError(error, 'fetching initial data');
@@ -117,6 +118,7 @@ function AppContent() {
   };
 
   const handleAddLocationSubmit = async (formData: LocationFormData): Promise<void> => {
+    console.log('[App] handleAddLocationSubmit called with:', formData);
     try {
       await inventreeClient.createLocation({
         name: formData.name,

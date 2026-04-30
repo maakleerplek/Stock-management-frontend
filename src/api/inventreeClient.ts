@@ -60,7 +60,8 @@ class InvenTreeClient {
         cacheTTL: number = CACHE_TTL.MEDIUM
     ): Promise<T> {
         const url = `${this.config.baseUrl}/api/${endpoint.replace(/^\//, '')}`;
-        
+        console.log(`[InvenTree] ${method} ${url}`, body !== undefined ? body : '');
+
         // Generate cache key for GET requests
         const cacheKey = `${method}_${endpoint}`;
         
@@ -514,6 +515,7 @@ class InvenTreeClient {
      * Create a new location
      */
     async createLocation(payload: CreateLocationPayload): Promise<{ pk: number }> {
+        console.log('[InvenTree] createLocation called with payload:', payload);
         const result = await this.request<{ pk: number }>(
             '/stock/location/',
             'POST',
@@ -553,8 +555,9 @@ const envUrl = import.meta.env.VITE_INVENTREE_URL;
 const INVENTREE_URL = (envUrl !== undefined && envUrl !== null) ? envUrl : '';
 const INVENTREE_TOKEN = import.meta.env.VITE_INVENTREE_TOKEN || '';
 
+console.log('[InvenTree] Client init — baseUrl:', JSON.stringify(INVENTREE_URL), '| token present:', !!INVENTREE_TOKEN, '| token prefix:', INVENTREE_TOKEN.slice(0, 12) || '(none)');
 if (!INVENTREE_TOKEN) {
-    console.error('VITE_INVENTREE_TOKEN is not set! Please configure your .env file.');
+    console.error('[InvenTree] VITE_INVENTREE_TOKEN is not set! Please configure your .env file.');
 }
 
 export const inventreeClient = new InvenTreeClient({
