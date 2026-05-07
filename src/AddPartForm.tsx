@@ -16,7 +16,7 @@ export interface PartFormData {
   initialQuantity: string;
   storageLocation: string;
   minimumStock: string;
-  barcode?: string;
+  barcode: string;
   purchasePrice: string;
   purchasePriceCurrency: string;
   image?: File;
@@ -76,7 +76,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
 
   const validateForm = () => {
     const newErrors: PartFormErrors = {};
-    const requiredFields: Array<keyof PartFormData> = ['partName', 'initialQuantity', 'minimumStock', 'purchasePrice', 'category', 'storageLocation'];
+    const requiredFields: Array<keyof PartFormData> = ['partName', 'initialQuantity', 'minimumStock', 'purchasePrice', 'category', 'storageLocation', 'barcode'];
     
     requiredFields.forEach((field) => {
       if (!formData[field]?.toString().trim()) {
@@ -462,7 +462,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
 
                 <div className="border-2 border-brand-black bg-white p-4 space-y-3">
                   <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-brand-black/20">
-                    <QrCode size={16} /> BARCODE <span className="text-brand-black/40">(OPTIONAL)</span>
+                    <QrCode size={16} /> BARCODE
                   </h3>
                   <div className="flex gap-2">
                     <input
