@@ -100,7 +100,16 @@ export function StockProvider({ children }: { children: ReactNode }) {
       console.debug('[StockContext] Inventory successfully synchronized.');
     } catch (err) {
       console.error('[StockContext] Failed to fetch inventory:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch inventory data.');
+      let errorMsg = err instanceof Error ? err.message : 'Failed to fetch inventory data.';
+      // Strip any HTML from error messages (e.g. nginx 502 pages)
+      if (errorMsg.includes('<') && errorMsg.includes('>')) {
+        errorMsg = errorMsg.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+        // If stripping HTML left a mostly empty string, use a friendly fallback
+        if (errorMsg.length < 20 || errorMsg.includes('Bad Gateway')) {
+          errorMsg = 'Cannot connect to InvenTree — server is unreachable.';
+        }
+      }
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

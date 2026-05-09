@@ -87,11 +87,11 @@ function ShoppingCart({
                             className={cn(
                                 "py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer border-2 border-brand-black flex items-center justify-center gap-1.5 transition-colors",
                                 !isSetMode
-                                    ? "bg-brand-black text-white"
-                                    : "bg-brand-beige text-brand-black hover:bg-brand-beige-dark"
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-brand-beige text-brand-black hover:bg-blue-100"
                             )}
                         >
-                            <Plus size={12} /><span className="text-brand-black/30">/</span><Minus size={12} /> ADJUST
+                            ADD / REMOVE
                         </button>
                         <button
                             onClick={() => {
@@ -101,8 +101,8 @@ function ShoppingCart({
                             className={cn(
                                 "py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer border-2 border-l-0 border-brand-black flex items-center justify-center gap-1.5 transition-colors",
                                 isSetMode
-                                    ? "bg-brand-black text-white"
-                                    : "bg-brand-beige text-brand-black hover:bg-brand-beige-dark"
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-brand-beige text-brand-black hover:bg-blue-100"
                             )}
                         >
                             SET ABSOLUTE
