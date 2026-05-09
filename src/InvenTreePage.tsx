@@ -45,12 +45,12 @@ function InvenTreePage({ onBack }: InvenTreePageProps) {
   });
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col h-full bg-white overflow-hidden">
-      <div className="flex items-center justify-between p-4 border-b-2 border-brand-black bg-white">
+    <div ref={containerRef} className="flex-1 flex flex-col h-full bg-brand-beige overflow-hidden">
+      <div className="flex items-center justify-between p-4 border-b-2 border-brand-black bg-brand-beige">
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-2 border-2 border-brand-black bg-gray-100 hover:bg-gray-200 transition-colors"
+            className="p-2 border-2 border-brand-black bg-brand-beige-dark hover:brightness-95 transition-colors"
             title="Back to Overview"
           >
             <ArrowLeft size={20} className="text-brand-black" />
