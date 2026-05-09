@@ -47,11 +47,10 @@ function AppContent() {
   const { addToast } = useToast();
   const { isVolunteerMode } = useVolunteer();
 
-  // Warn before refresh if a checkout result is active
+  // Warn before refresh if checkout result or any create modal is active
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (checkoutResult !== null) {
-        console.log('[App] Preventing accidental refresh during active payment display');
+      if (checkoutResult !== null || addPartFormModalOpen || addCategoryModalOpen || addLocationModalOpen) {
         e.preventDefault();
         e.returnValue = '';
       }
@@ -59,7 +58,7 @@ function AppContent() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [checkoutResult]);
+  }, [checkoutResult, addPartFormModalOpen, addCategoryModalOpen, addLocationModalOpen]);
 
   const handleApiError = useCallback(
     (error: unknown, context: string, showWarning = false) => {
