@@ -163,7 +163,7 @@ export default function VolunteerScanView() {
               onClick={() => setMode('add')}
               className={cn(
                 "brutalist-button py-3 text-xs sm:text-sm font-black uppercase transition-colors tracking-widest",
-                mode === 'add' ? "bg-[linear-gradient(110deg,#e11d48_calc(50%-1.5px),#2c1e16_calc(50%-1.5px),#2c1e16_calc(50%+1.5px),#059669_calc(50%+1.5px))] text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
+                mode === 'add' ? "bg-brand-black text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
               )}
             >
               ADD / REMOVE

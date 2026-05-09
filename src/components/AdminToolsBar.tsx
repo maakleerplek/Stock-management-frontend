@@ -8,7 +8,7 @@ interface AdminToolsBarProps {
 
 export default function AdminToolsBar({ onNewItem, onAddCategory, onAddLocation }: AdminToolsBarProps) {
   return (
-    <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 border-b-2 border-brand-black">
+    <div className="flex items-center gap-2 px-4 py-2 bg-brand-beige-dark border-b-2 border-brand-black">
       <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mr-2">
         ADMIN:
       </span>

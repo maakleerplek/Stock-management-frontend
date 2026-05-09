@@ -34,6 +34,7 @@ export interface InvenTreeStockItem {
         pricing_min?: number;
         pricing_max?: number;
         image?: string;
+        thumbnail?: string;
         IPN?: string;
         category_name?: string;
         category?: number;

@@ -364,20 +364,34 @@ class InvenTreeClient {
      * bypass the proxy and fail due to mixed-content or unreachable port.
      * We always use just the pathname so /media/ is handled by nginx.
      */
-    private getFullImageUrl(imageUrl: string | null | undefined): string | null {
+    getFullImageUrl(imageUrl: string | null | undefined): string | null {
         if (!imageUrl) return null;
         try {
-            // Absolute URL — extract pathname only so it goes via the proxy
             if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
                 return new URL(imageUrl).pathname;
             }
         } catch {
             // fall through to relative handling
         }
-        return `${this.config.baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+        // Bare relative path (e.g. "part_images/foo.png") — InvenTree serves these under /media/
+        if (!imageUrl.startsWith('/')) {
+            return `/media/${imageUrl}`;
+        }
+        return imageUrl;
     }
 
     // ==================== Part Management ====================
+
+    async getAllParts(): Promise<{ count: number; results: any[] }> {
+        return this.request(
+            '/part/?active=true&limit=500',
+            'GET',
+            undefined,
+            false,
+            true,
+            CACHE_TTL.MEDIUM
+        );
+    }
 
     /**
      * Create a new part

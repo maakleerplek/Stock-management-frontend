@@ -2,16 +2,13 @@
  * @file ImageDisplay.tsx
  * 
  * Reusable component for displaying images with loading states, error handling,
- * and automatic retry logic.
+ * and automatic retry logic. Pure Tailwind — no MUI dependencies.
  */
 
 import { useEffect, useState } from 'react';
-import { Box, Skeleton, Typography } from '@mui/material';
-import type { SxProps, Theme } from '@mui/material/styles';
-import ImageNotSupportedIcon from '@mui/icons-material/ImageNotSupported';
+import { ImageOff } from 'lucide-react';
 import { loadImage } from './imageHandler';
-
-
+import { cn } from './lib/utils';
 
 interface ImageDisplayProps {
     /** Relative path to the image (e.g., "media/part_images/abc.png") */
@@ -22,17 +19,17 @@ interface ImageDisplayProps {
     width?: number | string;
     /** Height of the image container */
     height?: number | string;
-    /** CSS styles for the container */
-    sx?: SxProps<Theme>;
+    /** Additional CSS classes for the container */
+    className?: string;
     /** Callback when image loads successfully */
     onLoad?: () => void;
     /** Callback when image fails to load */
     onError?: (error: string) => void;
     /** Show placeholder while loading */
     showPlaceholder?: boolean;
+    /** @deprecated Use className instead — kept for migration compatibility */
+    sx?: Record<string, unknown>;
 }
-
-
 
 /**
  * ImageDisplay Component
@@ -55,7 +52,7 @@ export default function ImageDisplay({
     alt = 'Item image',
     width = 200,
     height = 200,
-    sx = {},
+    className,
     onLoad,
     onError,
     showPlaceholder = true,
@@ -64,6 +61,11 @@ export default function ImageDisplay({
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [renderFailed, setRenderFailed] = useState(false);
+
+    const sizeStyle = {
+        width: typeof width === 'number' ? `${width}px` : width,
+        height: typeof height === 'number' ? `${height}px` : height,
+    };
 
     useEffect(() => {
         // Track if component is still mounted
@@ -129,19 +131,12 @@ export default function ImageDisplay({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [imagePath]); // Only re-run when imagePath changes
 
-    // Render states
-
     // Loading state
     if (isLoading && showPlaceholder) {
         return (
-            <Skeleton
-                variant="rectangular"
-                width={width}
-                height={height}
-                sx={{
-                    borderRadius: 1.5,
-                    ...sx,
-                }}
+            <div
+                className={cn("bg-brand-beige-dark animate-pulse", className)}
+                style={sizeStyle}
             />
         );
     }
@@ -149,36 +144,22 @@ export default function ImageDisplay({
     // Error state (from loading or rendering)
     if (error || renderFailed) {
         return (
-            <Box
-                sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width,
-                    height,
-                    gap: 1,
-                    ...sx,
-                }}
+            <div
+                className={cn(
+                    "flex flex-col items-center justify-center bg-brand-beige-dark",
+                    className
+                )}
+                style={sizeStyle}
             >
-                <ImageNotSupportedIcon
-                    sx={{
-                        fontSize: 40,
-                        color: 'text.disabled',
-                    }}
-                />
-                <Typography variant="caption" color="text.disabled" align="center" sx={{ px: 1 }}>
-                    {error || 'Image failed to render'}
-                </Typography>
-            </Box>
+                <ImageOff className="w-5 h-5 text-brand-black/30" />
+            </div>
         );
     }
 
     // Success state
     if (imageUrl) {
         return (
-            <Box
-                component="img"
+            <img
                 src={imageUrl}
                 alt={alt}
                 onError={() => {
@@ -188,13 +169,8 @@ export default function ImageDisplay({
                         setRenderFailed(true);
                     }
                 }}
-                sx={{
-                    width,
-                    height,
-                    objectFit: 'contain',
-                    borderRadius: 1.5,
-                    ...sx,
-                }}
+                className={cn("object-contain", className)}
+                style={sizeStyle}
             />
         );
     }

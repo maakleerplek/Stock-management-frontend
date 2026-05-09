@@ -62,22 +62,22 @@ function ShoppingCart({
     };
 
     return (
-        <div className="w-full flex flex-col bg-white border-l-0">
+        <div className="w-full flex flex-col bg-brand-beige border-l-0">
             {/* Header */}
-            <div className="flex items-center justify-center gap-3 px-4 py-3 bg-gray-100 border-b-3 border-brand-black text-brand-black">
-                {isVolunteerMode ? (
-                    <Heart className="w-5 h-5 text-brand-black" />
-                ) : (
-                    <ShoppingCartIcon className="w-5 h-5 text-brand-black" />
-                )}
-                <h2 className="text-sm font-black uppercase tracking-widest text-brand-black">
+            <div className="p-2 border-b-2 border-brand-black bg-brand-accent shrink-0">
+                <h2 className="text-brand-black uppercase tracking-widest text-xs font-black flex items-center justify-center gap-2">
+                    {isVolunteerMode ? (
+                        <Heart className="w-4 h-4" />
+                    ) : (
+                        <ShoppingCartIcon className="w-4 h-4" />
+                    )}
                     {isVolunteerMode ? (isSetMode ? "SET STOCK" : "ADD TO STOCK") : "SHOPPING CART"}
                 </h2>
             </div>
 
             {/* Volunteer Mode Toggle */}
             {isVolunteerMode && onSetModeChange && (
-                <div className="px-4 py-3 border-b-3 border-brand-black bg-gray-50">
+                <div className="px-4 py-3 border-b-2 border-brand-black bg-brand-beige">
                     <div className="grid grid-cols-2 gap-2">
                         <button
                             onClick={() => {
@@ -85,8 +85,8 @@ function ShoppingCart({
                                 onSetModeChange(false);
                             }}
                             className={cn(
-                                "py-2 text-[10px] font-black transition-colors uppercase cursor-pointer border-3 border-brand-black",
-                                !isSetMode ? "bg-[linear-gradient(110deg,#e11d48_calc(50%-1.5px),#2c1e16_calc(50%-1.5px),#2c1e16_calc(50%+1.5px),#059669_calc(50%+1.5px))] text-white" : "bg-white text-brand-black hover:bg-gray-100"
+                                "py-2 text-[10px] font-black transition-colors uppercase cursor-pointer border-2 border-brand-black",
+                                !isSetMode ? "bg-[linear-gradient(110deg,#e11d48_calc(50%-1.5px),#2c1e16_calc(50%-1.5px),#2c1e16_calc(50%+1.5px),#059669_calc(50%+1.5px))] text-white" : "bg-brand-beige text-brand-black hover:bg-brand-beige-dark"
                             )}
                         >
                             Add / Remove
@@ -97,8 +97,8 @@ function ShoppingCart({
                                 onSetModeChange(true);
                             }}
                             className={cn(
-                                "py-2 text-[10px] font-black transition-colors uppercase cursor-pointer border-3 border-brand-black",
-                                isSetMode ? "bg-blue-600 text-white" : "bg-white text-brand-black hover:bg-gray-100"
+                                "py-2 text-[10px] font-black transition-colors uppercase cursor-pointer border-2 border-brand-black",
+                                isSetMode ? "bg-blue-600 text-white" : "bg-brand-beige text-brand-black hover:bg-brand-beige-dark"
                             )}
                         >
                             Set Absolute
@@ -108,9 +108,9 @@ function ShoppingCart({
             )}
 
             {/* Content */}
-            <div className="flex-1 flex flex-col bg-white overflow-y-auto">
+            <div className="flex-1 flex flex-col bg-brand-beige overflow-y-auto">
                 {checkedOutTotal !== null ? (
-                    <div className="text-center py-8 px-4 flex flex-col items-center gap-4 animate-in fade-in duration-500 bg-white">
+                    <div className="text-center py-8 px-4 flex flex-col items-center gap-4 animate-in fade-in duration-500 bg-brand-beige">
                         <div className="text-emerald-500">
                             <CheckCircle className="w-12 h-12" />
                         </div>
@@ -187,7 +187,7 @@ function ShoppingCart({
                                                 }}
                                                 exit={{ opacity: 0, x: -20, transition: { duration: 0.15 } }}
                                                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                                                className="px-3 py-3 border-b-3 border-brand-black/10 hover:bg-gray-50"
+                                                className="px-3 py-3 border-b border-brand-black/20 hover:bg-brand-beige-dark/30"
                                             >
                                                 {/* Top row: Image, Name, Remove */}
                                                 <div className="flex items-start gap-3">
@@ -198,7 +198,6 @@ function ShoppingCart({
                                                             alt={item.name}
                                                             width={56}
                                                             height={56}
-                                                            sx={{ border: 'none', bgcolor: 'transparent', borderRadius: 0 }}
                                                         />
                                                     </div>
                                                     
@@ -251,7 +250,7 @@ function ShoppingCart({
                                                 </div>
 
                                                 {/* Bottom row: Quantity controls & Price */}
-                                                <div className="flex items-center justify-between mt-3 pt-2 border-t border-brand-black/10">
+                                                <div className="flex items-center justify-between mt-3 pt-2 border-t border-brand-black/20">
                                                 {/* Quantity Controls */}
                                                     <div className="flex items-center gap-1">
                                                         <button
@@ -289,7 +288,7 @@ function ShoppingCart({
                                 </div>
                             </>
                         ) : (
-                            <div className="py-12 flex flex-col items-center justify-center bg-white text-brand-black/40">
+                            <div className="py-12 flex flex-col items-center justify-center bg-brand-beige text-brand-black/40">
                                 <ShoppingCartIcon size={36} className="mb-3 opacity-30" />
                                 <p className="font-black text-xs uppercase tracking-widest">CART IS EMPTY</p>
                                 <p className="text-[10px] mt-1 opacity-60">SCAN ITEMS TO ADD</p>
@@ -298,7 +297,7 @@ function ShoppingCart({
 
                         {/* Footer: Total & Checkout */}
                         {(cartItems.length > 0 || extraCosts > 0) && (
-                            <div className="mt-auto border-t-3 border-brand-black bg-white p-4">
+                            <div className="mt-auto border-t-2 border-brand-black bg-brand-beige p-4">
                                 {!isVolunteerMode && (
                                     <div className="flex justify-between items-center mb-3">
                                         <span className="text-sm font-black uppercase text-brand-black/60">TOTAL</span>
@@ -312,7 +311,7 @@ function ShoppingCart({
                                     }}
                                     disabled={isCheckingOut}
                                     className={cn(
-                                        "w-full py-3 text-sm font-black flex items-center justify-center gap-2 tracking-widest border-3 border-brand-black transition-all",
+                                        "w-full py-3 text-sm font-black flex items-center justify-center gap-2 tracking-widest border-2 border-brand-black transition-all",
                                         isVolunteerMode 
                                             ? "bg-brand-accent text-brand-black" 
                                             : "bg-emerald-400 text-brand-black hover:brightness-95",

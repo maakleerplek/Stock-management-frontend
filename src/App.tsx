@@ -158,7 +158,11 @@ function AppContent() {
           part: part.pk,
           quantity: numericFields.initialQuantity,
           location: numericFields.locationId,
-          notes: 'Initial stock from part creation'
+          notes: 'Initial stock from part creation',
+          ...(numericFields.purchasePrice > 0 ? {
+            purchase_price: numericFields.purchasePrice,
+            purchase_price_currency: formData.purchasePriceCurrency,
+          } : {}),
         });
 
         if (formData.barcode) {
@@ -208,7 +212,7 @@ function AppContent() {
   }, [isVolunteerMode, currentPage]);
 
   const VolunteerNavigation = () => (
-    <div className="border-b-2 border-brand-black bg-white px-2 sm:px-6 py-0 flex gap-1 sm:gap-4 overflow-x-auto">
+    <div className="border-b-2 border-brand-black bg-brand-beige px-2 sm:px-6 py-0 flex gap-1 sm:gap-4 overflow-x-auto">
       {[
         { id: 'volunteer', label: 'OVERVIEW', icon: LayoutDashboard },
         { id: 'scan', label: 'VOLUNTEER SCAN', icon: ScanBarcode },
@@ -234,7 +238,7 @@ function AppContent() {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-brand-beige">
       <Header
         currentView={currentPage === 'checkout' ? 'checkout' : (currentPage === 'volunteer' ? 'volunteer' : 'inventory')}
         onViewChange={(v) => handleViewChange(v as AppView)}
@@ -245,14 +249,14 @@ function AppContent() {
         {currentPage === 'checkout' && (
           <>
             {/* ── Mobile: tab bar ── */}
-            <div className="lg:hidden flex border-b-2 border-brand-black bg-white shrink-0">
+            <div className="lg:hidden flex border-b-2 border-brand-black bg-brand-beige shrink-0">
               <button
                 onClick={() => setMobileCheckoutTab('scan')}
                 className={cn(
                   "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors",
                   mobileCheckoutTab === 'scan'
                     ? "bg-brand-black text-white"
-                    : "bg-white text-brand-black"
+                    : "bg-brand-beige text-brand-black"
                 )}
               >
                 SCAN
@@ -263,7 +267,7 @@ function AppContent() {
                   "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors border-l-2 border-brand-black",
                   mobileCheckoutTab === 'cart'
                     ? "bg-brand-black text-white"
-                    : "bg-white text-brand-black"
+                    : "bg-brand-beige text-brand-black"
                 )}
               >
                 CART
@@ -272,7 +276,7 @@ function AppContent() {
 
             {/* ── Mobile: scanner tab ── */}
             <div className={cn(
-              "lg:hidden flex-1 flex flex-col items-center justify-center p-4 bg-white overflow-hidden",
+              "lg:hidden flex-1 flex flex-col items-center justify-center p-4 bg-brand-beige overflow-hidden",
               mobileCheckoutTab !== 'scan' && "hidden"
             )}>
               <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={checkoutResult} />
@@ -280,7 +284,7 @@ function AppContent() {
 
             {/* ── Mobile: cart tab ── */}
             <div className={cn(
-              "lg:hidden flex-1 flex flex-col bg-white overflow-hidden",
+              "lg:hidden flex-1 flex flex-col bg-brand-beige overflow-hidden",
               mobileCheckoutTab !== 'cart' && "hidden"
             )}>
               <ShoppingWindow
@@ -291,10 +295,10 @@ function AppContent() {
 
             {/* ── Desktop: side-by-side ── */}
             <div className="hidden lg:flex flex-1 min-h-0">
-              <div className="flex-1 p-6 flex flex-col items-center justify-center bg-white">
+              <div className="flex-1 p-6 flex flex-col items-center justify-center bg-brand-beige">
                 <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={checkoutResult} />
               </div>
-              <aside className="w-[40%] border-l-2 border-brand-black bg-white flex flex-col">
+              <aside className="w-[40%] border-l-2 border-brand-black bg-brand-beige flex flex-col">
                 <ShoppingWindow
                   scanEvent={scanEvent}
                   onCheckoutResultChange={(result) => setCheckoutResult(result)}
@@ -325,7 +329,7 @@ function AppContent() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
                   transition={{ duration: 0.15 }}
-                  className="flex-1 overflow-auto bg-white"
+                  className="flex-1 overflow-auto bg-brand-beige"
                 >
                   {/* Dashboard Content */}
                   <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
@@ -336,11 +340,11 @@ function AppContent() {
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="border-2 border-brand-black p-3 bg-white">
+                      <div className="border-2 border-brand-black p-3 bg-brand-beige">
                         <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">CATEGORIES</div>
                         <div className="text-2xl font-black">{categories.length}</div>
                       </div>
-                      <div className="border-2 border-brand-black p-3 bg-white">
+                      <div className="border-2 border-brand-black p-3 bg-brand-beige">
                         <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">LOCATIONS</div>
                         <div className="text-2xl font-black">{locations.length}</div>
                       </div>
@@ -376,7 +380,7 @@ function AppContent() {
                         <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
                           <Info size={16} /> QUICK ACTIONS
                         </h3>
-                        <div className="border-2 border-brand-black bg-white p-4">
+                        <div className="border-2 border-brand-black bg-brand-beige p-4">
                           <p className="font-bold text-xs leading-relaxed text-brand-black/70 mb-4">
                             USE THE TABS ABOVE TO MANAGE STOCK OR SCAN ITEMS.
                           </p>
@@ -402,7 +406,7 @@ function AppContent() {
                         <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
                           <Loader2 size={16} /> RECENT ACTIVITY
                         </h3>
-                        <div className="border-2 border-brand-black bg-white overflow-hidden">
+                        <div className="border-2 border-brand-black bg-brand-beige overflow-hidden">
                           {recentMovements.length > 0 ? (
                             <div className="divide-y divide-brand-black/10">
                               {recentMovements.map((move) => (
@@ -445,12 +449,12 @@ function AppContent() {
                   className="flex-1 flex flex-col lg:flex-row overflow-auto"
                 >
                   {/* Main Content Area (Scanner) - same as checkout */}
-                  <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-white min-h-[50vh] lg:min-h-0">
+                  <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-brand-beige min-h-[50vh] lg:min-h-0">
                     <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={null} />
                   </div>
 
                   {/* Right Sidebar: Shopping Cart in volunteer mode */}
-                  <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-3 border-t-3 lg:border-t-0 border-brand-black bg-white flex flex-col min-h-[50vh] lg:min-h-0">
+                  <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-2 border-t-2 lg:border-t-0 border-brand-black bg-brand-beige flex flex-col min-h-[50vh] lg:min-h-0">
                     <ShoppingWindow
                       scanEvent={scanEvent}
                       onCheckoutResultChange={() => { }}
