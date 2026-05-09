@@ -77,19 +77,21 @@ function ShoppingCart({
 
             {/* Volunteer Mode Toggle */}
             {isVolunteerMode && onSetModeChange && (
-                <div className="px-4 py-3 border-b-2 border-brand-black bg-brand-beige">
-                    <div className="grid grid-cols-2 gap-2">
+                <div className="px-4 py-3 border-b-2 border-brand-black bg-brand-beige-dark">
+                    <div className="grid grid-cols-2 gap-0">
                         <button
                             onClick={() => {
                                 if ('vibrate' in navigator) navigator.vibrate(20);
                                 onSetModeChange(false);
                             }}
                             className={cn(
-                                "py-2 text-[10px] font-black transition-colors uppercase cursor-pointer border-2 border-brand-black",
-                                !isSetMode ? "bg-[linear-gradient(110deg,#e11d48_calc(50%-1.5px),#2c1e16_calc(50%-1.5px),#2c1e16_calc(50%+1.5px),#059669_calc(50%+1.5px))] text-white" : "bg-brand-beige text-brand-black hover:bg-brand-beige-dark"
+                                "py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer border-2 border-brand-black flex items-center justify-center gap-1.5 transition-colors",
+                                !isSetMode
+                                    ? "bg-brand-black text-white"
+                                    : "bg-brand-beige text-brand-black hover:bg-brand-beige-dark"
                             )}
                         >
-                            Add / Remove
+                            <Plus size={12} /><span className="text-brand-black/30">/</span><Minus size={12} /> ADJUST
                         </button>
                         <button
                             onClick={() => {
@@ -97,11 +99,13 @@ function ShoppingCart({
                                 onSetModeChange(true);
                             }}
                             className={cn(
-                                "py-2 text-[10px] font-black transition-colors uppercase cursor-pointer border-2 border-brand-black",
-                                isSetMode ? "bg-blue-600 text-white" : "bg-brand-beige text-brand-black hover:bg-brand-beige-dark"
+                                "py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer border-2 border-l-0 border-brand-black flex items-center justify-center gap-1.5 transition-colors",
+                                isSetMode
+                                    ? "bg-brand-black text-white"
+                                    : "bg-brand-beige text-brand-black hover:bg-brand-beige-dark"
                             )}
                         >
-                            Set Absolute
+                            SET ABSOLUTE
                         </button>
                     </div>
                 </div>
