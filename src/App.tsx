@@ -338,50 +338,97 @@ function AppContent() {
                       <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">SYSTEM STATUS</p>
                     </div>
 
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="border border-brand-black p-3 bg-brand-beige">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">CATEGORIES</div>
-                        <div className="text-2xl font-black">{categories.length}</div>
-                      </div>
-                      <div className="border border-brand-black p-3 bg-brand-beige">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">LOCATIONS</div>
-                        <div className="text-2xl font-black">{locations.length}</div>
-                      </div>
-                      {lowStockItems.length > 0 && (
-                        <div className="border border-red-600 p-3 bg-red-50 col-span-2">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-red-600 mb-1">LOW STOCK ITEMS</div>
-                          <div className="text-2xl font-black text-red-600">{lowStockItems.length}</div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Low Stock Alert */}
-                      {lowStockItems.length > 0 && (
-                        <div className="space-y-3">
-                          <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-red-600">
-                            <AlertCircle size={16} /> LOW STOCK ITEMS
+                    {/* Low Stock Alert — top priority */}
+                    {lowStockItems.length > 0 && (
+                      <div className="border border-red-600 bg-red-50">
+                        <div className="px-4 py-2 bg-red-600 text-white">
+                          <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                            <AlertCircle size={14} /> LOW STOCK — {lowStockItems.length} ITEM{lowStockItems.length !== 1 ? 'S' : ''}
                           </h3>
-                          <div className="border border-red-600 bg-white">
-                            <ul className="divide-y divide-red-200">
-                              {lowStockItems.map((item: any) => (
-                                <li key={item.pk} className="px-4 py-2 text-xs font-bold uppercase text-brand-black">
-                                  {item.name}
+                        </div>
+                        <ul className="divide-y divide-red-200">
+                          {lowStockItems.map((item: any) => (
+                            <li key={item.pk} className="px-4 py-2 text-xs font-bold uppercase text-brand-black flex justify-between">
+                              <span>{item.name}</span>
+                              {item.total_in_stock !== undefined && (
+                                <span className="font-mono text-red-600">{item.total_in_stock} left</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Main Grid: Categories + Locations */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Categories List */}
+                      <div>
+                        <h3 className="text-xs font-black uppercase tracking-widest mb-2 flex items-center justify-between">
+                          <span>CATEGORIES ({categories.length})</span>
+                          <button
+                            onClick={() => setAddCategoryModalOpen(true)}
+                            className="text-[10px] font-black uppercase tracking-widest text-brand-black/50 hover:text-brand-black transition-colors"
+                          >
+                            + ADD
+                          </button>
+                        </h3>
+                        <div className="border border-brand-black">
+                          {categories.length > 0 ? (
+                            <ul className="divide-y divide-brand-black/10">
+                              {categories.map((cat) => (
+                                <li key={cat.id} className="px-4 py-2.5 text-xs font-bold uppercase text-brand-black flex items-center justify-between hover:bg-brand-beige-dark transition-colors">
+                                  <span>{cat.name}</span>
+                                  <span className="text-[10px] font-mono text-brand-black/40">#{cat.id}</span>
                                 </li>
                               ))}
                             </ul>
-                          </div>
+                          ) : (
+                            <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">
+                              NO CATEGORIES
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
 
-                      {/* Quick Actions */}
-                      <div className="space-y-3">
-                        <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                          <Info size={16} /> QUICK ACTIONS
+                      {/* Locations List */}
+                      <div>
+                        <h3 className="text-xs font-black uppercase tracking-widest mb-2 flex items-center justify-between">
+                          <span>LOCATIONS ({locations.length})</span>
+                          <button
+                            onClick={() => setAddLocationModalOpen(true)}
+                            className="text-[10px] font-black uppercase tracking-widest text-brand-black/50 hover:text-brand-black transition-colors"
+                          >
+                            + ADD
+                          </button>
                         </h3>
-                        <div className="border border-brand-black bg-brand-beige p-4">
-                          <p className="font-bold text-xs leading-relaxed text-brand-black/70 mb-4">
+                        <div className="border border-brand-black">
+                          {locations.length > 0 ? (
+                            <ul className="divide-y divide-brand-black/10">
+                              {locations.map((loc) => (
+                                <li key={loc.id} className="px-4 py-2.5 text-xs font-bold uppercase text-brand-black flex items-center justify-between hover:bg-brand-beige-dark transition-colors">
+                                  <span>{loc.name}</span>
+                                  <span className="text-[10px] font-mono text-brand-black/40">#{loc.id}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">
+                              NO LOCATIONS
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Quick Actions + Recent Activity */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Quick Actions */}
+                      <div>
+                        <h3 className="text-xs font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <Info size={14} /> QUICK ACTIONS
+                        </h3>
+                        <div className="border border-brand-black p-4 space-y-3">
+                          <p className="font-bold text-xs leading-relaxed text-brand-black/70">
                             USE THE TABS ABOVE TO MANAGE STOCK OR SCAN ITEMS.
                           </p>
                           <div className="flex gap-3 flex-wrap">
@@ -397,16 +444,22 @@ function AppContent() {
                             >
                               SCANNER
                             </button>
+                            <button
+                              onClick={() => setAddPartFormModalOpen(true)}
+                              className="brutalist-button py-2 px-4 text-xs"
+                            >
+                              + NEW ITEM
+                            </button>
                           </div>
                         </div>
                       </div>
 
                       {/* Recent Activity */}
-                      <div className="space-y-3 lg:col-span-2">
-                        <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                          <Loader2 size={16} /> RECENT ACTIVITY
+                      <div>
+                        <h3 className="text-xs font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <Loader2 size={14} /> RECENT ACTIVITY
                         </h3>
-                        <div className="border border-brand-black bg-brand-beige overflow-hidden">
+                        <div className="border border-brand-black overflow-hidden">
                           {recentMovements.length > 0 ? (
                             <div className="divide-y divide-brand-black/10">
                               {recentMovements.map((move) => (
@@ -424,7 +477,7 @@ function AppContent() {
                               NO RECENT ACTIVITY
                             </div>
                           )}
-                          <div className="p-2 bg-gray-50 border-t border-brand-black/10 flex justify-center">
+                          <div className="p-2 bg-brand-beige-dark border-t border-brand-black/10 flex justify-center">
                             <button
                               onClick={() => setCurrentPage('inventree')}
                               className="text-[10px] font-black uppercase tracking-widest hover:underline"
