@@ -1,8 +1,9 @@
 #!/bin/sh
 set -e
 
-# Set default HOST_IP if not provided
+# Set defaults if not provided
 export HOST_IP=${HOST_IP:-127.0.0.1}
+export INVENTREE_BACKEND_URL=${INVENTREE_BACKEND_URL:-http://127.0.0.1:8000}
 
 # Create SSL directory
 mkdir -p /etc/nginx/ssl
