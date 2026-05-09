@@ -89,7 +89,21 @@ class InvenTreeClient {
             });
 
             if (!response.ok) {
-                const errorText = await response.text().catch(() => 'No error details');
+                let errorText = await response.text().catch(() => 'No error details');
+                
+                // Strip HTML from error responses (e.g. nginx 502/504 pages)
+                if (errorText.includes('<') && errorText.includes('>')) {
+                    const statusMessages: Record<number, string> = {
+                        502: 'InvenTree server is unreachable (Bad Gateway)',
+                        503: 'InvenTree server is unavailable',
+                        504: 'InvenTree server timed out',
+                        401: 'Authentication failed — check your API token',
+                        403: 'Access denied — insufficient permissions',
+                        404: 'Resource not found',
+                    };
+                    errorText = statusMessages[response.status] || `Server returned ${response.status}`;
+                }
+                
                 if (response.status === 401 || response.status === 403) {
                     console.error(`[InvenTree] Authentication failed (${response.status}) — check VITE_INVENTREE_TOKEN.`, errorText);
                 }
