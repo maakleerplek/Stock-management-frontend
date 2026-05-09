@@ -239,17 +239,17 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
   return (
     <>
     <div className="w-full flex justify-center pb-8">
-      <div className="w-full max-w-4xl bg-white border-2 border-brand-black shadow-[4px_4px_0px_0px_rgba(30,27,24,1)]">
+      <div className="w-full max-w-4xl bg-white border border-brand-black shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b-2 border-brand-black bg-white">
+        <div className="flex items-center justify-between p-5 border-b border-brand-black bg-white">
           <h2 className="text-xl font-black uppercase tracking-widest text-brand-black">
             CREATE NEW ITEM
           </h2>
           {onCancel && (
             <button 
               onClick={onCancel}
-              className="p-1 border-2 border-brand-black bg-white hover:bg-brand-beige transition-colors"
+              className="p-1 border border-brand-black bg-white hover:bg-brand-beige transition-colors"
             >
               <X size={20} className="text-brand-black" />
             </button>
@@ -259,7 +259,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
         {/* Content */}
         <div className="p-6">
           {errors.submit && (
-            <div className="mb-6 border-2 border-brand-black bg-red-100 p-4">
+            <div className="mb-6 border border-brand-black bg-red-100 p-4">
               <p className="text-sm font-black uppercase tracking-widest text-red-600">ERROR: {errors.submit}</p>
             </div>
           )}
@@ -377,8 +377,8 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-black mb-2 uppercase tracking-widest">Purchase Price</label>
-                    <div className="flex border-2 border-brand-black overflow-hidden">
-                      <span className="bg-brand-beige px-3 py-2 font-black border-r-2 border-brand-black text-sm">
+                    <div className="flex border border-brand-black overflow-hidden">
+                      <span className="bg-brand-beige px-3 py-2 font-black border-r border-brand-black text-sm">
                         {formData.purchasePriceCurrency}
                       </span>
                       <input
@@ -418,14 +418,14 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     className={cn(
-                      "flex flex-col items-center justify-center p-6 border-2 border-dashed transition-all min-h-[200px]",
+                      "flex flex-col items-center justify-center p-6 border border-dashed transition-all min-h-[200px]",
                       isDragging ? "border-brand-black bg-gray-100" : "border-brand-black/30 bg-gray-50",
                       imagePreview && "p-4"
                     )}
                   >
                     {imagePreview ? (
                       <div className="flex flex-col items-center w-full gap-4">
-                        <img src={imagePreview} alt="Preview" className="w-40 h-40 object-contain border-2 border-brand-black bg-white" />
+                        <img src={imagePreview} alt="Preview" className="w-40 h-40 object-contain border border-brand-black bg-white" />
                         <div className="flex gap-4">
                           <label className="brutalist-button py-2 px-4 text-xs cursor-pointer">
                             CHANGE
@@ -460,7 +460,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                   </div>
                 </div>
 
-                <div className="border-2 border-brand-black bg-white p-4 space-y-3">
+                <div className="border border-brand-black bg-white p-4 space-y-3">
                   <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-brand-black/20">
                     <QrCode size={16} /> BARCODE
                   </h3>
@@ -486,7 +486,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                     </button>
                   </div>
                   {isScanning && (
-                    <div className="w-full aspect-square overflow-hidden border-2 border-brand-black bg-black">
+                    <div className="w-full aspect-square overflow-hidden border border-brand-black bg-black">
                       <Scanner
                         onScan={(codes: IDetectedBarcode[]) => {
                           if (codes.length > 0) {
@@ -525,7 +525,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
 
             </div>
 
-            <div className="pt-6 border-t-2 border-brand-black flex gap-4 justify-end">
+            <div className="pt-6 border-t border-brand-black flex gap-4 justify-end">
               {onCancel && (
                 <button
                   type="button"

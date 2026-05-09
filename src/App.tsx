@@ -212,7 +212,7 @@ function AppContent() {
   }, [isVolunteerMode, currentPage]);
 
   const VolunteerNavigation = () => (
-    <div className="border-b-2 border-brand-black bg-brand-beige px-2 sm:px-6 py-0 flex gap-1 sm:gap-4 overflow-x-auto">
+    <div className="border-b border-brand-black bg-brand-beige px-2 sm:px-6 py-0 flex gap-1 sm:gap-4 overflow-x-auto">
       {[
         { id: 'volunteer', label: 'OVERVIEW', icon: LayoutDashboard },
         { id: 'scan', label: 'VOLUNTEER SCAN', icon: ScanBarcode },
@@ -249,7 +249,7 @@ function AppContent() {
         {currentPage === 'checkout' && (
           <>
             {/* ── Mobile: tab bar ── */}
-            <div className="lg:hidden flex border-b-2 border-brand-black bg-brand-beige shrink-0">
+            <div className="lg:hidden flex border-b border-brand-black bg-brand-beige shrink-0">
               <button
                 onClick={() => setMobileCheckoutTab('scan')}
                 className={cn(
@@ -264,7 +264,7 @@ function AppContent() {
               <button
                 onClick={() => setMobileCheckoutTab('cart')}
                 className={cn(
-                  "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors border-l-2 border-brand-black",
+                  "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors border-l border-brand-black",
                   mobileCheckoutTab === 'cart'
                     ? "bg-brand-black text-white"
                     : "bg-brand-beige text-brand-black"
@@ -298,7 +298,7 @@ function AppContent() {
               <div className="flex-1 p-6 flex flex-col items-center justify-center bg-brand-beige">
                 <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={checkoutResult} />
               </div>
-              <aside className="w-[40%] border-l-2 border-brand-black bg-brand-beige flex flex-col">
+              <aside className="w-[40%] border-l border-brand-black bg-brand-beige flex flex-col">
                 <ShoppingWindow
                   scanEvent={scanEvent}
                   onCheckoutResultChange={(result) => setCheckoutResult(result)}
@@ -333,23 +333,23 @@ function AppContent() {
                 >
                   {/* Dashboard Content */}
                   <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
-                    <div className="border-b-2 border-brand-black pb-4">
+                    <div className="border-b border-brand-black pb-4">
                       <h2 className="text-2xl font-black uppercase tracking-widest text-brand-black">DASHBOARD</h2>
                       <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">SYSTEM STATUS</p>
                     </div>
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="border-2 border-brand-black p-3 bg-brand-beige">
+                      <div className="border border-brand-black p-3 bg-brand-beige">
                         <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">CATEGORIES</div>
                         <div className="text-2xl font-black">{categories.length}</div>
                       </div>
-                      <div className="border-2 border-brand-black p-3 bg-brand-beige">
+                      <div className="border border-brand-black p-3 bg-brand-beige">
                         <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mb-1">LOCATIONS</div>
                         <div className="text-2xl font-black">{locations.length}</div>
                       </div>
                       {lowStockItems.length > 0 && (
-                        <div className="border-2 border-red-600 p-3 bg-red-50 col-span-2">
+                        <div className="border border-red-600 p-3 bg-red-50 col-span-2">
                           <div className="text-[10px] font-black uppercase tracking-widest text-red-600 mb-1">LOW STOCK ITEMS</div>
                           <div className="text-2xl font-black text-red-600">{lowStockItems.length}</div>
                         </div>
@@ -363,7 +363,7 @@ function AppContent() {
                           <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-red-600">
                             <AlertCircle size={16} /> LOW STOCK ITEMS
                           </h3>
-                          <div className="border-2 border-red-600 bg-white">
+                          <div className="border border-red-600 bg-white">
                             <ul className="divide-y divide-red-200">
                               {lowStockItems.map((item: any) => (
                                 <li key={item.pk} className="px-4 py-2 text-xs font-bold uppercase text-brand-black">
@@ -380,7 +380,7 @@ function AppContent() {
                         <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
                           <Info size={16} /> QUICK ACTIONS
                         </h3>
-                        <div className="border-2 border-brand-black bg-brand-beige p-4">
+                        <div className="border border-brand-black bg-brand-beige p-4">
                           <p className="font-bold text-xs leading-relaxed text-brand-black/70 mb-4">
                             USE THE TABS ABOVE TO MANAGE STOCK OR SCAN ITEMS.
                           </p>
@@ -406,7 +406,7 @@ function AppContent() {
                         <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
                           <Loader2 size={16} /> RECENT ACTIVITY
                         </h3>
-                        <div className="border-2 border-brand-black bg-brand-beige overflow-hidden">
+                        <div className="border border-brand-black bg-brand-beige overflow-hidden">
                           {recentMovements.length > 0 ? (
                             <div className="divide-y divide-brand-black/10">
                               {recentMovements.map((move) => (
@@ -454,7 +454,7 @@ function AppContent() {
                   </div>
 
                   {/* Right Sidebar: Shopping Cart in volunteer mode */}
-                  <aside className="w-full lg:w-[40%] border-l-0 lg:border-l-2 border-t-2 lg:border-t-0 border-brand-black bg-brand-beige flex flex-col min-h-[50vh] lg:min-h-0">
+                  <aside className="w-full lg:w-[40%] border-l-0 lg:border-l border-t lg:border-t-0 border-brand-black bg-brand-beige flex flex-col min-h-[50vh] lg:min-h-0">
                     <ShoppingWindow
                       scanEvent={scanEvent}
                       onCheckoutResultChange={() => { }}
@@ -507,7 +507,7 @@ function AppContent() {
           onClick={() => setAddPartFormModalOpen(false)}
         >
           <div
-            className="border-2 border-brand-black bg-white w-full max-w-3xl my-0 sm:my-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-h-screen overflow-y-auto"
+            className="border border-brand-black bg-white w-full max-w-3xl my-0 sm:my-8 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] max-h-screen overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
@@ -529,7 +529,7 @@ function AppContent() {
           onClick={() => setAddCategoryModalOpen(false)}
         >
           <div
-            className="border-2 border-brand-black bg-white w-full max-w-md shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+            className="border border-brand-black bg-white w-full max-w-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
@@ -551,7 +551,7 @@ function AppContent() {
           onClick={() => setAddLocationModalOpen(false)}
         >
           <div
-            className="border-2 border-brand-black bg-white w-full max-w-md shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+            className="border border-brand-black bg-white w-full max-w-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">

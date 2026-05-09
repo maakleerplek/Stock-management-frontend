@@ -116,13 +116,13 @@ export default function ItemList() {
             {/* Main Table Area */}
             <main className="flex-1 flex flex-col min-h-0 p-4 sm:p-6 overflow-hidden">
                 {/* Header - Fixed at top */}
-                <div className="flex-shrink-0 flex flex-col md:flex-row justify-between items-stretch md:items-center mb-4 gap-4 border-2 border-brand-black bg-brand-beige p-4">
+                <div className="flex-shrink-0 flex flex-col md:flex-row justify-between items-stretch md:items-center mb-4 gap-4 border border-brand-black bg-brand-beige p-4">
                     <div className="flex items-center gap-3">
                         <Box className="w-6 h-6 text-brand-black" />
                         <h2 className="text-lg font-black tracking-widest uppercase">STOCK LIST</h2>
                     </div>
                     <div className="flex gap-4 items-center flex-grow max-w-full md:max-w-[500px]">
-                        <div className="brutalist-input flex items-center flex-1 px-4 py-2 border-2 border-brand-black bg-brand-beige">
+                        <div className="brutalist-input flex items-center flex-1 px-4 py-2 border border-brand-black bg-brand-beige">
                             <Search className="w-5 h-5 text-brand-black mr-2" />
                             <input
                                 type="text"
@@ -144,18 +144,18 @@ export default function ItemList() {
                 </div>
 
                 {error && (
-                    <div className="flex-shrink-0 border-2 border-brand-black bg-brand-beige p-4 mb-4">
+                    <div className="flex-shrink-0 border border-brand-black bg-brand-beige p-4 mb-4">
                         <p className="text-sm font-bold text-red-600 uppercase">{error}</p>
                     </div>
                 )}
 
                 {/* Table Container - Fills remaining space and scrolls */}
-                <div className="flex-1 min-h-0 flex flex-col border-2 border-brand-black bg-brand-beige">
+                <div className="flex-1 min-h-0 flex flex-col border border-brand-black bg-brand-beige">
                     {/* Scrollable table wrapper */}
                     <div className="flex-1 overflow-auto">
                         <table className="w-full min-w-[600px] border-collapse">
                             <thead className="sticky top-0 z-10">
-                                <tr className="border-b-2 border-brand-black bg-brand-beige-dark">
+                                <tr className="border-b border-brand-black bg-brand-beige-dark">
                                     <th className="p-3 pl-6 text-left w-[80px]" />
                                     <th className="p-3 text-left">
                                         <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/70">ITEM</span>
@@ -185,7 +185,7 @@ export default function ItemList() {
                                                 item.quantity === 0 && "bg-rose-50/50"
                                             )}>
                                                 <td className="p-2 pl-6">
-                                                    <div className="border-2 border-brand-black bg-brand-beige-dark w-10 h-10">
+                                                    <div className="border border-brand-black bg-brand-beige-dark w-10 h-10">
                                                         <ImageDisplay imagePath={item.image} alt={item.name} width={40} height={40} />
                                                     </div>
                                                 </td>
@@ -217,14 +217,14 @@ export default function ItemList() {
                                                             <div className="flex gap-2 justify-center">
                                                                 <button
                                                                     onClick={() => addAdjustment(item, 1)}
-                                                                    className="p-1 px-2 border-2 border-brand-black bg-emerald-400 hover:brightness-95 transition-all shadow-[2px_2px_0px_0px_rgba(30,27,24,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                                                                    className="p-1 px-2 border border-brand-black bg-emerald-400 hover:brightness-95 transition-all shadow-sm active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
                                                                     title="Add 1 to stock"
                                                                 >
                                                                     <Plus size={14} className="text-brand-black" />
                                                                 </button>
                                                                 <button
                                                                     onClick={() => addAdjustment(item, -1)}
-                                                                    className="p-1 px-2 border-2 border-brand-black bg-rose-400 hover:brightness-95 transition-all shadow-[2px_2px_0px_0px_rgba(30,27,24,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                                                                    className="p-1 px-2 border border-brand-black bg-rose-400 hover:brightness-95 transition-all shadow-sm active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
                                                                     title="Remove 1 from stock"
                                                                 >
                                                                     <Minus size={14} className="text-brand-black" />
@@ -250,10 +250,10 @@ export default function ItemList() {
                     </div>
 
                     {/* Pagination - Fixed at bottom of table */}
-                    <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-t-2 border-brand-black bg-brand-beige-dark">
+                    <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-t border-brand-black bg-brand-beige-dark">
                         <div className="flex items-center gap-4">
                             <label className="text-[10px] font-black tracking-widest uppercase">ROWS:</label>
-                            <select value={rowsPerPage} onChange={handleChangeRowsPerPage} className="brutalist-input px-3 py-1 text-xs font-bold border-2 border-brand-black bg-brand-beige">
+                            <select value={rowsPerPage} onChange={handleChangeRowsPerPage} className="brutalist-input px-3 py-1 text-xs font-bold border border-brand-black bg-brand-beige">
                                 <option value={10}>10</option>
                                 <option value={25}>25</option>
                                 <option value={50}>50</option>
@@ -275,8 +275,8 @@ export default function ItemList() {
 
             {/* Right Sidebar: Pending Adjustments (only in volunteer mode) */}
             {isVolunteerMode && (
-                <aside className="w-full lg:w-80 xl:w-96 flex-shrink-0 border-l-0 lg:border-l-2 border-t-2 lg:border-t-0 border-brand-black bg-brand-beige flex flex-col">
-                    <div className="p-2 border-b-2 border-brand-black bg-brand-accent shrink-0">
+                <aside className="w-full lg:w-80 xl:w-96 flex-shrink-0 border-l-0 lg:border-l border-t lg:border-t-0 border-brand-black bg-brand-beige flex flex-col">
+                    <div className="p-2 border-b border-brand-black bg-brand-accent shrink-0">
                         <h2 className="text-brand-black uppercase tracking-widest text-xs font-black flex items-center justify-center gap-2">
                             <RefreshCw size={14} /> PENDING CHANGES
                         </h2>
@@ -303,7 +303,7 @@ export default function ItemList() {
                                         initial={{ x: 20, opacity: 0 }}
                                         animate={{ x: 0, opacity: 1 }}
                                         exit={{ x: -20, opacity: 0 }}
-                                        className="border-2 border-brand-black bg-brand-beige p-2 flex items-center gap-2"
+                                        className="border border-brand-black bg-brand-beige p-2 flex items-center gap-2"
                                     >
                                         <div className="flex-1 min-w-0">
                                             <div className="font-bold text-[11px] uppercase truncate">{adj.item.name}</div>
@@ -312,7 +312,7 @@ export default function ItemList() {
                                             </div>
                                         </div>
                                         <span className={cn(
-                                            "font-black text-xs px-2 py-1 border-2 border-brand-black",
+                                            "font-black text-xs px-2 py-1 border border-brand-black",
                                             adj.delta > 0 ? "bg-emerald-400 text-brand-black" : "bg-rose-400 text-brand-black"
                                         )}>
                                             {adj.delta > 0 ? `+${adj.delta}` : adj.delta}
@@ -326,7 +326,7 @@ export default function ItemList() {
                         </AnimatePresence>
                     </div>
 
-                    <div className="p-4 border-t-2 border-brand-black bg-brand-beige space-y-3">
+                    <div className="p-4 border-t border-brand-black bg-brand-beige space-y-3">
                         {adjustments.length > 0 && (
                             <button onClick={clearAdjustments} className="brutalist-button w-full py-2 text-[10px] font-black uppercase border-dashed">
                                 CLEAR ALL

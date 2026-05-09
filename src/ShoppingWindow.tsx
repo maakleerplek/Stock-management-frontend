@@ -166,7 +166,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
 
                 {/* Extras — shown inline below cart when not in volunteer mode and not checked out */}
                 {!isVolunteerMode && checkedOutResult === null && (
-                    <div className="border-t-2 border-brand-black">
+                    <div className="border-t border-brand-black">
                         <div className="p-2 bg-brand-accent shrink-0">
                             <h2 className="text-brand-black uppercase tracking-widest text-xs font-black flex items-center justify-center gap-2">
                                 <Settings size={14} /> EXTRA SERVICES
@@ -182,7 +182,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
             {/* Brutalist Custom Confirmation Modal */}
             {confirmOpen && (
                 <div className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4">
-                    <div className="border-2 border-brand-black bg-brand-beige w-full max-w-2xl flex flex-col">
+                    <div className="border border-brand-black bg-brand-beige w-full max-w-2xl flex flex-col">
                         <div className="bg-brand-accent text-brand-black p-5 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <AlertCircle size={24} className="text-emerald-400" />
@@ -193,13 +193,13 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
                             </button>
                         </div>
                         <div className="p-8 bg-white overflow-y-auto max-h-[60vh] space-y-6">
-                            <p className="text-xs font-black uppercase tracking-widest text-brand-black/50 border-b-2 border-brand-black pb-2">
+                            <p className="text-xs font-black uppercase tracking-widest text-brand-black/50 border-b border-brand-black pb-2">
                                 ITEMS IN CART
                             </p>
 
                             <div className="space-y-3">
                                 {cartItems.map((item) => (
-                                    <div key={item.id} className="flex justify-between items-center p-3 border-2 border-brand-black bg-white">
+                                    <div key={item.id} className="flex justify-between items-center p-3 border border-brand-black bg-white">
                                         <div className="flex flex-col">
                                             <span className="font-black text-sm uppercase">{item.name}</span>
                                             <span className="text-[10px] font-bold text-brand-black/60">QTY: {item.cartQuantity} × €{item.price.toFixed(2)}</span>
@@ -209,7 +209,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
                                 ))}
 
                                 {extraCosts > 0 && (
-                                    <div className="flex justify-between items-center p-3 border-2 border-brand-black bg-slate-50">
+                                    <div className="flex justify-between items-center p-3 border border-brand-black bg-slate-50">
                                         <span className="font-black text-sm uppercase text-slate-900 leading-none">EXTRA SERVICES</span>
                                         <div className="font-black text-sm text-slate-900">€{extraCosts.toFixed(2)}</div>
                                     </div>
@@ -223,7 +223,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
                                 </span>
                             </div>
                         </div>
-                        <div className="border-t-2 border-brand-black p-6 flex flex-col sm:flex-row gap-4 bg-brand-beige">
+                        <div className="border-t border-brand-black p-6 flex flex-col sm:flex-row gap-4 bg-brand-beige">
                             <button
                                 onClick={() => setConfirmOpen(false)}
                                 className="flex-1 brutalist-button py-4 bg-white text-brand-black flex items-center justify-center gap-3 text-sm font-black uppercase tracking-widest"

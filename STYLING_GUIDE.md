@@ -7,14 +7,14 @@
 
 ## 1. Design Philosophy
 
-**Brutalist, raw, functional.** Every pixel earns its place. No decorative fluff — borders *are* the decoration. The design references industrial signage and print-shop aesthetics: bold type, hard edges, flat colors, tight grid layouts partitioned by heavy black rules.
+**Brutalist, raw, functional.** Every pixel earns its place. No decorative fluff — borders define structure. The design is clean and minimalist: white backgrounds, thin black rules, bold type, hard edges, and flat colors. Accent color is used sparingly for section header strips only.
 
 ### Core Tenets
 
 | Principle | Rule |
 |---|---|
 | **Zero radius** | `border-radius: 0` everywhere — buttons, cards, inputs, modals, badges. |
-| **Border-first** | Layouts are defined by **2px solid** borders (`border-brand-black`), not whitespace or shadows. |
+| **Border-first** | Layouts are defined by **1px solid** borders (`border-brand-black`), not whitespace or shadows. |
 | **Bold uppercase** | All labels, headings, and navigation text are `font-black uppercase tracking-widest`. |
 | **Flat color** | Solid fills from the brand palette. No gradients (except subtle image backdrops). |
 | **Tight grids** | Sections butt up against each other separated by borders, no floating cards. `gap-0` where grid lines already define structure. |
@@ -27,10 +27,10 @@
 
 ```css
 @theme {
-  --color-brand-beige:      #F5F2EB;  /* Primary background */
-  --color-brand-beige-dark:  #E6D5B8;  /* Secondary background / contrast areas */
-  --color-brand-accent:      #C8A98B;  /* Warm accent — section headers, highlight bars */
-  --color-brand-black:       #2C1E16;  /* Text, borders, and primary ink color */
+  --color-brand-beige:      #FFFFFF;  /* Primary background — clean white */
+  --color-brand-beige-dark:  #F5F5F4; /* Secondary background — barely-there gray */
+  --color-brand-accent:      #C8A98B; /* Warm accent — section header strips ONLY */
+  --color-brand-black:       #1C1917; /* Text, borders, and primary ink color */
 }
 ```
 
@@ -38,9 +38,9 @@
 
 | Token | Tailwind | Where |
 |---|---|---|
-| `brand-beige` | `bg-brand-beige` | Page background, card backgrounds, QR code backgrounds |
-| `brand-beige-dark` | `bg-brand-beige-dark` | Contrast sections (weather panel), image placeholders, focused inputs |
-| `brand-accent` | `bg-brand-accent` | Section header strips (e.g. "Drinks, Snacks & Materialen"), accent bars |
+| `brand-beige` | `bg-brand-beige` | Page background, card backgrounds — white |
+| `brand-beige-dark` | `bg-brand-beige-dark` | Subtle contrast areas, table headers, hover states |
+| `brand-accent` | `bg-brand-accent` | Section header strips ONLY (e.g. "SHOPPING CART", "STOCK LIST") |
 | `brand-black` | `text-brand-black`, `border-brand-black` | All text, all structural borders |
 
 ### Semantic Colors

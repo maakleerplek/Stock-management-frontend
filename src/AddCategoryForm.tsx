@@ -61,13 +61,13 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
     return (
         <div className="w-full">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b-2 border-brand-black bg-white">
+            <div className="flex items-center justify-between p-4 border-b border-brand-black bg-white">
                 <h2 className="text-lg font-black uppercase tracking-widest text-brand-black">
                     CREATE CATEGORY
                 </h2>
                 <button 
                     onClick={onCancel}
-                    className="p-1 border-2 border-brand-black bg-white hover:bg-brand-beige transition-colors"
+                    className="p-1 border border-brand-black bg-white hover:bg-brand-beige transition-colors"
                 >
                     <X size={18} className="text-brand-black" />
                 </button>

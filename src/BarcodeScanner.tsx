@@ -225,7 +225,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
         compact ? "" : "brutalist-card p-6 sm:p-8"
       )}>
         {!compact && (
-          <div className="flex items-center gap-2 pb-2 border-b-2 border-brand-black">
+          <div className="flex items-center gap-2 pb-2 border-b border-brand-black">
             <QrCode size={24} className="text-brand-black" />
             <h3 className="text-base sm:text-lg font-black uppercase tracking-tight">Barcode Scanner</h3>
           </div>
@@ -307,7 +307,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
             )}>
               {isLoading ? (
                 <div className="flex flex-col justify-center items-center h-full gap-2">
-                  <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-8 h-8 border border-white border-t-transparent rounded-full animate-spin" />
                   <p className="text-xs text-gray-400 font-mono">Initializing camera...</p>
                 </div>
               ) : (

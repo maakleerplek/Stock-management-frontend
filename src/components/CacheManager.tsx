@@ -102,16 +102,16 @@ export default function CacheManagerComponent({ open, onClose }: CacheManagerPro
                         className="fixed inset-0 z-50 flex items-center justify-center p-4"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-white border-2 border-brand-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-md w-full">
+                        <div className="bg-white border border-brand-black shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] max-w-md w-full">
                             {/* Header */}
-                            <div className="flex items-center justify-between p-6 border-b-2 border-brand-black bg-brand-beige-dark">
+                            <div className="flex items-center justify-between p-6 border-b border-brand-black bg-brand-beige-dark">
                                 <div className="flex items-center gap-3">
                                     <Database className="w-6 h-6" />
                                     <h2 className="text-lg font-black uppercase tracking-widest">CACHE MANAGER</h2>
                                 </div>
                                 <button
                                     onClick={onClose}
-                                    className="p-2 hover:bg-brand-beige border-2 border-brand-black transition-colors"
+                                    className="p-2 hover:bg-brand-beige border border-brand-black transition-colors"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
@@ -128,7 +128,7 @@ export default function CacheManagerComponent({ open, onClose }: CacheManagerPro
                                         {/* Stats */}
                                         <div className="space-y-4">
                                             {/* API Cache */}
-                                            <div className="border-2 border-brand-black bg-white p-4">
+                                            <div className="border border-brand-black bg-white p-4">
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <HardDrive className="w-5 h-5" />
                                                     <h3 className="font-black uppercase text-sm tracking-widest">API CACHE</h3>
@@ -146,7 +146,7 @@ export default function CacheManagerComponent({ open, onClose }: CacheManagerPro
                                             </div>
 
                                             {/* Image Cache */}
-                                            <div className="border-2 border-brand-black bg-white p-4">
+                                            <div className="border border-brand-black bg-white p-4">
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <Database className="w-5 h-5" />
                                                     <h3 className="font-black uppercase text-sm tracking-widest">IMAGE CACHE</h3>
@@ -164,7 +164,7 @@ export default function CacheManagerComponent({ open, onClose }: CacheManagerPro
                                             </div>
 
                                             {/* Total */}
-                                            <div className="border-2 border-brand-black bg-emerald-400 p-4">
+                                            <div className="border border-brand-black bg-emerald-400 p-4">
                                                 <div className="flex justify-between items-center">
                                                     <span className="font-black uppercase tracking-widest">TOTAL SIZE:</span>
                                                     <span className="font-black text-lg">
@@ -221,7 +221,7 @@ export default function CacheManagerComponent({ open, onClose }: CacheManagerPro
                             </div>
 
                             {/* Footer */}
-                            <div className="flex gap-3 p-6 border-t-2 border-brand-black bg-white">
+                            <div className="flex gap-3 p-6 border-t border-brand-black bg-white">
                                 <button
                                     onClick={loadStats}
                                     disabled={loading}

@@ -64,7 +64,7 @@ function ShoppingCart({
     return (
         <div className="w-full flex flex-col bg-brand-beige border-l-0">
             {/* Header */}
-            <div className="p-2 border-b-2 border-brand-black bg-brand-accent shrink-0">
+            <div className="p-2 border-b border-brand-black bg-brand-accent shrink-0">
                 <h2 className="text-brand-black uppercase tracking-widest text-xs font-black flex items-center justify-center gap-2">
                     {isVolunteerMode ? (
                         <Heart className="w-4 h-4" />
@@ -77,7 +77,7 @@ function ShoppingCart({
 
             {/* Volunteer Mode Toggle */}
             {isVolunteerMode && onSetModeChange && (
-                <div className="px-4 py-3 border-b-2 border-brand-black bg-brand-beige-dark">
+                <div className="px-4 py-3 border-b border-brand-black bg-brand-beige-dark">
                     <div className="grid grid-cols-2 gap-0">
                         <button
                             onClick={() => {
@@ -85,7 +85,7 @@ function ShoppingCart({
                                 onSetModeChange(false);
                             }}
                             className={cn(
-                                "py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer border-2 border-brand-black flex items-center justify-center gap-1.5 transition-colors",
+                                "py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer border border-brand-black flex items-center justify-center gap-1.5 transition-colors",
                                 !isSetMode
                                     ? "bg-blue-600 text-white"
                                     : "bg-brand-beige text-brand-black hover:bg-blue-100"
@@ -99,7 +99,7 @@ function ShoppingCart({
                                 onSetModeChange(true);
                             }}
                             className={cn(
-                                "py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer border-2 border-l-0 border-brand-black flex items-center justify-center gap-1.5 transition-colors",
+                                "py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer border border-l-0 border-brand-black flex items-center justify-center gap-1.5 transition-colors",
                                 isSetMode
                                     ? "bg-blue-600 text-white"
                                     : "bg-brand-beige text-brand-black hover:bg-blue-100"
@@ -119,7 +119,7 @@ function ShoppingCart({
                             <CheckCircle className="w-12 h-12" />
                         </div>
                         <h3 className="text-2xl font-black uppercase">DONE!</h3>
-                        <p className="text-lg font-bold uppercase px-4 py-2 border-3 border-brand-black bg-white">
+                        <p className="text-lg font-bold uppercase px-4 py-2 border border-brand-black bg-white">
                             TOTAL: €{checkedOutTotal?.toFixed(2)}
                         </p>
                         
@@ -196,7 +196,7 @@ function ShoppingCart({
                                                 {/* Top row: Image, Name, Remove */}
                                                 <div className="flex items-start gap-3">
                                                     {/* Image */}
-                                                    <div className="w-14 h-14 flex-shrink-0 border-2 border-brand-black bg-white overflow-hidden">
+                                                    <div className="w-14 h-14 flex-shrink-0 border border-brand-black bg-white overflow-hidden">
                                                         <ImageDisplay
                                                             imagePath={item.image}
                                                             alt={item.name}
@@ -247,7 +247,7 @@ function ShoppingCart({
                                                     {/* Remove button */}
                                                     <button
                                                         onClick={() => handleRemoveItem(item.id)}
-                                                        className="w-8 h-8 flex items-center justify-center bg-red-500 text-white border-2 border-brand-black hover:bg-red-600 active:scale-95 transition-all flex-shrink-0"
+                                                        className="w-8 h-8 flex items-center justify-center bg-red-500 text-white border border-brand-black hover:bg-red-600 active:scale-95 transition-all flex-shrink-0"
                                                     >
                                                         <Trash2 size={14} />
                                                     </button>
@@ -259,7 +259,7 @@ function ShoppingCart({
                                                     <div className="flex items-center gap-1">
                                                         <button
                                                             onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity - 1)}
-                                                            className="w-8 h-8 flex items-center justify-center border-2 border-brand-black bg-red-400 hover:bg-red-500 active:scale-95 transition-all"
+                                                            className="w-8 h-8 flex items-center justify-center border border-brand-black bg-red-400 hover:bg-red-500 active:scale-95 transition-all"
                                                         >
                                                             <Minus size={14} />
                                                         </button>
@@ -271,7 +271,7 @@ function ShoppingCart({
                                                         </span>
                                                         <button
                                                             onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity + 1)}
-                                                            className="w-8 h-8 flex items-center justify-center border-2 border-brand-black bg-emerald-400 hover:bg-emerald-500 active:scale-95 transition-all"
+                                                            className="w-8 h-8 flex items-center justify-center border border-brand-black bg-emerald-400 hover:bg-emerald-500 active:scale-95 transition-all"
                                                         >
                                                             <Plus size={14} />
                                                         </button>
@@ -301,7 +301,7 @@ function ShoppingCart({
 
                         {/* Footer: Total & Checkout */}
                         {(cartItems.length > 0 || extraCosts > 0) && (
-                            <div className="mt-auto border-t-2 border-brand-black bg-brand-beige p-4">
+                            <div className="mt-auto border-t border-brand-black bg-brand-beige p-4">
                                 {!isVolunteerMode && (
                                     <div className="flex justify-between items-center mb-3">
                                         <span className="text-sm font-black uppercase text-brand-black/60">TOTAL</span>
@@ -315,7 +315,7 @@ function ShoppingCart({
                                     }}
                                     disabled={isCheckingOut}
                                     className={cn(
-                                        "w-full py-3 text-sm font-black flex items-center justify-center gap-2 tracking-widest border-2 border-brand-black transition-all",
+                                        "w-full py-3 text-sm font-black flex items-center justify-center gap-2 tracking-widest border border-brand-black transition-all",
                                         isVolunteerMode 
                                             ? "bg-brand-accent text-brand-black" 
                                             : "bg-emerald-400 text-brand-black hover:brightness-95",

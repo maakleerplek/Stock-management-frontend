@@ -13,7 +13,7 @@ export default function Footer() {
 
   return (
     <>
-      <footer className="border-t-2 border-brand-black bg-brand-beige py-2 px-4 sm:px-6 mt-auto flex-shrink-0">
+      <footer className="border-t border-brand-black bg-brand-beige py-2 px-4 sm:px-6 mt-auto flex-shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-4">
 
           {/* Left Side: All Links Clustered */}
@@ -27,7 +27,7 @@ export default function Footer() {
               className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
               title="Documentation"
             >
-              <div className="border-2 border-brand-black bg-white p-1 shadow-[2px_2px_0px_0px_rgba(30,27,24,1)]">
+              <div className="border border-brand-black bg-white p-1 shadow-sm">
                 <Book size={18} className="text-brand-black" />
               </div>
               <div className="hidden md:flex flex-col justify-center">
@@ -49,7 +49,7 @@ export default function Footer() {
                 className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
                 title="Give Feedback"
               >
-                <div className="border-2 border-brand-black bg-white p-1 shadow-[2px_2px_0px_0px_rgba(30,27,24,1)]">
+                <div className="border border-brand-black bg-white p-1 shadow-sm">
                   <MessageSquare size={18} className="text-brand-black" />
                 </div>
                 <div className="hidden md:flex flex-col justify-center">
@@ -71,7 +71,7 @@ export default function Footer() {
               className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
               title="GitHub Repository"
             >
-              <div className="border-2 border-brand-black bg-white p-1 shadow-[2px_2px_0px_0px_rgba(30,27,24,1)]">
+              <div className="border border-brand-black bg-white p-1 shadow-sm">
                 <Github size={18} className="text-brand-black" />
               </div>
               <div className="hidden md:flex flex-col justify-center">
@@ -90,7 +90,7 @@ export default function Footer() {
               className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
               title="Manage Cache"
             >
-              <div className="border-2 border-brand-black bg-white p-1 shadow-[2px_2px_0px_0px_rgba(30,27,24,1)]">
+              <div className="border border-brand-black bg-white p-1 shadow-sm">
                 <Database size={18} className="text-brand-black" />
               </div>
               <div className="hidden md:flex flex-col justify-center">
@@ -107,7 +107,7 @@ export default function Footer() {
 
           {/* Beta Version Badge */}
           <div className="flex items-center justify-center flex-shrink-0">
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-brand-black border-2 border-brand-black px-2 py-1 bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-brand-black border border-brand-black px-2 py-1 bg-white shadow-sm">
               BETA VERSION
             </span>
           </div>

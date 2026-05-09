@@ -50,11 +50,11 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                 >
                     {/* Modal */}
                     <div 
-                        className="border-2 border-brand-black bg-white w-full max-w-md flex flex-col"
+                        className="border border-brand-black bg-white w-full max-w-md flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="flex items-center justify-between p-4 border-b-2 border-brand-black bg-brand-black">
+                        <div className="flex items-center justify-between p-4 border-b border-brand-black bg-brand-black">
                             <h2 className="text-sm font-black uppercase tracking-widest text-white">VOLUNTEER MODE</h2>
                             <button
                                 onClick={handleClose}
@@ -67,7 +67,7 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                         {/* Content */}
                         <div className="flex flex-col gap-6 p-6 bg-white">
                             <div className="flex gap-3 items-start">
-                                <div className="p-1 border-2 border-brand-black bg-amber-200">
+                                <div className="p-1 border border-brand-black bg-amber-200">
                                     <AlertCircle className="w-4 h-4 flex-shrink-0 text-brand-black" />
                                 </div>
                                 <div className="flex flex-col gap-1">
@@ -87,7 +87,7 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                     onKeyDown={handleKeyPress}
                                     autoFocus
                                     className={cn(
-                                        "w-full px-4 py-3 text-lg font-black tracking-widest border-2 border-brand-black bg-white outline-none focus:bg-brand-beige transition-colors",
+                                        "w-full px-4 py-3 text-lg font-black tracking-widest border border-brand-black bg-white outline-none focus:bg-brand-beige transition-colors",
                                         error && "border-red-600 bg-red-50"
                                     )}
                                 />
@@ -100,7 +100,7 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-4 p-4 border-t-2 border-brand-black bg-white">
+                        <div className="flex gap-4 p-4 border-t border-brand-black bg-white">
                             <button
                                 onClick={handleClose}
                                 className="flex-1 brutalist-button bg-white text-brand-black py-3 text-xs uppercase flex justify-center items-center gap-2"
