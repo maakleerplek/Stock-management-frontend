@@ -108,12 +108,14 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
 
         setIsCheckingOut(true);
         try {
+            const source = isVolunteerMode ? 'volunteer-scanner' : 'checkout';
             for (const item of cartItems) {
                 let success = false;
+                const totalPrice = item.price > 0 ? parseFloat((item.price * Math.abs(item.cartQuantity)).toFixed(2)) : undefined;
                 if (isVolunteerMode && !isSetMode && item.cartQuantity < 0) {
-                    success = await handleTakeItem(item.id, Math.abs(item.cartQuantity), item.name);
+                    success = await handleTakeItem(item.id, Math.abs(item.cartQuantity), item.name, totalPrice, source);
                 } else {
-                    success = await handler(item.id, item.cartQuantity, item.name);
+                    success = await handler(item.id, item.cartQuantity, item.name, totalPrice, source);
                 }
 
                 if (!success) {

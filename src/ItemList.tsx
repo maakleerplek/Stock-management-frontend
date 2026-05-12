@@ -72,10 +72,11 @@ export default function ItemList() {
         try {
             for (const adj of adjustments) {
                 let success = false;
+                const totalPrice = adj.item.price > 0 ? parseFloat((adj.item.price * Math.abs(adj.delta)).toFixed(2)) : undefined;
                 if (adj.delta > 0) {
-                    success = await handleAddItem(adj.item.id, adj.delta, adj.item.name);
+                    success = await handleAddItem(adj.item.id, adj.delta, adj.item.name, totalPrice, 'inventory-overview');
                 } else if (adj.delta < 0) {
-                    success = await handleTakeItem(adj.item.id, Math.abs(adj.delta), adj.item.name);
+                    success = await handleTakeItem(adj.item.id, Math.abs(adj.delta), adj.item.name, totalPrice, 'inventory-overview');
                 } else {
                     success = true;
                 }

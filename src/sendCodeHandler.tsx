@@ -20,13 +20,15 @@ async function sendChangelogEvent(
     action: 'checkout' | 'add' | 'remove' | 'set',
     item_name: string,
     quantity: number,
+    source: string,
+    price?: number,
 ): Promise<void> {
     if (!TV_URL) return;
     try {
         await fetch(`${TV_URL}/api/changelog`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, source: 'stock-frontend', item_name, quantity }),
+            body: JSON.stringify({ action, source, item_name, quantity, ...(price != null ? { price } : {}) }),
         });
     } catch {
         // Non-critical — changelog failures should never block the main flow
@@ -90,11 +92,13 @@ export async function handleTakeItem(
     itemId: number,
     quantity: number,
     itemName?: string,
+    totalPrice?: number,
+    source = 'checkout',
 ): Promise<boolean> {
     try {
         await inventreeClient.removeStock(itemId, quantity, `Removed via Stock App - Checkout`);
         console.debug(`Successfully removed ${quantity} units from item ${itemId}`);
-        if (itemName) void sendChangelogEvent('checkout', itemName, quantity);
+        if (itemName) void sendChangelogEvent('checkout', itemName, quantity, source, totalPrice);
         return true;
     } catch (error) {
         console.error(`Failed to remove item ${itemId}:`, error);
@@ -113,11 +117,13 @@ export async function handleAddItem(
     itemId: number,
     quantity: number,
     itemName?: string,
+    totalPrice?: number,
+    source = 'volunteer-scanner',
 ): Promise<boolean> {
     try {
         await inventreeClient.addStock(itemId, quantity, `Added via Stock App - Volunteer Mode`);
         console.debug(`Successfully added ${quantity} units to item ${itemId}`);
-        if (itemName) void sendChangelogEvent('add', itemName, quantity);
+        if (itemName) void sendChangelogEvent('add', itemName, quantity, source, totalPrice);
         return true;
     } catch (error) {
         console.error(`Failed to add item ${itemId}:`, error);
@@ -139,12 +145,14 @@ export async function handleSetItem(
     itemId: number,
     quantity: number,
     itemName?: string,
+    _totalPrice?: number,
+    source = 'volunteer-scanner',
 ): Promise<boolean> {
     try {
         await inventreeClient.setStock(itemId, quantity, `Stock set via App - Volunteer Mode`);
         console.debug(`Successfully set item ${itemId} to ${quantity} units`);
-        if (itemName) void sendChangelogEvent('set', itemName, quantity);
-        return true;
+        if (itemName) void sendChangelogEvent('set', itemName, quantity, source);
+        return true; // no price for set — absolute quantity, price wouldn't be meaningful
     } catch (error) {
         console.error(`Failed to set item ${itemId}:`, error);
         return false;
