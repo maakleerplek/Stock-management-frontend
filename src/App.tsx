@@ -19,6 +19,7 @@ import {
   type InvenTreePartListResponse
 } from './api/types';
 import inventreeClient from './api/inventreeClient';
+import { reportCreateEvent } from './sendCodeHandler';
 import {
   getErrorMessage,
   parseNumericFields,
@@ -108,6 +109,7 @@ function AppContent() {
         description: formData.description || '',
         parent: formData.parent ? parseInt(formData.parent) : undefined
       });
+      reportCreateEvent(`Category: ${formData.name}`);
       addToast('Category created successfully!', 'success');
       setAddCategoryModalOpen(false);
       fetchCategoriesAndLocations();
@@ -125,6 +127,7 @@ function AppContent() {
         description: formData.description || '',
         parent: formData.parent ? parseInt(formData.parent) : undefined
       });
+      reportCreateEvent(`Location: ${formData.name}`);
       addToast('Location created successfully!', 'success');
       setAddLocationModalOpen(false);
       fetchCategoriesAndLocations();
@@ -169,6 +172,7 @@ function AppContent() {
         }
       }
 
+      reportCreateEvent(`Item: ${formData.partName}`);
       addToast('Part created successfully!', 'success');
       setAddPartFormModalOpen(false);
       return { partId: String(part.pk) };

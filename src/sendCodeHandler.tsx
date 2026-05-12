@@ -159,5 +159,13 @@ export async function handleSetItem(
     }
 }
 
+/**
+ * Report a creation event (new part, category, or location) to the TV changelog.
+ * item_name should describe what was created, e.g. "Item: Club Mate" or "Category: Drinks".
+ */
+export function reportCreateEvent(item_name: string): void {
+    void sendChangelogEvent('create', item_name, 1, 'volunteer-scanner');
+}
+
 // Re-export ItemData type for convenience
 export type { ItemData };
