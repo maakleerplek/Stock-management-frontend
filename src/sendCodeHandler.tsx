@@ -14,6 +14,25 @@
 import { inventreeClient } from './api/inventreeClient';
 import type { ItemData } from './api/types';
 
+const TV_URL = import.meta.env.VITE_TV_PRESENTATION_URL as string | undefined;
+
+async function sendChangelogEvent(
+    action: 'checkout' | 'add' | 'remove' | 'set',
+    item_name: string,
+    quantity: number,
+): Promise<void> {
+    if (!TV_URL) return;
+    try {
+        await fetch(`${TV_URL}/api/changelog`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, source: 'stock-frontend', item_name, quantity }),
+        });
+    } catch {
+        // Non-critical — changelog failures should never block the main flow
+    }
+}
+
 /**
  * Wraps a scanned item with a unique counter so scanning the same barcode
  * twice in a row still triggers the ShoppingWindow useEffect.
@@ -70,10 +89,12 @@ export async function handleSend(code: string): Promise<ItemData | null> {
 export async function handleTakeItem(
     itemId: number,
     quantity: number,
+    itemName?: string,
 ): Promise<boolean> {
     try {
         await inventreeClient.removeStock(itemId, quantity, `Removed via Stock App - Checkout`);
         console.debug(`Successfully removed ${quantity} units from item ${itemId}`);
+        if (itemName) void sendChangelogEvent('checkout', itemName, quantity);
         return true;
     } catch (error) {
         console.error(`Failed to remove item ${itemId}:`, error);
@@ -91,10 +112,12 @@ export async function handleTakeItem(
 export async function handleAddItem(
     itemId: number,
     quantity: number,
+    itemName?: string,
 ): Promise<boolean> {
     try {
         await inventreeClient.addStock(itemId, quantity, `Added via Stock App - Volunteer Mode`);
         console.debug(`Successfully added ${quantity} units to item ${itemId}`);
+        if (itemName) void sendChangelogEvent('add', itemName, quantity);
         return true;
     } catch (error) {
         console.error(`Failed to add item ${itemId}:`, error);
@@ -115,10 +138,12 @@ export async function handleAddItem(
 export async function handleSetItem(
     itemId: number,
     quantity: number,
+    itemName?: string,
 ): Promise<boolean> {
     try {
         await inventreeClient.setStock(itemId, quantity, `Stock set via App - Volunteer Mode`);
         console.debug(`Successfully set item ${itemId} to ${quantity} units`);
+        if (itemName) void sendChangelogEvent('set', itemName, quantity);
         return true;
     } catch (error) {
         console.error(`Failed to set item ${itemId}:`, error);

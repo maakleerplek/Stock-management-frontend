@@ -73,9 +73,9 @@ export default function ItemList() {
             for (const adj of adjustments) {
                 let success = false;
                 if (adj.delta > 0) {
-                    success = await handleAddItem(adj.item.id, adj.delta);
+                    success = await handleAddItem(adj.item.id, adj.delta, adj.item.name);
                 } else if (adj.delta < 0) {
-                    success = await handleTakeItem(adj.item.id, Math.abs(adj.delta));
+                    success = await handleTakeItem(adj.item.id, Math.abs(adj.delta), adj.item.name);
                 } else {
                     success = true;
                 }

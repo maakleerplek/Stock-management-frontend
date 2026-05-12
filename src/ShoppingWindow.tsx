@@ -111,9 +111,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
             for (const item of cartItems) {
                 let success = false;
                 if (isVolunteerMode && !isSetMode && item.cartQuantity < 0) {
-                    success = await handleTakeItem(item.id, Math.abs(item.cartQuantity));
+                    success = await handleTakeItem(item.id, Math.abs(item.cartQuantity), item.name);
                 } else {
-                    success = await handler(item.id, item.cartQuantity);
+                    success = await handler(item.id, item.cartQuantity, item.name);
                 }
 
                 if (!success) {
