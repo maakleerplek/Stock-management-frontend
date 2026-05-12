@@ -18,6 +18,7 @@ services:
         VITE_DOCS_URL: ${VITE_DOCS_URL}
         VITE_FEEDBACK_URL: ${VITE_FEEDBACK_URL}
         VITE_GITHUB_URL: ${VITE_GITHUB_URL}
+        VITE_TV_PRESENTATION_URL: ${VITE_TV_PRESENTATION_URL}
     container_name: stock-frontend
     environment:
       # Runtime environment variable for Caddy to proxy to InvenTree backend
