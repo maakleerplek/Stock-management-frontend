@@ -172,7 +172,7 @@ function AppContent() {
         }
       }
 
-      reportCreateEvent(`Item: ${formData.partName}`);
+      reportCreateEvent(`Item: ${formData.partName}`, numericFields.initialQuantity || 1);
       addToast('Part created successfully!', 'success');
       setAddPartFormModalOpen(false);
       return { partId: String(part.pk) };

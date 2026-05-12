@@ -17,7 +17,7 @@ import type { ItemData } from './api/types';
 const TV_URL = import.meta.env.VITE_TV_PRESENTATION_URL as string | undefined;
 
 async function sendChangelogEvent(
-    action: 'checkout' | 'add' | 'remove' | 'set',
+    action: 'checkout' | 'add' | 'remove' | 'set' | 'create',
     item_name: string,
     quantity: number,
     source: string,
@@ -163,8 +163,8 @@ export async function handleSetItem(
  * Report a creation event (new part, category, or location) to the TV changelog.
  * item_name should describe what was created, e.g. "Item: Club Mate" or "Category: Drinks".
  */
-export function reportCreateEvent(item_name: string): void {
-    void sendChangelogEvent('create', item_name, 1, 'volunteer-scanner');
+export function reportCreateEvent(item_name: string, quantity = 1): void {
+    void sendChangelogEvent('create', item_name, Math.max(1, Math.round(quantity)), 'volunteer-scanner');
 }
 
 // Re-export ItemData type for convenience
