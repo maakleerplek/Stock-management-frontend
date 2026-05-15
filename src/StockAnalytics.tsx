@@ -283,7 +283,7 @@ export default function StockAnalytics() {
     { label: 'UNITS OUT', value: analytics.totalRemoved, icon: TrendingDown, bg: 'bg-rose-50' },
     { label: 'REVENUE', value: `€${analytics.totalRevenue.toFixed(2)}`, icon: DollarSign, bg: 'bg-amber-50' },
     {
-      label: analytics.hasPurchasePrices ? 'PROFIT' : 'PROFIT*',
+      label: analytics.hasCostPrices ? 'PROFIT' : 'PROFIT*',
       value: `€${analytics.totalProfit.toFixed(2)}`,
       icon: Percent,
       bg: 'bg-emerald-50',

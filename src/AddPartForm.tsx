@@ -17,11 +17,14 @@ export interface PartFormData {
   storageLocation: string;
   minimumStock: string;
   barcode: string;
+  purchasePrice: string;
+  purchasePriceCurrency: string;
   supplier: string;
   supplierSku: string;
   supplierSetPrice: string;   // total price paid for one pack/set from supplier
   supplierSetQty: string;     // number of individual units in one set/pack
   supplierCurrency: string;
+  partId?: string;
   image?: File;
 }
 
@@ -57,6 +60,9 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
     purchasePriceCurrency: 'EUR',
     supplier: '',
     supplierSku: '',
+    supplierSetPrice: '',
+    supplierSetQty: '',
+    supplierCurrency: 'EUR',
   });
 
   const [errors, setErrors] = useState<PartFormErrors>({});
@@ -83,8 +89,8 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
 
   const validateForm = () => {
     const newErrors: PartFormErrors = {};
-    const requiredFields: Array<keyof PartFormData> = ['partName', 'initialQuantity', 'minimumStock', 'purchasePrice', 'category', 'storageLocation', 'barcode'];
-    
+    const requiredFields: Array<keyof PartFormData> = ['partName', 'initialQuantity', 'minimumStock', 'category', 'storageLocation', 'barcode'];
+
     requiredFields.forEach((field) => {
       if (!formData[field]?.toString().trim()) {
         newErrors[field] = `${field} IS REQUIRED`;
@@ -99,6 +105,12 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
     }
     if (formData.purchasePrice && isNaN(parseFloat(formData.purchasePrice))) {
       newErrors.purchasePrice = 'MUST BE A NUMBER';
+    }
+    if (formData.supplierSetPrice && isNaN(parseFloat(formData.supplierSetPrice))) {
+      newErrors.supplierSetPrice = 'MUST BE A NUMBER';
+    }
+    if (formData.supplierSetQty && isNaN(parseFloat(formData.supplierSetQty))) {
+      newErrors.supplierSetQty = 'MUST BE A NUMBER';
     }
 
     setErrors(newErrors);
@@ -432,7 +444,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 placeholder="0"
               />
               <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
-                How many individual units are in stock right now.
+                Units in stock right now.
               </p>
               <FieldError msg={errors.initialQuantity} />
             </div>
@@ -448,12 +460,12 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 placeholder="0"
               />
               <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
-                Low stock alert triggers below this number.
+                Low stock alert threshold.
               </p>
               <FieldError msg={errors.minimumStock} />
             </div>
             <div>
-              <Label text="Price" />
+              <Label text="Selling Price" />
               <div className="flex border border-brand-black overflow-hidden">
                 <span className="bg-brand-beige-dark px-2 py-2 font-bold border-r border-brand-black text-xs">
                   {formData.purchasePriceCurrency}
@@ -468,6 +480,10 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                   placeholder="0.00"
                 />
               </div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                Price customers pay per unit.
+              </p>
+              <FieldError msg={errors.purchasePrice} />
             </div>
             <div>
               <Label text="Currency" />
@@ -485,85 +501,147 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
           </div>
 
           {/* Section 4: Supplier */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label text="Supplier" />
-              <select
-                name="supplier"
-                value={formData.supplier}
-                onChange={handleChange}
-                className="brutalist-input w-full"
-              >
-                <option value="">None</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={String(s.id)}>{s.name.toUpperCase()}</option>
-                ))}
-              </select>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
-                Who you purchase this item from. Skip if unknown or not applicable.
-              </p>
-            </div>
-            <div>
-              <Label text="Package / Case Barcode (SKU)" />
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  name="supplierSku"
-                  value={formData.supplierSku}
+          <div className="border border-brand-black p-4 space-y-4">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-brand-black/70">SUPPLIER INFO</h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label text="Supplier" />
+                <select
+                  name="supplier"
+                  value={formData.supplier}
                   onChange={handleChange}
-                  placeholder="Scan or type package barcode"
-                  className="brutalist-input flex-1 font-mono text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setIsSkuScanning(s => !s)}
-                  className={cn(
-                    "brutalist-button px-3 flex items-center gap-1 text-xs",
-                    isSkuScanning && "bg-red-500 text-white"
-                  )}
+                  className="brutalist-input w-full"
                 >
-                  {isSkuScanning ? <StopCircle size={14} /> : <Camera size={14} />}
-                  {isSkuScanning ? 'STOP' : 'SCAN'}
-                </button>
+                  <option value="">None</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={String(s.id)}>{s.name.toUpperCase()}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                  Who you purchase this item from.
+                </p>
               </div>
-              {isSkuScanning && (
-                <div className="w-full aspect-[4/3] overflow-hidden border border-brand-black bg-black mt-2">
-                  <Scanner
-                    onScan={(codes: IDetectedBarcode[]) => {
-                      if (codes.length > 0) {
-                        setFormData(prev => ({ ...prev, supplierSku: codes[0].rawValue }));
-                        setIsSkuScanning(false);
-                        if ('vibrate' in navigator) navigator.vibrate(50);
-                      }
-                    }}
-                    onError={(err) => console.error('[AddPartForm] SKU scan error:', err)}
-                    allowMultiple={false}
-                    scanDelay={500}
-                    formats={['qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','data_matrix','itf','codabar']}
-                    constraints={{ facingMode: 'environment' }}
-                    components={{ torch: true, finder: true }}
-                    styles={{
-                      container: { width: '100%', height: '100%', overflow: 'hidden' },
-                      video: { width: '100%', height: '100%', objectFit: 'cover' },
-                    }}
+              <div>
+                <Label text="Package / Case Barcode (SKU)" />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="supplierSku"
+                    value={formData.supplierSku}
+                    onChange={handleChange}
+                    placeholder="Scan or type package barcode"
+                    className="brutalist-input flex-1 font-mono text-sm"
                   />
-                </div>
-              )}
-              {formData.supplierSku && !isSkuScanning && (
-                <div className="flex items-center justify-between text-xs mt-1">
-                  <span className="font-mono font-bold text-emerald-700">{formData.supplierSku}</span>
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, supplierSku: '' }))}
-                    className="text-red-500 font-bold text-[10px] uppercase tracking-widest hover:underline"
+                    onClick={() => setIsSkuScanning(s => !s)}
+                    className={cn(
+                      "brutalist-button px-3 flex items-center gap-1 text-xs",
+                      isSkuScanning && "bg-red-500 text-white"
+                    )}
                   >
-                    CLEAR
+                    {isSkuScanning ? <StopCircle size={14} /> : <Camera size={14} />}
+                    {isSkuScanning ? 'STOP' : 'SCAN'}
                   </button>
                 </div>
-              )}
-              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
-                Barcode on the box or pack (e.g. case of 24). Leave blank if same as item barcode.
-              </p>
+                {isSkuScanning && (
+                  <div className="w-full aspect-[4/3] overflow-hidden border border-brand-black bg-black mt-2">
+                    <Scanner
+                      onScan={(codes: IDetectedBarcode[]) => {
+                        if (codes.length > 0) {
+                          setFormData(prev => ({ ...prev, supplierSku: codes[0].rawValue }));
+                          setIsSkuScanning(false);
+                          if ('vibrate' in navigator) navigator.vibrate(50);
+                        }
+                      }}
+                      onError={(err) => console.error('[AddPartForm] SKU scan error:', err)}
+                      allowMultiple={false}
+                      scanDelay={500}
+                      formats={['qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','data_matrix','itf','codabar']}
+                      constraints={{ facingMode: 'environment' }}
+                      components={{ torch: true, finder: true }}
+                      styles={{
+                        container: { width: '100%', height: '100%', overflow: 'hidden' },
+                        video: { width: '100%', height: '100%', objectFit: 'cover' },
+                      }}
+                    />
+                  </div>
+                )}
+                {formData.supplierSku && !isSkuScanning && (
+                  <div className="flex items-center justify-between text-xs mt-1">
+                    <span className="font-mono font-bold text-emerald-700">{formData.supplierSku}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, supplierSku: '' }))}
+                      className="text-red-500 font-bold text-[10px] uppercase tracking-widest hover:underline"
+                    >
+                      CLEAR
+                    </button>
+                  </div>
+                )}
+                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                  Barcode on the box or pack (e.g. case of 24).
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div>
+                <Label text="Pack Qty" />
+                <input
+                  type="number"
+                  name="supplierSetQty"
+                  value={formData.supplierSetQty}
+                  onChange={handleChange}
+                  step="1" min="1"
+                  className={cn("brutalist-input w-full", errors.supplierSetQty && "border-red-500 bg-red-50")}
+                  placeholder="e.g. 24"
+                />
+                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                  Units per pack/case.
+                </p>
+                <FieldError msg={errors.supplierSetQty} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label text="Pack Price" />
+                <div className="flex border border-brand-black overflow-hidden">
+                  <span className="bg-brand-beige-dark px-2 py-2 font-bold border-r border-brand-black text-xs">
+                    {formData.supplierCurrency}
+                  </span>
+                  <input
+                    type="number"
+                    name="supplierSetPrice"
+                    value={formData.supplierSetPrice}
+                    onChange={handleChange}
+                    step="0.01" min="0"
+                    className={cn("flex-1 px-2 py-2 border-none outline-none text-sm bg-white", errors.supplierSetPrice && "bg-red-50")}
+                    placeholder="0.00"
+                  />
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                  Total price paid for one pack.
+                  {formData.supplierSetPrice && formData.supplierSetQty && parseFloat(formData.supplierSetQty) > 0 && (
+                    <span className="text-emerald-700 ml-1">
+                      = {(parseFloat(formData.supplierSetPrice) / parseFloat(formData.supplierSetQty)).toFixed(4)} / unit
+                    </span>
+                  )}
+                </p>
+                <FieldError msg={errors.supplierSetPrice} />
+              </div>
+              <div>
+                <Label text="Currency" />
+                <select
+                  name="supplierCurrency"
+                  value={formData.supplierCurrency}
+                  onChange={handleChange}
+                  className="brutalist-input w-full"
+                >
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                  <option value="GBP">GBP</option>
+                </select>
+              </div>
             </div>
           </div>
 

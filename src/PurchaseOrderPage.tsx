@@ -1,16 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ShoppingBag, Plus, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, Package } from 'lucide-react';
+import { ShoppingBag, Plus, Loader2, CheckCircle, XCircle, Package } from 'lucide-react';
 import inventreeClient from './api/inventreeClient';
 import { useStock } from './StockContext';
 import type { SelectOption } from './AddPartForm';
 import { cn } from './lib/utils';
 
-interface SupplierPart {
-    pk: number;
-    part: number;
-    SKU: string;
-    pack_quantity: string;
-}
 
 interface OrderLine {
     supplierPartPk: number;
@@ -49,7 +43,6 @@ export default function PurchaseOrderPage({ suppliers }: PurchaseOrderPageProps)
 
     // Create order state
     const [selectedSupplier, setSelectedSupplier] = useState('');
-    const [supplierParts, setSupplierParts] = useState<SupplierPart[]>([]);
     const [loadingParts, setLoadingParts] = useState(false);
     const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
     const [reference, setReference] = useState('');
@@ -78,7 +71,6 @@ export default function PurchaseOrderPage({ suppliers }: PurchaseOrderPageProps)
 
     useEffect(() => {
         if (!selectedSupplier) {
-            setSupplierParts([]);
             setOrderLines([]);
             return;
         }
@@ -86,7 +78,6 @@ export default function PurchaseOrderPage({ suppliers }: PurchaseOrderPageProps)
             setLoadingParts(true);
             try {
                 const parts = await inventreeClient.getSupplierPartsForSupplier(parseInt(selectedSupplier));
-                setSupplierParts(parts);
                 // Build order lines with current stock info
                 const lines: OrderLine[] = parts.map(sp => {
                     const stockItem = stockItems.find(i => i.part_id === sp.part);

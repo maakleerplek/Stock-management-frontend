@@ -189,6 +189,7 @@ function AppContent() {
           part: part.pk,
           supplier: parseInt(formData.supplier),
           SKU: sku,
+          ...(numericFields.packQty > 0 ? { pack_quantity: numericFields.packQty } : {}),
         });
         supplierPartPk = supplierPart.pk;
       }

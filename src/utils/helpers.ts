@@ -38,9 +38,13 @@ export const getErrorMessage = (error: unknown, context?: string): string => {
 
 // Form data utilities
 export const parseNumericFields = (formData: PartFormData) => {
+  const packQty = parseFloat(formData.supplierSetQty) || 0;
+  const packPrice = parseFloat(formData.supplierSetPrice) || 0;
   return {
     initialQuantity: parseFloat(formData.initialQuantity) || 0,
     purchasePrice: parseFloat(formData.purchasePrice) || 0,
+    packQty,
+    packPrice,
     locationId: parseInt(formData.storageLocation) || 0,
     categoryId: parseInt(formData.category) || 0,
     partId: formData.partId ? parseInt(formData.partId) : undefined,
