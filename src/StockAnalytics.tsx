@@ -174,7 +174,7 @@ export default function StockAnalytics() {
       totalTransactions: filteredEntries.length,
       hasCostPrices: byPart.some(p => p.costPrice > 0),
     };
-  }, [filteredEntries, partLookup, purchasePriceByStockItem]);
+  }, [filteredEntries, partLookup]);
 
   const mostUsed = useMemo(() =>
     analytics.byPart.filter(p => p.removed > 0).sort((a, b) => b.removed - a.removed).slice(0, 10),
