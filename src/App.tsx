@@ -8,7 +8,7 @@ import ShoppingWindow from './ShoppingWindow';
 import BarcodeScannerContainer from './BarcodeScannerContainer';
 import ItemList from './ItemList';
 import Footer from './components/Footer';
-import { StockProvider } from './StockContext';
+import { StockProvider, useStock } from './StockContext';
 import Header from './components/Header';
 import { ToastProvider, useToast } from './ToastContext';
 import { VolunteerProvider, useVolunteer } from './VolunteerContext';
@@ -46,11 +46,25 @@ function AppContent() {
   const [locations, setLocations] = useState<SelectOption[]>([]);
   const [suppliers, setSuppliers] = useState<SelectOption[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InvenTreePartListResponse['results']>([]);
+  const [lowStockOrderPartIds, setLowStockOrderPartIds] = useState<number[]>([]);
   const [recentMovements, setRecentMovements] = useState<InvenTreeTrackingEntry[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
   const [mobileCheckoutTab, setMobileCheckoutTab] = useState<'scan' | 'cart'>('scan');
   const { addToast } = useToast();
   const { isVolunteerMode } = useVolunteer();
+  const { items: stockItems, loading: stockLoading, lastFetched: stockLastFetched } = useStock();
+
+  const totalParts = stockItems.length;
+  const inStockCount = stockItems.filter(i => i.quantity > 0).length;
+  const outOfStockCount = stockItems.filter(i => i.quantity === 0).length;
+  const categoryStats = Object.entries(
+    stockItems.reduce((acc: Record<string, number>, item) => {
+      const cat = item.category || 'Uncategorized';
+      acc[cat] = (acc[cat] || 0) + 1;
+      return acc;
+    }, {})
+  ).sort((a, b) => b[1] - a[1]);
+  const maxCategoryCount = categoryStats[0]?.[1] || 1;
 
   // Warn before refresh if checkout result or any create modal is active
   useEffect(() => {
@@ -254,6 +268,13 @@ function AppContent() {
     }
   }, [isVolunteerMode, currentPage]);
 
+  // Clear prefill state when leaving the orders page
+  useEffect(() => {
+    if (currentPage !== 'orders') {
+      setLowStockOrderPartIds([]);
+    }
+  }, [currentPage]);
+
   const inventreePanelUrl = import.meta.env.VITE_INVENTREE_PANEL_URL || '';
 
   const VolunteerNavigation = () => (
@@ -390,131 +411,118 @@ function AppContent() {
                 >
                   {/* Dashboard Content */}
                   <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
-                    <div className="border-b border-brand-black pb-4">
-                      <h2 className="text-2xl font-black uppercase tracking-widest text-brand-black">DASHBOARD</h2>
-                      <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">SYSTEM STATUS</p>
+                    {/* Header */}
+                    <div className="border-b border-brand-black pb-4 flex items-end justify-between">
+                      <div>
+                        <h2 className="text-2xl font-black uppercase tracking-widest text-brand-black">DASHBOARD</h2>
+                        <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">
+                          {stockLastFetched
+                            ? `UPDATED ${Math.max(0, Math.round((Date.now() - stockLastFetched) / 60000))} MIN AGO`
+                            : stockLoading ? 'LOADING...' : 'SYSTEM STATUS'}
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Low Stock Alert — top priority */}
+                    {/* Stat cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="border-2 border-brand-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(30,27,24,1)]">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/50 mb-1">PARTS TRACKED</div>
+                        <div className="text-3xl font-black text-brand-black">{stockLoading ? '—' : totalParts}</div>
+                      </div>
+                      <div className="border-2 border-brand-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(30,27,24,1)]">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700/70 mb-1">IN STOCK</div>
+                        <div className="text-3xl font-black text-emerald-700">{stockLoading ? '—' : inStockCount}</div>
+                      </div>
+                      <div className={cn("border-2 border-brand-black p-4 shadow-[4px_4px_0px_0px_rgba(30,27,24,1)]", outOfStockCount > 0 ? "bg-amber-50" : "bg-white")}>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/50 mb-1">OUT OF STOCK</div>
+                        <div className={cn("text-3xl font-black", outOfStockCount > 0 ? "text-amber-700" : "text-brand-black")}>{stockLoading ? '—' : outOfStockCount}</div>
+                      </div>
+                      <button
+                        onClick={() => { setLowStockOrderPartIds(lowStockItems.map((i: any) => i.pk)); setCurrentPage('orders'); }}
+                        disabled={lowStockItems.length === 0}
+                        className={cn(
+                          "border-2 border-brand-black p-4 shadow-[4px_4px_0px_0px_rgba(30,27,24,1)] text-left transition-colors",
+                          lowStockItems.length > 0 ? "bg-red-50 hover:bg-red-100 cursor-pointer" : "bg-white cursor-default"
+                        )}
+                      >
+                        <div className="text-[10px] font-black uppercase tracking-widest text-red-600/70 mb-1">LOW STOCK</div>
+                        <div className={cn("text-3xl font-black", lowStockItems.length > 0 ? "text-red-600" : "text-brand-black")}>{lowStockItems.length}</div>
+                        {lowStockItems.length > 0 && <div className="text-[10px] font-black uppercase tracking-widest text-red-500 mt-1">TAP TO ORDER →</div>}
+                      </button>
+                    </div>
+
+                    {/* Low stock alert */}
                     {lowStockItems.length > 0 && (
                       <div className="border border-red-600 bg-red-50">
-                        <div className="px-4 py-2 bg-red-600 text-white">
+                        <div className="px-4 py-2 bg-red-600 text-white flex items-center justify-between">
                           <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
                             <AlertCircle size={14} /> LOW STOCK — {lowStockItems.length} ITEM{lowStockItems.length !== 1 ? 'S' : ''}
                           </h3>
+                          <button
+                            onClick={() => { setLowStockOrderPartIds(lowStockItems.map((i: any) => i.pk)); setCurrentPage('orders'); }}
+                            className="text-[10px] font-black uppercase tracking-widest bg-white text-red-600 px-3 py-1 hover:bg-red-50 transition-colors border border-white"
+                          >
+                            ORDER ALL →
+                          </button>
                         </div>
                         <ul className="divide-y divide-red-200">
                           {lowStockItems.map((item: any) => (
-                            <li key={item.pk} className="px-4 py-2 text-xs font-bold uppercase text-brand-black flex justify-between">
-                              <span>{item.name}</span>
-                              {item.total_in_stock !== undefined && (
-                                <span className="font-mono text-red-600">{item.total_in_stock} left</span>
-                              )}
+                            <li key={item.pk} className="px-4 py-2 text-xs font-bold uppercase text-brand-black flex items-center justify-between gap-4">
+                              <span className="flex-1 truncate">{item.name}</span>
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                {item.total_in_stock !== undefined && (
+                                  <span className="font-mono text-red-600">{item.total_in_stock} left</span>
+                                )}
+                                <button
+                                  onClick={() => { setLowStockOrderPartIds([item.pk]); setCurrentPage('orders'); }}
+                                  className="text-[10px] font-black uppercase tracking-widest bg-red-600 text-white px-3 py-1 hover:bg-red-700 transition-colors"
+                                >
+                                  ORDER
+                                </button>
+                              </div>
                             </li>
                           ))}
                         </ul>
                       </div>
                     )}
 
-                    {/* Main Grid: Categories + Locations */}
+                    {/* Category breakdown + Recent activity */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Categories List */}
                       <div>
-                        <h3 className="text-xs font-black uppercase tracking-widest mb-2 flex items-center justify-between">
-                          <span>CATEGORIES ({categories.length})</span>
-                          <button
-                            onClick={() => setAddCategoryModalOpen(true)}
-                            className="text-[10px] font-black uppercase tracking-widest text-brand-black/50 hover:text-brand-black transition-colors"
-                          >
-                            + ADD
-                          </button>
+                        <h3 className="text-xs font-black uppercase tracking-widest mb-3 text-brand-black">
+                          STOCK BY CATEGORY
                         </h3>
-                        <div className="border border-brand-black">
-                          {categories.length > 0 ? (
+                        <div className="border border-brand-black bg-white overflow-hidden">
+                          {stockLoading ? (
+                            <div className="p-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-brand-black/40">
+                              <Loader2 size={14} className="animate-spin" /> LOADING...
+                            </div>
+                          ) : categoryStats.length === 0 ? (
+                            <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">NO DATA</div>
+                          ) : (
                             <ul className="divide-y divide-brand-black/10">
-                              {categories.map((cat) => (
-                                <li key={cat.id} className="px-4 py-2.5 text-xs font-bold uppercase text-brand-black flex items-center justify-between hover:bg-brand-beige-dark transition-colors">
-                                  <span>{cat.name}</span>
-                                  <span className="text-[10px] font-mono text-brand-black/40">#{cat.id}</span>
+                              {categoryStats.slice(0, 10).map(([cat, count]) => (
+                                <li key={cat} className="px-4 py-2.5 hover:bg-brand-beige transition-colors">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-black uppercase text-brand-black truncate mr-2">{cat}</span>
+                                    <span className="text-xs font-mono text-brand-black/60 flex-shrink-0">{count}</span>
+                                  </div>
+                                  <div className="h-1 bg-brand-beige-dark overflow-hidden">
+                                    <div
+                                      className="h-full bg-brand-black transition-all"
+                                      style={{ width: `${(count / maxCategoryCount) * 100}%` }}
+                                    />
+                                  </div>
                                 </li>
                               ))}
                             </ul>
-                          ) : (
-                            <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">
-                              NO CATEGORIES
-                            </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Locations List */}
                       <div>
-                        <h3 className="text-xs font-black uppercase tracking-widest mb-2 flex items-center justify-between">
-                          <span>LOCATIONS ({locations.length})</span>
-                          <button
-                            onClick={() => setAddLocationModalOpen(true)}
-                            className="text-[10px] font-black uppercase tracking-widest text-brand-black/50 hover:text-brand-black transition-colors"
-                          >
-                            + ADD
-                          </button>
-                        </h3>
-                        <div className="border border-brand-black">
-                          {locations.length > 0 ? (
-                            <ul className="divide-y divide-brand-black/10">
-                              {locations.map((loc) => (
-                                <li key={loc.id} className="px-4 py-2.5 text-xs font-bold uppercase text-brand-black flex items-center justify-between hover:bg-brand-beige-dark transition-colors">
-                                  <span>{loc.name}</span>
-                                  <span className="text-[10px] font-mono text-brand-black/40">#{loc.id}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">
-                              NO LOCATIONS
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bottom Row: Quick Actions + Recent Activity */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Quick Actions */}
-                      <div>
-                        <h3 className="text-xs font-black uppercase tracking-widest mb-2 flex items-center gap-2">
-                          <Info size={14} /> QUICK ACTIONS
-                        </h3>
-                        <div className="border border-brand-black p-4 space-y-3">
-                          <p className="font-bold text-xs leading-relaxed text-brand-black/70">
-                            USE THE TABS ABOVE TO MANAGE STOCK OR SCAN ITEMS.
-                          </p>
-                          <div className="flex gap-3 flex-wrap">
-                            <button
-                              onClick={() => setCurrentPage('inventory')}
-                              className="brutalist-button py-2 px-4 text-xs"
-                            >
-                              STOCK LIST
-                            </button>
-                            <button
-                              onClick={() => setCurrentPage('scan')}
-                              className="brutalist-button py-2 px-4 bg-blue-200 text-brand-black text-xs"
-                            >
-                              SCANNER
-                            </button>
-                            <button
-                              onClick={() => setAddPartFormModalOpen(true)}
-                              className="brutalist-button py-2 px-4 text-xs"
-                            >
-                              + NEW ITEM
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Recent Activity */}
-                      <div>
-                        <h3 className="text-xs font-black uppercase tracking-widest mb-2 flex items-center gap-2">
-                          <Loader2 size={14} /> RECENT ACTIVITY
+                        <h3 className="text-xs font-black uppercase tracking-widest mb-3 text-brand-black">
+                          RECENT ACTIVITY
                         </h3>
                         <div className="border border-brand-black overflow-hidden">
                           {recentMovements.length > 0 ? (
@@ -523,25 +531,25 @@ function AppContent() {
                                 const isAdd = (move.deltas?.added ?? 0) > 0 || move.tracking_type === 10 || move.tracking_type === 100;
                                 const isRemove = (move.deltas?.removed ?? 0) > 0 || move.tracking_type === 11;
                                 return (
-                                <div key={move.pk} className={cn(
-                                  "p-3 flex justify-between items-center",
-                                  isAdd && "bg-emerald-50",
-                                  isRemove && "bg-rose-50"
-                                )}>
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className={cn(
-                                      "text-base leading-none flex-shrink-0",
-                                      isAdd ? "text-emerald-600" : isRemove ? "text-rose-600" : "text-brand-black/40"
-                                    )}>
-                                      {isAdd ? "↑" : isRemove ? "↓" : "·"}
-                                    </span>
-                                    <div className="min-w-0">
-                                      <span className="text-xs font-bold uppercase">{move.label}</span>
-                                      {move.notes && <p className="text-[10px] text-brand-black/60 mt-0.5 truncate">{move.notes}</p>}
+                                  <div key={move.pk} className={cn(
+                                    "p-3 flex justify-between items-center",
+                                    isAdd && "bg-emerald-50",
+                                    isRemove && "bg-rose-50"
+                                  )}>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className={cn(
+                                        "text-base leading-none flex-shrink-0",
+                                        isAdd ? "text-emerald-600" : isRemove ? "text-rose-600" : "text-brand-black/40"
+                                      )}>
+                                        {isAdd ? "↑" : isRemove ? "↓" : "·"}
+                                      </span>
+                                      <div className="min-w-0">
+                                        <span className="text-xs font-bold uppercase">{move.label}</span>
+                                        {move.notes && <p className="text-[10px] text-brand-black/60 mt-0.5 truncate">{move.notes}</p>}
+                                      </div>
                                     </div>
+                                    <span className="text-[10px] font-mono text-brand-black/50 flex-shrink-0 ml-2">{move.date}</span>
                                   </div>
-                                  <span className="text-[10px] font-mono text-brand-black/50 flex-shrink-0 ml-2">{move.date}</span>
-                                </div>
                                 );
                               })}
                             </div>
@@ -558,11 +566,26 @@ function AppContent() {
                                 rel="noopener noreferrer"
                                 className="text-[10px] font-black uppercase tracking-widest hover:underline flex items-center gap-1"
                               >
-                                VIEW ALL IN INVENTREE
-                                <ExternalLink size={10} />
+                                VIEW ALL IN INVENTREE <ExternalLink size={10} />
                               </a>
                             </div>
                           )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick actions */}
+                    <div>
+                      <h3 className="text-xs font-black uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <Info size={14} /> QUICK ACTIONS
+                      </h3>
+                      <div className="border border-brand-black p-4">
+                        <div className="flex gap-3 flex-wrap">
+                          <button onClick={() => setCurrentPage('inventory')} className="brutalist-button py-2 px-4 text-xs">STOCK LIST</button>
+                          <button onClick={() => setCurrentPage('scan')} className="brutalist-button py-2 px-4 bg-blue-200 text-brand-black text-xs">SCANNER</button>
+                          <button onClick={() => setAddPartFormModalOpen(true)} className="brutalist-button py-2 px-4 text-xs">+ NEW ITEM</button>
+                          <button onClick={() => setCurrentPage('orders')} className="brutalist-button py-2 px-4 bg-amber-300 text-brand-black text-xs">PURCHASE ORDERS</button>
+                          <button onClick={() => setCurrentPage('analytics')} className="brutalist-button py-2 px-4 text-xs">ANALYTICS</button>
                         </div>
                       </div>
                     </div>
@@ -614,7 +637,7 @@ function AppContent() {
                   transition={{ duration: 0.15 }}
                   className="flex-1 flex flex-col min-h-0 overflow-hidden"
                 >
-                  <PurchaseOrderPage suppliers={suppliers} />
+                  <PurchaseOrderPage suppliers={suppliers} prefillPartIds={lowStockOrderPartIds} />
                 </motion.div>
               )}
               {currentPage === 'analytics' && (
