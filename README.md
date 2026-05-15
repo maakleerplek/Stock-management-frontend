@@ -9,9 +9,22 @@ A brutalist-styled inventory management frontend for InvenTree backend, featurin
   - **Checkout Mode**: Customer-facing with shopping cart and payment QR codes
   - **Volunteer Mode**: Admin tools for stock management with add/remove/set operations
 - **Real-time Stock Tracking**: See current stock, location, and category for each item
-- **InvenTree Integration**: Embedded InvenTree panel for advanced management
+- **Supplier Management**: Items are linked to suppliers (e.g. Prik&Tik) with pack barcodes and pack quantities
+- **Purchase Orders**: Track restocking via InvenTree purchase orders (internal tracking — does not notify suppliers automatically)
 - **PWA Support**: Works offline with service worker caching
 - **Mobile-First Design**: Optimized for touch devices with haptic feedback
+
+## Purchase Order Workflow
+
+Purchase orders are managed in InvenTree and are **internal tracking only** — placing a PO does not notify the supplier.
+
+| Status | Meaning |
+|---|---|
+| **Pending** | Planned but not yet ordered |
+| **Issued** | Order placed with supplier |
+| **Received** | Delivery arrived — stock auto-updated |
+
+When an item runs empty: create a PO in InvenTree → place the order with the supplier → Issue the PO → Receive when delivered.
 
 ## Tech Stack
 
@@ -79,7 +92,7 @@ src/
   ShoppingWindow.tsx   # Cart wrapper with checkout logic
   ItemList.tsx         # Stock list with inline editing
   BarcodeScanner.tsx   # Camera scanner component
-  InvenTreePage.tsx    # Embedded InvenTree panel
+  DataRepairModal.tsx  # Bulk barcode and supplier data repair tool
   components/
     Header.tsx         # App header with mode toggle
     AdminToolsBar.tsx  # Quick action buttons

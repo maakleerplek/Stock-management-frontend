@@ -64,7 +64,7 @@ function ShoppingCart({
     return (
         <div className="w-full flex flex-col bg-brand-beige border-l-0">
             {/* Header */}
-            <div className="p-2 border-b border-brand-black bg-brand-accent shrink-0">
+            <div className="p-2 border-b border-brand-black bg-brand-beige-dark shrink-0">
                 <h2 className="text-brand-black uppercase tracking-widest text-xs font-black flex items-center justify-center gap-2">
                     {isVolunteerMode ? (
                         <Heart className="w-4 h-4" />
@@ -247,9 +247,9 @@ function ShoppingCart({
                                                     {/* Remove button */}
                                                     <button
                                                         onClick={() => handleRemoveItem(item.id)}
-                                                        className="w-8 h-8 flex items-center justify-center bg-red-500 text-white border border-brand-black hover:bg-red-600 active:scale-95 transition-all flex-shrink-0"
+                                                        className="w-11 h-11 flex items-center justify-center bg-red-500 text-white border border-brand-black hover:bg-red-600 active:scale-95 transition-all flex-shrink-0"
                                                     >
-                                                        <Trash2 size={14} />
+                                                        <Trash2 size={16} />
                                                     </button>
                                                 </div>
 
@@ -259,9 +259,9 @@ function ShoppingCart({
                                                     <div className="flex items-center gap-1">
                                                         <button
                                                             onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity - 1)}
-                                                            className="w-8 h-8 flex items-center justify-center border border-brand-black bg-red-400 hover:bg-red-500 active:scale-95 transition-all"
+                                                            className="w-11 h-11 flex items-center justify-center border border-brand-black bg-red-400 hover:bg-red-500 active:scale-95 transition-all"
                                                         >
-                                                            <Minus size={14} />
+                                                            <Minus size={16} />
                                                         </button>
                                                         <span className={cn(
                                                             "w-12 text-center font-black text-lg",
@@ -271,9 +271,9 @@ function ShoppingCart({
                                                         </span>
                                                         <button
                                                             onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity + 1)}
-                                                            className="w-8 h-8 flex items-center justify-center border border-brand-black bg-emerald-400 hover:bg-emerald-500 active:scale-95 transition-all"
+                                                            className="w-11 h-11 flex items-center justify-center border border-brand-black bg-emerald-400 hover:bg-emerald-500 active:scale-95 transition-all"
                                                         >
-                                                            <Plus size={14} />
+                                                            <Plus size={16} />
                                                         </button>
                                                     </div>
                                                     
@@ -316,8 +316,8 @@ function ShoppingCart({
                                     disabled={isCheckingOut}
                                     className={cn(
                                         "w-full py-3 text-sm font-black flex items-center justify-center gap-2 tracking-widest border border-brand-black transition-all",
-                                        isVolunteerMode 
-                                            ? "bg-brand-accent text-brand-black" 
+                                        isVolunteerMode
+                                            ? "bg-amber-300 text-brand-black hover:brightness-95"
                                             : "bg-emerald-400 text-brand-black hover:brightness-95",
                                         isCheckingOut && "opacity-75 cursor-not-allowed"
                                     )}

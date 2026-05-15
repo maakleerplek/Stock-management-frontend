@@ -169,7 +169,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
                 {/* Extras — shown inline below cart when not in volunteer mode and not checked out */}
                 {!isVolunteerMode && checkedOutResult === null && (
                     <div className="border-t border-brand-black">
-                        <div className="p-2 bg-brand-accent shrink-0">
+                        <div className="p-2 bg-brand-beige-dark shrink-0">
                             <h2 className="text-brand-black uppercase tracking-widest text-xs font-black flex items-center justify-center gap-2">
                                 <Settings size={14} /> EXTRA SERVICES
                             </h2>
@@ -185,16 +185,16 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
             {confirmOpen && (
                 <div className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4">
                     <div className="border border-brand-black bg-brand-beige w-full max-w-2xl flex flex-col">
-                        <div className="bg-brand-accent text-brand-black p-5 flex items-center justify-between">
+                        <div className="bg-brand-beige-dark text-brand-black p-5 flex items-center justify-between border-b border-brand-black">
                             <div className="flex items-center gap-3">
-                                <AlertCircle size={24} className="text-emerald-400" />
+                                <AlertCircle size={24} className="text-emerald-500" />
                                 <h3 className="font-black uppercase tracking-[0.2em] text-lg">CONFIRM TRANSACTION</h3>
                             </div>
                             <button onClick={() => setConfirmOpen(false)} className="hover:rotate-90 transition-transform">
                                 <X size={24} />
                             </button>
                         </div>
-                        <div className="p-8 bg-white overflow-y-auto max-h-[60vh] space-y-6">
+                        <div className="p-4 sm:p-8 bg-white overflow-y-auto max-h-[60vh] space-y-6">
                             <p className="text-xs font-black uppercase tracking-widest text-brand-black/50 border-b border-brand-black pb-2">
                                 ITEMS IN CART
                             </p>

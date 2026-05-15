@@ -135,7 +135,7 @@ export default function ImageDisplay({
     if (isLoading && showPlaceholder) {
         return (
             <div
-                className={cn("bg-brand-beige-dark animate-pulse", className)}
+                className={cn("bg-white animate-pulse", className)}
                 style={sizeStyle}
             />
         );
@@ -146,7 +146,7 @@ export default function ImageDisplay({
         return (
             <div
                 className={cn(
-                    "flex flex-col items-center justify-center bg-brand-beige-dark",
+                    "flex flex-col items-center justify-center bg-white",
                     className
                 )}
                 style={sizeStyle}

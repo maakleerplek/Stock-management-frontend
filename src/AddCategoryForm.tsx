@@ -95,6 +95,9 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                             autoFocus
                             className="brutalist-input w-full px-3 py-2"
                         />
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                            Name of the product group (e.g. Drinks, Tools, Electronics).
+                        </p>
                     </div>
 
                     {/* Description */}
@@ -126,6 +129,9 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                                     </option>
                                 ))}
                             </select>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                                Leave empty for a top-level category.
+                            </p>
                         </div>
 
                         <div>
@@ -143,6 +149,9 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                                     </option>
                                 ))}
                             </select>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                                New items in this category default to this storage location.
+                            </p>
                         </div>
                     </div>
 
@@ -195,7 +204,7 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                             type="submit"
                             disabled={loading}
                             className={cn(
-                                "brutalist-button px-4 py-2 bg-brand-accent text-brand-black flex items-center gap-2",
+                                "brutalist-button px-4 py-2 bg-emerald-400 text-brand-black flex items-center gap-2",
                                 loading && "opacity-75 cursor-not-allowed"
                             )}
                         >

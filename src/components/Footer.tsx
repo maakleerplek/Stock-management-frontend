@@ -27,7 +27,7 @@ export default function Footer() {
               className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
               title="Documentation"
             >
-              <div className="border border-brand-black bg-white p-1 shadow-sm">
+              <div className="border border-brand-black bg-white p-2 shadow-sm">
                 <Book size={18} className="text-brand-black" />
               </div>
               <div className="hidden md:flex flex-col justify-center">
@@ -49,7 +49,7 @@ export default function Footer() {
                 className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
                 title="Give Feedback"
               >
-                <div className="border border-brand-black bg-white p-1 shadow-sm">
+                <div className="border border-brand-black bg-white p-2 shadow-sm">
                   <MessageSquare size={18} className="text-brand-black" />
                 </div>
                 <div className="hidden md:flex flex-col justify-center">
@@ -71,7 +71,7 @@ export default function Footer() {
               className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
               title="GitHub Repository"
             >
-              <div className="border border-brand-black bg-white p-1 shadow-sm">
+              <div className="border border-brand-black bg-white p-2 shadow-sm">
                 <Github size={18} className="text-brand-black" />
               </div>
               <div className="hidden md:flex flex-col justify-center">
@@ -90,7 +90,7 @@ export default function Footer() {
               className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
               title="Manage Cache"
             >
-              <div className="border border-brand-black bg-white p-1 shadow-sm">
+              <div className="border border-brand-black bg-white p-2 shadow-sm">
                 <Database size={18} className="text-brand-black" />
               </div>
               <div className="hidden md:flex flex-col justify-center">

@@ -182,11 +182,12 @@ export default function ItemList() {
                                         return (
                                             <tr key={item.id} className={cn(
                                                 "hover:bg-brand-beige-dark/50 transition-colors",
-                                                delta !== 0 && "bg-emerald-50",
-                                                item.quantity === 0 && "bg-rose-50/50"
+                                                delta > 0 && "bg-emerald-50",
+                                                delta < 0 && "bg-rose-50",
+                                                delta === 0 && item.quantity === 0 && "bg-rose-50/50"
                                             )}>
                                                 <td className="p-2 pl-6">
-                                                    <div className="border border-brand-black bg-brand-beige-dark w-10 h-10">
+                                                    <div className="border border-brand-black bg-white w-10 h-10 overflow-hidden flex-shrink-0">
                                                         <ImageDisplay imagePath={item.image} alt={item.name} width={40} height={40} />
                                                     </div>
                                                 </td>
@@ -201,8 +202,11 @@ export default function ItemList() {
                                                         {item.quantity}
                                                     </span>
                                                     {delta !== 0 && (
-                                                        <span className="ml-2 font-bold text-xs bg-brand-accent text-brand-black px-2 py-1">
-                                                            ({delta > 0 ? `+${delta}` : delta})
+                                                        <span className={cn(
+                                                            "ml-2 font-bold text-xs px-2 py-1",
+                                                            delta > 0 ? "bg-emerald-400 text-brand-black" : "bg-rose-400 text-brand-black"
+                                                        )}>
+                                                            {delta > 0 ? `+${delta}` : delta}
                                                         </span>
                                                     )}
                                                 </td>
@@ -277,7 +281,7 @@ export default function ItemList() {
             {/* Right Sidebar: Pending Adjustments (only in volunteer mode) */}
             {isVolunteerMode && (
                 <aside className="w-full lg:w-80 xl:w-96 flex-shrink-0 border-l-0 lg:border-l border-t lg:border-t-0 border-brand-black bg-brand-beige flex flex-col">
-                    <div className="p-2 border-b border-brand-black bg-brand-accent shrink-0">
+                    <div className="p-2 border-b border-brand-black bg-brand-beige shrink-0">
                         <h2 className="text-brand-black uppercase tracking-widest text-xs font-black flex items-center justify-center gap-2">
                             <RefreshCw size={14} /> PENDING CHANGES
                         </h2>

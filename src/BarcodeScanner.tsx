@@ -241,7 +241,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
               </div>
               <button
                 onClick={retryCamera}
-                className="flex-shrink-0 p-1 hover:bg-yellow-200 brutalist-border"
+                className="flex-shrink-0 p-2 hover:bg-yellow-200 brutalist-border"
                 aria-label="Retry camera"
               >
                 <RefreshCw size={16} />
@@ -302,7 +302,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
 
           {isScanning && (
             <div className={cn(
-              "w-full aspect-square overflow-hidden relative bg-black brutalist-border",
+              "w-full aspect-video overflow-hidden relative bg-black brutalist-border",
               cameraError ? "border-yellow-600" : "border-brand-black"
             )}>
               {isLoading ? (
@@ -361,7 +361,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
               <button
                 type="submit"
                 disabled={!manualInput.trim()}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 disabled:opacity-30"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 disabled:opacity-30"
                 aria-label="Submit barcode"
               >
                 <Plus size={18} className="text-brand-black" />

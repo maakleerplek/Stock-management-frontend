@@ -94,6 +94,9 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                             autoFocus
                             className="brutalist-input w-full px-3 py-2"
                         />
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                            Physical place where items are stored (e.g. Fridge, Shelf A, Storage Room).
+                        </p>
                     </div>
 
                     {/* Description */}
@@ -124,6 +127,9 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                                 </option>
                             ))}
                         </select>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                            If this location is inside another (e.g. Shelf inside Storage Room).
+                        </p>
                     </div>
 
                     {/* Checkboxes */}
@@ -174,7 +180,7 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                             type="submit"
                             disabled={loading}
                             className={cn(
-                                "brutalist-button px-4 py-2 bg-brand-accent text-brand-black flex items-center gap-2",
+                                "brutalist-button px-4 py-2 bg-emerald-400 text-brand-black flex items-center gap-2",
                                 loading && "opacity-75 cursor-not-allowed"
                             )}
                         >
