@@ -53,6 +53,17 @@ export function StockProvider({ children }: { children: ReactNode }) {
         inventreeClient.getLocations(),
       ]);
 
+      // Build a category ID → name lookup from the already-fetched categories
+      const categoryMap = new Map<number, string>();
+      for (const cat of (catResp.results as any[])) {
+        categoryMap.set(cat.pk, cat.name);
+      }
+      const resolveCategory = (categoryId: number | undefined, fallbacks: (string | undefined)[]): string => {
+        if (categoryId && categoryMap.has(categoryId)) return categoryMap.get(categoryId)!;
+        for (const f of fallbacks) if (f) return f;
+        return 'Uncategorized';
+      };
+
       // Map stock items by part_id so we can detect parts with no stock record
       const stockByPartId = new Map<number, any>();
       const formattedItems: ItemData[] = stockResp.results.map((item: any) => {
@@ -70,7 +81,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
           image: inventreeClient.getFullImageUrl(item.part_detail?.thumbnail || item.part_detail?.image) || null,
           part_id: item.part,
           ipn: item.part_detail?.IPN || '',
-          category: item.part_detail?.category_name || 'Uncategorized',
+          category: resolveCategory(item.part_detail?.category, [item.part_detail?.category_detail?.name, item.part_detail?.category_name]),
         };
       });
 
@@ -90,7 +101,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
             image: inventreeClient.getFullImageUrl(part.thumbnail || part.image) || null,
             part_id: part.pk,
             ipn: part.IPN || '',
-            category: part.category_detail?.name || part.category_name || 'Uncategorized',
+            category: resolveCategory(part.category, [part.category_detail?.name, part.category_name]),
           });
         }
       }
