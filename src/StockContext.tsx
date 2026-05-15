@@ -53,21 +53,21 @@ export function StockProvider({ children }: { children: ReactNode }) {
         inventreeClient.getLocations(),
       ]);
 
-      // Build a category ID → name lookup from the already-fetched categories
-      const categoryMap = new Map<number, string>();
-      for (const cat of (catResp.results as any[])) {
-        categoryMap.set(cat.pk, cat.name);
-      }
-      const resolveCategory = (categoryId: number | undefined, fallbacks: (string | undefined)[]): string => {
-        if (categoryId && categoryMap.has(categoryId)) return categoryMap.get(categoryId)!;
-        for (const f of fallbacks) if (f) return f;
-        return 'Uncategorized';
-      };
+      const categoryMap = new Map<number, string>(
+        (catResp.results as any[]).map(c => [c.pk, c.name])
+      );
+      // part_detail in stock responses uses a brief serializer that omits category;
+      // build a part→categoryId lookup from the full parts response instead
+      const partCategoryMap = new Map<number, number>(
+        (partsResp.results as any[]).filter(p => p.category).map(p => [p.pk, p.category])
+      );
+      const resolveCategory = (categoryId: number | undefined, f1?: string, f2?: string): string =>
+        (categoryId && categoryMap.get(categoryId)) || f1 || f2 || 'Uncategorized';
 
-      // Map stock items by part_id so we can detect parts with no stock record
       const stockByPartId = new Map<number, any>();
       const formattedItems: ItemData[] = stockResp.results.map((item: any) => {
         stockByPartId.set(item.part, item);
+        const categoryId = item.part_detail?.category ?? partCategoryMap.get(item.part);
         return {
           id: item.pk,
           quantity: item.quantity,
@@ -81,11 +81,10 @@ export function StockProvider({ children }: { children: ReactNode }) {
           image: inventreeClient.getFullImageUrl(item.part_detail?.thumbnail || item.part_detail?.image) || null,
           part_id: item.part,
           ipn: item.part_detail?.IPN || '',
-          category: resolveCategory(item.part_detail?.category, [item.part_detail?.category_detail?.name, item.part_detail?.category_name]),
+          category: resolveCategory(categoryId, item.part_detail?.category_detail?.name, item.part_detail?.category_name),
         };
       });
 
-      // Add parts that have no stock record at all (show with quantity 0)
       for (const part of (partsResp.results as any[])) {
         if (!stockByPartId.has(part.pk)) {
           formattedItems.push({
@@ -101,7 +100,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
             image: inventreeClient.getFullImageUrl(part.thumbnail || part.image) || null,
             part_id: part.pk,
             ipn: part.IPN || '',
-            category: resolveCategory(part.category, [part.category_detail?.name, part.category_name]),
+            category: resolveCategory(part.category, part.category_detail?.name, part.category_name),
           });
         }
       }
