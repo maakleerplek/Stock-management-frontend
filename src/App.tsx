@@ -149,6 +149,10 @@ function AppContent() {
         name: formData.name,
         description: formData.description || undefined,
         website: formData.website || undefined,
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        address: formData.address || undefined,
+        contact: formData.contact || undefined,
       });
       reportCreateEvent(`Supplier: ${formData.name}`);
       addToast('Supplier created successfully!', 'success');

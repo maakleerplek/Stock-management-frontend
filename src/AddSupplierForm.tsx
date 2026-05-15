@@ -6,6 +6,10 @@ export interface SupplierFormData {
     name: string;
     description: string;
     website: string;
+    email: string;
+    phone: string;
+    address: string;
+    contact: string;
 }
 
 interface AddSupplierFormProps {
@@ -18,6 +22,10 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
         name: '',
         description: '',
         website: '',
+        email: '',
+        phone: '',
+        address: '',
+        contact: '',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -37,7 +45,7 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
         setLoading(true);
         try {
             await onSubmit(formData);
-            setFormData({ name: '', description: '', website: '' });
+            setFormData({ name: '', description: '', website: '', email: '', phone: '', address: '', contact: '' });
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to create supplier.');
         } finally {
@@ -93,6 +101,31 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
                         />
                     </div>
 
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-bold mb-2 uppercase">Email</label>
+                            <input
+                                type="email"
+                                name="email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                placeholder="orders@supplier.com"
+                                className="brutalist-input w-full px-3 py-2"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold mb-2 uppercase">Phone</label>
+                            <input
+                                type="tel"
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleChange}
+                                placeholder="+32 ..."
+                                className="brutalist-input w-full px-3 py-2"
+                            />
+                        </div>
+                    </div>
+
                     <div>
                         <label className="block text-sm font-bold mb-2 uppercase">Website</label>
                         <input
@@ -101,6 +134,30 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
                             value={formData.website}
                             onChange={handleChange}
                             placeholder="https://example.com"
+                            className="brutalist-input w-full px-3 py-2"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold mb-2 uppercase">Address</label>
+                        <textarea
+                            name="address"
+                            value={formData.address}
+                            onChange={handleChange}
+                            rows={2}
+                            placeholder="Street, City, Country"
+                            className="brutalist-input w-full px-3 py-2 resize-y"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold mb-2 uppercase">Contact Person</label>
+                        <input
+                            type="text"
+                            name="contact"
+                            value={formData.contact}
+                            onChange={handleChange}
+                            placeholder="Name of primary contact"
                             className="brutalist-input w-full px-3 py-2"
                         />
                     </div>
