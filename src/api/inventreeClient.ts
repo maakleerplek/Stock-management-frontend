@@ -504,7 +504,7 @@ class InvenTreeClient {
      */
     async assignBarcode(barcode: string, stockItemPk: number): Promise<void> {
         await this.request(
-            '/barcode/assign/',
+            '/barcode/link/',
             'POST',
             { barcode, stockitem: stockItemPk },
             false,
