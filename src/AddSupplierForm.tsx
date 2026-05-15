@@ -9,7 +9,6 @@ export interface SupplierFormData {
     email: string;
     phone: string;
     address: string;
-    contact: string;
 }
 
 interface AddSupplierFormProps {
@@ -25,7 +24,6 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
         email: '',
         phone: '',
         address: '',
-        contact: '',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -45,7 +43,7 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
         setLoading(true);
         try {
             await onSubmit(formData);
-            setFormData({ name: '', description: '', website: '', email: '', phone: '', address: '', contact: '' });
+            setFormData({ name: '', description: '', website: '', email: '', phone: '', address: '' });
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to create supplier.');
         } finally {
@@ -150,17 +148,6 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
                         />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-bold mb-2 uppercase">Contact Person</label>
-                        <input
-                            type="text"
-                            name="contact"
-                            value={formData.contact}
-                            onChange={handleChange}
-                            placeholder="Name of primary contact"
-                            className="brutalist-input w-full px-3 py-2"
-                        />
-                    </div>
 
                     <div className="flex gap-3 justify-end mt-2">
                         <button

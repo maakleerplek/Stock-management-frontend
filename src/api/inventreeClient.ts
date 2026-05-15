@@ -599,7 +599,7 @@ class InvenTreeClient {
         return result.results;
     }
 
-    async createSupplier(payload: { name: string; description?: string; website?: string; email?: string; phone?: string; address?: string; contact?: string }): Promise<{ pk: number; name: string }> {
+    async createSupplier(payload: { name: string; description?: string; website?: string; email?: string; phone?: string; address?: string }): Promise<{ pk: number; name: string }> {
         return this.request<{ pk: number; name: string }>('/company/', 'POST', {
             ...payload,
             is_supplier: true,
