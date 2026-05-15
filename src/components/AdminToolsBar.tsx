@@ -1,13 +1,13 @@
-import { Plus, Tag, MapPin, Wrench } from 'lucide-react';
+import { Plus, Tag, MapPin, Building2 } from 'lucide-react';
 
 interface AdminToolsBarProps {
   onNewItem: () => void;
   onAddCategory: () => void;
   onAddLocation: () => void;
-  onRepairData: () => void;
+  onAddSupplier: () => void;
 }
 
-export default function AdminToolsBar({ onNewItem, onAddCategory, onAddLocation, onRepairData }: AdminToolsBarProps) {
+export default function AdminToolsBar({ onNewItem, onAddCategory, onAddLocation, onAddSupplier }: AdminToolsBarProps) {
   return (
     <div className="flex items-center gap-2 px-4 py-2 bg-brand-beige-dark border-b border-brand-black">
       <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/60 mr-2">
@@ -37,11 +37,12 @@ export default function AdminToolsBar({ onNewItem, onAddCategory, onAddLocation,
         <span className="sm:hidden">+</span>
       </button>
       <button
-        onClick={onRepairData}
-        className="flex items-center gap-1.5 px-3 py-2.5 sm:py-1.5 text-[10px] font-black uppercase bg-white border border-brand-black hover:bg-brand-beige transition-colors ml-auto"
+        onClick={onAddSupplier}
+        className="flex items-center gap-1.5 px-3 py-2.5 sm:py-1.5 text-[10px] font-black uppercase bg-purple-200 border border-brand-black hover:bg-purple-300 transition-colors"
       >
-        <Wrench size={12} />
-        <span className="hidden sm:inline">REPAIR DATA</span>
+        <Building2 size={12} />
+        <span className="hidden sm:inline">+ SUPPLIER</span>
+        <span className="sm:hidden">+</span>
       </button>
     </div>
   );

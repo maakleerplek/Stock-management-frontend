@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import AddPartForm, { type PartFormData, type SelectOption } from './AddPartForm';
 import AddCategoryForm, { type CategoryFormData } from './AddCategoryForm';
 import AddLocationForm, { type LocationFormData } from './AddLocationForm';
+import AddSupplierForm, { type SupplierFormData } from './AddSupplierForm';
 import type { ScanEvent, ItemData } from './sendCodeHandler';
 import ShoppingWindow from './ShoppingWindow';
 import BarcodeScannerContainer from './BarcodeScannerContainer';
@@ -13,7 +14,6 @@ import { ToastProvider, useToast } from './ToastContext';
 import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
 import AdminToolsBar from './components/AdminToolsBar';
-import DataRepairModal from './DataRepairModal';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import StockAnalytics from './StockAnalytics';
 import {
@@ -41,7 +41,7 @@ function AppContent() {
   const [addPartFormModalOpen, setAddPartFormModalOpen] = useState(false);
   const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false);
   const [addLocationModalOpen, setAddLocationModalOpen] = useState(false);
-  const [dataRepairOpen, setDataRepairOpen] = useState(false);
+  const [addSupplierModalOpen, setAddSupplierModalOpen] = useState(false);
   const [categories, setCategories] = useState<SelectOption[]>([]);
   const [locations, setLocations] = useState<SelectOption[]>([]);
   const [suppliers, setSuppliers] = useState<SelectOption[]>([]);
@@ -139,6 +139,23 @@ function AppContent() {
       fetchCategoriesAndLocations();
     } catch (error) {
       handleApiError(error, 'creating location');
+      throw error;
+    }
+  };
+
+  const handleAddSupplierSubmit = async (formData: SupplierFormData): Promise<void> => {
+    try {
+      await inventreeClient.createSupplier({
+        name: formData.name,
+        description: formData.description || undefined,
+        website: formData.website || undefined,
+      });
+      reportCreateEvent(`Supplier: ${formData.name}`);
+      addToast('Supplier created successfully!', 'success');
+      setAddSupplierModalOpen(false);
+      fetchCategoriesAndLocations();
+    } catch (error) {
+      handleApiError(error, 'creating supplier');
       throw error;
     }
   };
@@ -354,7 +371,7 @@ function AppContent() {
               onNewItem={() => setAddPartFormModalOpen(true)}
               onAddCategory={() => setAddCategoryModalOpen(true)}
               onAddLocation={() => setAddLocationModalOpen(true)}
-              onRepairData={() => setDataRepairOpen(true)}
+              onAddSupplier={() => setAddSupplierModalOpen(true)}
             />
 
             <AnimatePresence mode="wait">
@@ -688,11 +705,25 @@ function AppContent() {
           </div>
         </div>
       )}
-      <DataRepairModal
-        open={dataRepairOpen}
-        onClose={() => setDataRepairOpen(false)}
-        suppliers={suppliers}
-      />
+      {/* Add Supplier Modal */}
+      {addSupplierModalOpen && (
+        <div
+          className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setAddSupplierModalOpen(false)}
+        >
+          <div
+            className="border border-brand-black bg-white w-full max-w-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <AddSupplierForm
+                onSubmit={handleAddSupplierSubmit}
+                onCancel={() => setAddSupplierModalOpen(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
