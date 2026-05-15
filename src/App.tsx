@@ -9,11 +9,13 @@ import ItemList from './ItemList';
 import Footer from './components/Footer';
 import { StockProvider } from './StockContext';
 import Header from './components/Header';
-import InvenTreePage from './InvenTreePage';
 import { ToastProvider, useToast } from './ToastContext';
 import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
 import AdminToolsBar from './components/AdminToolsBar';
+import DataRepairModal from './DataRepairModal';
+import PurchaseOrderPage from './PurchaseOrderPage';
+import StockAnalytics from './StockAnalytics';
 import {
   type InvenTreeTrackingEntry,
   type InvenTreePartListResponse
@@ -24,12 +26,12 @@ import {
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
-import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink } from 'lucide-react';
+import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import './index.css';
 
-export type AppView = 'checkout' | 'volunteer' | 'inventory' | 'scan' | 'inventree';
+export type AppView = 'checkout' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<AppView>('checkout');
@@ -39,8 +41,10 @@ function AppContent() {
   const [addPartFormModalOpen, setAddPartFormModalOpen] = useState(false);
   const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false);
   const [addLocationModalOpen, setAddLocationModalOpen] = useState(false);
+  const [dataRepairOpen, setDataRepairOpen] = useState(false);
   const [categories, setCategories] = useState<SelectOption[]>([]);
   const [locations, setLocations] = useState<SelectOption[]>([]);
+  const [suppliers, setSuppliers] = useState<SelectOption[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InvenTreePartListResponse['results']>([]);
   const [recentMovements, setRecentMovements] = useState<InvenTreeTrackingEntry[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
@@ -72,13 +76,15 @@ function AppContent() {
   const fetchCategoriesAndLocations = useCallback(async () => {
     try {
       console.log('[App] Fetching initial data...');
-      const [categoriesResp, locationsResp] = await Promise.all([
+      const [categoriesResp, locationsResp, suppliersResp] = await Promise.all([
         inventreeClient.getCategories(),
         inventreeClient.getLocations(),
+        inventreeClient.getSuppliers(),
       ]);
 
       setCategories((Array.isArray(categoriesResp) ? categoriesResp : categoriesResp?.results || []).map(c => ({ id: c.pk, name: c.name })));
       setLocations((Array.isArray(locationsResp) ? locationsResp : locationsResp?.results || []).map(l => ({ id: l.pk, name: l.name })));
+      setSuppliers((suppliersResp || []).map(s => ({ id: s.pk, name: s.name })));
 
       if (isVolunteerMode) {
         console.log('[App] Fetching dashboard metrics...');
@@ -155,6 +161,18 @@ function AppContent() {
         await inventreeClient.uploadPartImage(part.pk, formData.image);
       }
 
+      // Create supplier part first so we can link the stock item to it
+      let supplierPartPk: number | undefined;
+      if (formData.supplier) {
+        const sku = formData.supplierSku.trim() || formData.barcode || formData.partName;
+        const supplierPart = await inventreeClient.createSupplierPart({
+          part: part.pk,
+          supplier: parseInt(formData.supplier),
+          SKU: sku,
+        });
+        supplierPartPk = supplierPart.pk;
+      }
+
       if (formData.initialQuantity && numericFields.locationId) {
         const stockItem = await inventreeClient.createStockItem({
           part: part.pk,
@@ -165,6 +183,7 @@ function AppContent() {
             purchase_price: numericFields.purchasePrice,
             purchase_price_currency: formData.purchasePriceCurrency,
           } : {}),
+          ...(supplierPartPk ? { supplier_part: supplierPartPk } : {}),
         });
 
         if (formData.barcode) {
@@ -214,13 +233,16 @@ function AppContent() {
     }
   }, [isVolunteerMode, currentPage]);
 
+  const inventreePanelUrl = import.meta.env.VITE_INVENTREE_PANEL_URL || '';
+
   const VolunteerNavigation = () => (
     <div className="border-b border-brand-black bg-brand-beige px-2 sm:px-6 py-0 flex gap-1 sm:gap-4 overflow-x-auto">
       {[
         { id: 'volunteer', label: 'OVERVIEW', icon: LayoutDashboard },
         { id: 'scan', label: 'VOLUNTEER SCAN', icon: ScanBarcode },
         { id: 'inventory', label: 'STOCK LIST', icon: Package },
-        { id: 'inventree', label: 'INVENTREE PANEL', icon: ExternalLink }
+        { id: 'orders', label: 'PURCHASE ORDERS', icon: ShoppingBag },
+        { id: 'analytics', label: 'ANALYTICS', icon: BarChart2 },
       ].map(tab => (
         <button
           key={tab.id}
@@ -237,6 +259,18 @@ function AppContent() {
           <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
         </button>
       ))}
+      {inventreePanelUrl && (
+        <a
+          href={inventreePanelUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-3 sm:px-4 py-3 font-black uppercase tracking-widest text-[10px] sm:text-xs border-b-4 border-transparent text-brand-black/50 hover:text-brand-black hover:border-brand-black/30 transition-all flex items-center gap-1.5"
+        >
+          <ExternalLink size={14} className="flex-shrink-0" />
+          <span className="hidden sm:inline">INVENTREE</span>
+          <span className="sm:hidden">PANEL</span>
+        </a>
+      )}
     </div>
   );
 
@@ -311,18 +345,17 @@ function AppContent() {
           </>
         )}
 
-        {(currentPage === 'volunteer' || currentPage === 'scan' || currentPage === 'inventory' || currentPage === 'inventree') && (
-          <div className="flex-1 flex flex-col overflow-auto">
+        {(currentPage === 'volunteer' || currentPage === 'scan' || currentPage === 'inventory' || currentPage === 'orders' || currentPage === 'analytics') && (
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             <VolunteerNavigation />
 
-            {/* Admin Tools Bar - visible on all volunteer views except inventree */}
-            {currentPage !== 'inventree' && (
-              <AdminToolsBar
-                onNewItem={() => setAddPartFormModalOpen(true)}
-                onAddCategory={() => setAddCategoryModalOpen(true)}
-                onAddLocation={() => setAddLocationModalOpen(true)}
-              />
-            )}
+            {/* Admin Tools Bar */}
+            <AdminToolsBar
+              onNewItem={() => setAddPartFormModalOpen(true)}
+              onAddCategory={() => setAddCategoryModalOpen(true)}
+              onAddLocation={() => setAddLocationModalOpen(true)}
+              onRepairData={() => setDataRepairOpen(true)}
+            />
 
             <AnimatePresence mode="wait">
               {currentPage === 'volunteer' && (
@@ -443,7 +476,7 @@ function AppContent() {
                             </button>
                             <button
                               onClick={() => setCurrentPage('scan')}
-                              className="brutalist-button py-2 px-4 bg-brand-accent text-brand-black text-xs"
+                              className="brutalist-button py-2 px-4 bg-blue-200 text-brand-black text-xs"
                             >
                               SCANNER
                             </button>
@@ -465,29 +498,50 @@ function AppContent() {
                         <div className="border border-brand-black overflow-hidden">
                           {recentMovements.length > 0 ? (
                             <div className="divide-y divide-brand-black/10">
-                              {recentMovements.map((move) => (
-                                <div key={move.pk} className="p-3 flex justify-between items-center">
-                                  <div>
-                                    <span className="text-xs font-bold uppercase">{move.label}</span>
-                                    {move.notes && <p className="text-[10px] text-brand-black/60 mt-0.5">{move.notes}</p>}
+                              {recentMovements.map((move) => {
+                                const isAdd = (move.deltas?.added ?? 0) > 0 || move.tracking_type === 10 || move.tracking_type === 100;
+                                const isRemove = (move.deltas?.removed ?? 0) > 0 || move.tracking_type === 11;
+                                return (
+                                <div key={move.pk} className={cn(
+                                  "p-3 flex justify-between items-center",
+                                  isAdd && "bg-emerald-50",
+                                  isRemove && "bg-rose-50"
+                                )}>
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className={cn(
+                                      "text-base leading-none flex-shrink-0",
+                                      isAdd ? "text-emerald-600" : isRemove ? "text-rose-600" : "text-brand-black/40"
+                                    )}>
+                                      {isAdd ? "↑" : isRemove ? "↓" : "·"}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <span className="text-xs font-bold uppercase">{move.label}</span>
+                                      {move.notes && <p className="text-[10px] text-brand-black/60 mt-0.5 truncate">{move.notes}</p>}
+                                    </div>
                                   </div>
-                                  <span className="text-[10px] font-mono text-brand-black/50">{move.date}</span>
+                                  <span className="text-[10px] font-mono text-brand-black/50 flex-shrink-0 ml-2">{move.date}</span>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           ) : (
                             <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">
                               NO RECENT ACTIVITY
                             </div>
                           )}
-                          <div className="p-2 bg-brand-beige-dark border-t border-brand-black/10 flex justify-center">
-                            <button
-                              onClick={() => setCurrentPage('inventree')}
-                              className="text-[10px] font-black uppercase tracking-widest hover:underline"
-                            >
-                              VIEW ALL IN INVENTREE
-                            </button>
-                          </div>
+                          {inventreePanelUrl && (
+                            <div className="p-2 bg-brand-beige-dark border-t border-brand-black/10 flex justify-center">
+                              <a
+                                href={inventreePanelUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-black uppercase tracking-widest hover:underline flex items-center gap-1"
+                              >
+                                VIEW ALL IN INVENTREE
+                                <ExternalLink size={10} />
+                              </a>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -525,23 +579,36 @@ function AppContent() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
                   transition={{ duration: 0.15 }}
-                  className="flex-1 overflow-auto"
+                  className="flex-1 flex flex-col min-h-0 overflow-hidden"
                 >
                   <ItemList />
                 </motion.div>
               )}
-              {currentPage === 'inventree' && (
+              {currentPage === 'orders' && (
                 <motion.div
-                  key="inventree"
+                  key="orders"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
                   transition={{ duration: 0.15 }}
-                  className="flex-1 overflow-auto"
+                  className="flex-1 flex flex-col min-h-0 overflow-hidden"
                 >
-                  <InvenTreePage onBack={() => setCurrentPage('volunteer')} />
+                  <PurchaseOrderPage suppliers={suppliers} />
                 </motion.div>
               )}
+              {currentPage === 'analytics' && (
+                <motion.div
+                  key="analytics"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex-1 flex flex-col min-h-0 overflow-hidden"
+                >
+                  <StockAnalytics />
+                </motion.div>
+              )}
+
             </AnimatePresence>
 
           </div>
@@ -572,6 +639,7 @@ function AppContent() {
                 onCancel={() => setAddPartFormModalOpen(false)}
                 categories={categories}
                 locations={locations}
+                suppliers={suppliers}
               />
             </div>
           </div>
@@ -620,6 +688,11 @@ function AppContent() {
           </div>
         </div>
       )}
+      <DataRepairModal
+        open={dataRepairOpen}
+        onClose={() => setDataRepairOpen(false)}
+        suppliers={suppliers}
+      />
     </div>
   );
 }

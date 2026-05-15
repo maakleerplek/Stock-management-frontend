@@ -2,6 +2,21 @@
  * Type definitions for InvenTree API responses
  */
 
+export interface InvenTreeCompany {
+    pk: number;
+    name: string;
+    description: string;
+    is_supplier: boolean;
+    is_manufacturer: boolean;
+}
+
+export interface CreateSupplierPartPayload {
+    part: number;
+    supplier: number;
+    SKU: string;
+    pack_quantity?: number;
+}
+
 export interface ItemData {
     id: number;
     quantity: number;
@@ -10,7 +25,8 @@ export interface ItemData {
     status: string;
     name: string;
     description: string;
-    price: number;
+    price: number;      // pricing_max — selling price to visitor
+    cost: number;       // pricing_min — supplier cost price
     image: string | null;
     part_id: number | null;
     ipn: string;
@@ -127,6 +143,7 @@ export interface CreateStockItemPayload {
     barcode?: string;
     purchase_price?: number;
     purchase_price_currency?: string;
+    supplier_part?: number;
 }
 
 export interface UpdatePartPayload {

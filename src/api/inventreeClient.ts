@@ -26,6 +26,8 @@ import type {
     UpdatePartPayload,
     CreateCategoryPayload,
     CreateLocationPayload,
+    InvenTreeCompany,
+    CreateSupplierPartPayload,
 } from './types';
 import { ApiCache, CACHE_TTL } from '../lib/cache';
 
@@ -364,7 +366,8 @@ class InvenTreeClient {
             status: stockItem.status_text,
             name: partDetail?.name || '',
             description: partDetail?.description || '',
-            price: partDetail?.pricing_min || 0,
+            price: partDetail?.pricing_max || partDetail?.pricing_min || 0,
+            cost: partDetail?.pricing_min || 0,
             image: this.getFullImageUrl(partDetail?.image),
             part_id: stockItem.part,
             ipn: partDetail?.IPN || '',
@@ -485,18 +488,19 @@ class InvenTreeClient {
      * Create a new stock item
      */
     async createStockItem(payload: CreateStockItemPayload): Promise<{ pk: number }> {
-        const result = await this.request<{ pk: number }>(
+        const result = await this.request<{ pk: number } | { pk: number }[]>(
             '/stock/',
             'POST',
             payload,
             false,
             false
         );
-        
+
         // Invalidate stock list cache
         this.invalidateCache('/stock/');
-        
-        return result;
+
+        // InvenTree returns an array when creating stock items
+        return Array.isArray(result) ? result[0] : result;
     }
 
     /**
@@ -581,7 +585,91 @@ class InvenTreeClient {
         return result;
     }
 
+    // ==================== Suppliers / Companies ====================
+
+    async getSuppliers(): Promise<InvenTreeCompany[]> {
+        const result = await this.request<{ results: InvenTreeCompany[] }>(
+            '/company/?is_supplier=true&limit=200',
+            'GET',
+            undefined,
+            false,
+            true,
+            CACHE_TTL.LONG
+        );
+        return result.results;
+    }
+
+    async createSupplierPart(payload: CreateSupplierPartPayload): Promise<{ pk: number }> {
+        return this.request<{ pk: number }>('/company/part/', 'POST', payload, false, false);
+    }
+
+    async getAllSupplierParts(): Promise<{ pk: number; part: number; supplier: number; SKU: string }[]> {
+        const result = await this.request<{ results: { pk: number; part: number; supplier: number; SKU: string }[] }>(
+            '/company/part/?limit=500',
+            'GET',
+            undefined,
+            false,
+            false
+        );
+        return result.results;
+    }
+
+    async getSupplierPartsForSupplier(supplierPk: number): Promise<{ pk: number; part: number; supplier: number; SKU: string; pack_quantity: string }[]> {
+        const result = await this.request<{ results: { pk: number; part: number; supplier: number; SKU: string; pack_quantity: string }[] }>(
+            `/company/part/?supplier=${supplierPk}&limit=200`,
+            'GET',
+            undefined,
+            false,
+            false
+        );
+        return result.results;
+    }
+
+    // ==================== Purchase Orders ====================
+
+    async getPurchaseOrders(): Promise<{ pk: number; reference: string; status: number; status_text: string; supplier: number; supplier_detail: { name: string }; description: string; creation_date: string }[]> {
+        const result = await this.request<{ results: any[] }>(
+            '/order/po/?limit=50&ordering=-creation_date',
+            'GET',
+            undefined,
+            false,
+            false
+        );
+        return result.results;
+    }
+
+    async createPurchaseOrder(payload: { supplier: number; reference?: string; description?: string }): Promise<{ pk: number; reference: string }> {
+        return this.request('/order/po/', 'POST', payload, false, false);
+    }
+
+    async addPurchaseOrderLine(payload: { order: number; part: number; quantity: number; purchase_price?: string; purchase_price_currency?: string }): Promise<{ pk: number }> {
+        return this.request('/order/po-line/', 'POST', payload, false, false);
+    }
+
+    async issuePurchaseOrder(poPk: number): Promise<void> {
+        await this.request(`/order/po/${poPk}/issue/`, 'POST', {}, false, false);
+    }
+
+    async cancelPurchaseOrder(poPk: number): Promise<void> {
+        await this.request(`/order/po/${poPk}/cancel/`, 'POST', {}, false, false);
+    }
+
     // ==================== Dashboard & Metrics ====================
+
+    /**
+     * Set the purchase price (supplier unit cost) on a stock item
+     */
+    async setStockItemPurchasePrice(stockItemPk: number, unitPrice: number, currency: string = 'EUR'): Promise<void> {
+        await this.request(
+            `/stock/${stockItemPk}/`,
+            'PATCH',
+            { purchase_price: unitPrice.toString(), purchase_price_currency: currency },
+            false,
+            false
+        );
+        this.invalidateCache(`/stock/${stockItemPk}/?part_detail=true&location_detail=true`);
+        this.invalidateCache('/stock/');
+    }
 
     /**
      * Get recent stock tracking entries

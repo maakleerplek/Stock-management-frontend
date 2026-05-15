@@ -17,8 +17,11 @@ export interface PartFormData {
   storageLocation: string;
   minimumStock: string;
   barcode: string;
-  purchasePrice: string;
-  purchasePriceCurrency: string;
+  supplier: string;
+  supplierSku: string;
+  supplierSetPrice: string;   // total price paid for one pack/set from supplier
+  supplierSetQty: string;     // number of individual units in one set/pack
+  supplierCurrency: string;
   image?: File;
 }
 
@@ -37,10 +40,11 @@ interface AddPartFormProps {
   onSubmit: (formData: PartFormData) => Promise<{ partId: string }>;
   categories: SelectOption[];
   locations: SelectOption[];
+  suppliers: SelectOption[];
   onCancel?: () => void;
 }
 
-const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locations, onCancel }) => {
+const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locations, suppliers, onCancel }) => {
   const [formData, setFormData] = useState<PartFormData>({
     partName: '',
     description: '',
@@ -51,6 +55,8 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
     barcode: '',
     purchasePrice: '',
     purchasePriceCurrency: 'EUR',
+    supplier: '',
+    supplierSku: '',
   });
 
   const [errors, setErrors] = useState<PartFormErrors>({});
@@ -58,6 +64,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isSkuScanning, setIsSkuScanning] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -284,9 +291,14 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
 
           {/* Section 1: Barcode (most important — required) */}
           <div className="border border-brand-black p-4 space-y-3">
-            <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-brand-black/70">
-              <QrCode size={14} /> BARCODE <span className="text-red-500">*</span>
-            </h3>
+            <div>
+              <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-brand-black/70">
+                <QrCode size={14} /> BARCODE <span className="text-red-500">*</span>
+              </h3>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                Scan or type the barcode on the individual item. Used for checkout scanning.
+              </p>
+            </div>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -361,6 +373,9 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 placeholder="e.g., COLA ZERO"
                 className={cn("brutalist-input w-full", errors.partName && "border-red-500 bg-red-50")}
               />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                The display name shown in the stock list and at checkout.
+              </p>
               <FieldError msg={errors.partName} />
             </div>
 
@@ -377,6 +392,9 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                   <option key={cat.id} value={String(cat.id)}>{cat.name.toUpperCase()}</option>
                 ))}
               </select>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                Product group this item belongs to (e.g. Drinks, Electronics).
+              </p>
               <FieldError msg={errors.category} />
             </div>
 
@@ -393,6 +411,9 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                   <option key={loc.id} value={String(loc.id)}>{loc.name.toUpperCase()}</option>
                 ))}
               </select>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                Where this item is physically stored (e.g. Fridge, Shelf A).
+              </p>
               <FieldError msg={errors.storageLocation} />
             </div>
           </div>
@@ -410,6 +431,9 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 className={cn("brutalist-input w-full", errors.initialQuantity && "border-red-500 bg-red-50")}
                 placeholder="0"
               />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                How many individual units are in stock right now.
+              </p>
               <FieldError msg={errors.initialQuantity} />
             </div>
             <div>
@@ -423,6 +447,9 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 className={cn("brutalist-input w-full", errors.minimumStock && "border-red-500 bg-red-50")}
                 placeholder="0"
               />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                Low stock alert triggers below this number.
+              </p>
               <FieldError msg={errors.minimumStock} />
             </div>
             <div>
@@ -457,7 +484,90 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
             </div>
           </div>
 
-          {/* Section 4: Description + Image side by side */}
+          {/* Section 4: Supplier */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label text="Supplier" />
+              <select
+                name="supplier"
+                value={formData.supplier}
+                onChange={handleChange}
+                className="brutalist-input w-full"
+              >
+                <option value="">None</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={String(s.id)}>{s.name.toUpperCase()}</option>
+                ))}
+              </select>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                Who you purchase this item from. Skip if unknown or not applicable.
+              </p>
+            </div>
+            <div>
+              <Label text="Package / Case Barcode (SKU)" />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  name="supplierSku"
+                  value={formData.supplierSku}
+                  onChange={handleChange}
+                  placeholder="Scan or type package barcode"
+                  className="brutalist-input flex-1 font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsSkuScanning(s => !s)}
+                  className={cn(
+                    "brutalist-button px-3 flex items-center gap-1 text-xs",
+                    isSkuScanning && "bg-red-500 text-white"
+                  )}
+                >
+                  {isSkuScanning ? <StopCircle size={14} /> : <Camera size={14} />}
+                  {isSkuScanning ? 'STOP' : 'SCAN'}
+                </button>
+              </div>
+              {isSkuScanning && (
+                <div className="w-full aspect-[4/3] overflow-hidden border border-brand-black bg-black mt-2">
+                  <Scanner
+                    onScan={(codes: IDetectedBarcode[]) => {
+                      if (codes.length > 0) {
+                        setFormData(prev => ({ ...prev, supplierSku: codes[0].rawValue }));
+                        setIsSkuScanning(false);
+                        if ('vibrate' in navigator) navigator.vibrate(50);
+                      }
+                    }}
+                    onError={(err) => console.error('[AddPartForm] SKU scan error:', err)}
+                    allowMultiple={false}
+                    scanDelay={500}
+                    formats={['qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','data_matrix','itf','codabar']}
+                    constraints={{ facingMode: 'environment' }}
+                    components={{ torch: true, finder: true }}
+                    styles={{
+                      container: { width: '100%', height: '100%', overflow: 'hidden' },
+                      video: { width: '100%', height: '100%', objectFit: 'cover' },
+                    }}
+                  />
+                </div>
+              )}
+              {formData.supplierSku && !isSkuScanning && (
+                <div className="flex items-center justify-between text-xs mt-1">
+                  <span className="font-mono font-bold text-emerald-700">{formData.supplierSku}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, supplierSku: '' }))}
+                    className="text-red-500 font-bold text-[10px] uppercase tracking-widest hover:underline"
+                  >
+                    CLEAR
+                  </button>
+                </div>
+              )}
+              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                Barcode on the box or pack (e.g. case of 24). Leave blank if same as item barcode.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 5: Description + Image side by side */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label text="Description" />
@@ -536,7 +646,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
               type="submit"
               disabled={loading}
               className={cn(
-                "brutalist-button py-2.5 px-6 text-xs bg-brand-accent text-brand-black flex items-center gap-2",
+                "brutalist-button py-2.5 px-6 text-xs bg-emerald-400 text-brand-black flex items-center gap-2",
                 loading && "opacity-75 cursor-not-allowed"
               )}
             >
@@ -562,7 +672,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
           <button
             type="button"
             onClick={capturePhoto}
-            className="brutalist-button py-3 px-8 text-sm bg-brand-accent text-brand-black flex items-center gap-2"
+            className="brutalist-button py-3 px-8 text-sm bg-emerald-400 text-brand-black flex items-center gap-2"
           >
             <ZoomIn size={18} /> CAPTURE
           </button>
