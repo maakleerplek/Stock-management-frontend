@@ -56,7 +56,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
     }, [cartItems]);
 
     const handleAddItemToCart = useCallback((item: ItemData) => {
-        setCheckedOut(null);
+        // NOTE: Do NOT clear checkedOut here — scanning a new item while the QR code is visible
+        // should not wipe the payment QR. The user must explicitly press "START NEW TRANSACTION".
+        // If we are in post-checkout state, queue the item for the next transaction silently.
         setCartItems((prevItems) => {
             const existingItem = prevItems.find((i) => i.id === item.id);
             if (existingItem) {
@@ -67,7 +69,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
             }
             return [...prevItems, { ...item, cartQuantity: 1 }];
         });
-    }, [setCheckedOut]);
+    }, []);
 
     useEffect(() => {
         if (scanEvent) {
@@ -77,14 +79,15 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
 
     const handleUpdateQuantity = (itemId: number, newQuantity: number) => {
         setCartItems((prevItems) =>
-            prevItems
-                .map((item) =>
-                    item.id === itemId ? { ...item, cartQuantity: newQuantity } : item
-                )
-                .filter((item) => {
-                    if (isVolunteerMode) return true;
-                    return item.cartQuantity !== 0;
-                })
+            prevItems.map((item) => {
+                if (item.id !== itemId) return item;
+                if (isVolunteerMode) {
+                    // Volunteer mode: allow any value (negative = remove stock)
+                    return { ...item, cartQuantity: newQuantity };
+                }
+                // Checkout mode: clamp minimum at 1 so only the trash button removes items
+                return { ...item, cartQuantity: Math.max(1, newQuantity) };
+            })
         );
     };
 
