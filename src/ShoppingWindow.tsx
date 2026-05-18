@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import ShoppingCart, { type CartItem } from './ShoppingCart';
 import Extras from './Extras';
 import { type ItemData, type ScanEvent, handleTakeItem, handleAddItem, handleSetItem } from './sendCodeHandler';
@@ -26,6 +26,10 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
         }
     });
     const [checkedOutResult, setCheckedOutResult] = useState<{ total: number; description: string } | null>(null);
+    // Ref mirror so handleAddItemToCart can read the latest value without being
+    // in the useEffect dependency array (which would re-fire on every QR dismiss).
+    const checkedOutResultRef = useRef(checkedOutResult);
+    checkedOutResultRef.current = checkedOutResult;
     const [extraCosts, setExtraCosts] = useState<number>(0);
     const [isSetMode, setIsSetMode] = useState<boolean>(false);
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
@@ -56,9 +60,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
     }, [cartItems]);
 
     const handleAddItemToCart = useCallback((item: ItemData) => {
-        // NOTE: Do NOT clear checkedOut here — scanning a new item while the QR code is visible
-        // should not wipe the payment QR. The user must explicitly press "START NEW TRANSACTION".
-        // If we are in post-checkout state, queue the item for the next transaction silently.
+        // While the QR payment screen is visible, ignore incoming scans completely.
+        // The user must explicitly press "START NEW TRANSACTION" to begin a new purchase.
+        if (checkedOutResultRef.current !== null) return;
         setCartItems((prevItems) => {
             const existingItem = prevItems.find((i) => i.id === item.id);
             if (existingItem) {
@@ -69,7 +73,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
             }
             return [...prevItems, { ...item, cartQuantity: 1 }];
         });
-    }, []);
+    }, []); // stable — reads checkedOutResult via ref, not state
 
     useEffect(() => {
         if (scanEvent) {
