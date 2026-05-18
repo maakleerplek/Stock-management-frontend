@@ -134,7 +134,10 @@ export default function ItemList() {
                             />
                         </div>
                         <button
-                            onClick={() => refreshInventory()}
+                            onClick={async () => {
+                                await refreshInventory();
+                                addToast('Stock list refreshed', 'success');
+                            }}
                             disabled={loading}
                             title="Refresh List"
                             className={cn("brutalist-button p-3", loading && "opacity-50 cursor-not-allowed")}
