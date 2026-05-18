@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import Scanner from './BarcodeScanner';
-import QrCode from './QrCode';
 import { handleSend, type ItemData } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { Loader2 } from 'lucide-react';
@@ -57,8 +56,6 @@ function BarcodeScannerContainer({ onItemScanned, checkoutResult = null }: Barco
           <Loader2 className="w-8 h-8 animate-spin text-brand-black" />
         </div>
       )}
-
-      {checkoutResult !== null && <QrCode total={checkoutResult.total} description={checkoutResult.description} />}
     </div>
   );
 }
