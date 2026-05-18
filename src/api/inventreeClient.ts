@@ -51,7 +51,7 @@ class InvenTreeClient {
      * @param body - Request body
      * @param isFormData - Whether body is FormData
      * @param useCache - Whether to use cache for GET requests (default: true)
-     * @param cacheTTL - Cache TTL in milliseconds (default: CACHE_TTL.MEDIUM)
+     * @param cacheTTL - Cache TTL in milliseconds (default: 90000)
      */
     private async request<T>(
         endpoint: string,
@@ -237,6 +237,7 @@ class InvenTreeClient {
 
         params.append('part_detail', 'true');
         params.append('location_detail', 'true');
+        params.append('limit', '500'); // fetch all in one shot — avoids slow pagination
         const queryString = params.toString();
         const endpoint = `/stock/?${queryString}`;
         

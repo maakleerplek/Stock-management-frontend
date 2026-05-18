@@ -13,7 +13,7 @@ interface StockContextType {
   refreshInventory: () => Promise<void>;
 }
 
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+const CACHE_TTL = 90 * 1000; // 90 seconds — fresh enough for a busy shop
 
 const StockContext = createContext<StockContextType | undefined>(undefined);
 
