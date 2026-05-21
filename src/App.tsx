@@ -222,7 +222,16 @@ function AppContent() {
         });
 
         if (formData.barcode) {
-          await inventreeClient.assignBarcode(formData.barcode, stockItem.pk);
+          if (stockItem?.pk) {
+            try {
+              await inventreeClient.assignBarcode(formData.barcode, stockItem.pk);
+            } catch (barcodeErr) {
+              console.warn('[App] Barcode link to stock item failed (IPN still set on part):', barcodeErr);
+              addToast('Part created, but barcode could not be linked to stock item — scanning via IPN still works.', 'warning');
+            }
+          } else {
+            console.warn('[App] assignBarcode skipped: stockItem.pk is missing', stockItem);
+          }
         }
       }
 
