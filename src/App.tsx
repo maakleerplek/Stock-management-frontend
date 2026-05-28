@@ -367,7 +367,7 @@ function AppContent() {
               "lg:hidden flex-1 flex flex-col items-center justify-center p-4 bg-brand-beige overflow-hidden",
               mobileCheckoutTab !== 'scan' && "hidden"
             )}>
-              <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={checkoutResult} />
+              <BarcodeScannerContainer onItemScanned={handleItemScanned} />
             </div>
 
             {/* ── Mobile: cart tab ── */}
@@ -384,7 +384,7 @@ function AppContent() {
             {/* ── Desktop: side-by-side ── */}
             <div className="hidden lg:flex flex-1 min-h-0">
               <div className="flex-1 p-6 flex flex-col items-center justify-center bg-brand-beige">
-                <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={checkoutResult} />
+                <BarcodeScannerContainer onItemScanned={handleItemScanned} />
               </div>
               <aside className="w-[40%] border-l border-brand-black bg-brand-beige flex flex-col">
                 <ShoppingWindow
@@ -613,7 +613,7 @@ function AppContent() {
                 >
                   {/* Main Content Area (Scanner) - same as checkout */}
                   <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-brand-beige min-h-[50vh] lg:min-h-0">
-                    <BarcodeScannerContainer onItemScanned={handleItemScanned} checkoutResult={null} />
+                    <BarcodeScannerContainer onItemScanned={handleItemScanned} />
                   </div>
 
                   {/* Right Sidebar: Shopping Cart in volunteer mode */}

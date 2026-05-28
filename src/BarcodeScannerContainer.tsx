@@ -6,10 +6,9 @@ import { Loader2 } from 'lucide-react';
 
 interface BarcodeScannerContainerProps {
   onItemScanned: (item: ItemData | null) => void;
-  checkoutResult?: { total: number, description: string } | null;
 }
 
-function BarcodeScannerContainer({ onItemScanned, checkoutResult = null }: BarcodeScannerContainerProps) {
+function BarcodeScannerContainer({ onItemScanned }: BarcodeScannerContainerProps) {
   const { addToast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
 
