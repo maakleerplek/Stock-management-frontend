@@ -2,6 +2,12 @@
 
 A brutalist-styled inventory management frontend for InvenTree backend, featuring barcode scanning, volunteer stock management, and checkout functionality.
 
+## Screenshots
+
+| Checkout / Visitor Mode | Volunteer / Admin Dashboard |
+| :---: | :---: |
+| ![Checkout Mode](https://github.com/maakleerplek/Stock-management-frontend/releases/download/v1.0.0/kiosk_scanner_view.png) | ![Admin Dashboard](https://github.com/maakleerplek/Stock-management-frontend/releases/download/v1.0.0/admin_dashboard_view.png) |
+
 ## Features
 
 - **Barcode Scanning**: USB scanner support and camera-based scanning
