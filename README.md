@@ -118,6 +118,10 @@ src/
   index.css            # Global styles and Tailwind config
 ```
 
+## Roadmap & TODOs
+
+See the [TODO.md](./TODO.md) file for upcoming features, access control upgrades (such as Microsoft authentication for volunteers), and development goals.
+
 ## Branch Information
 
 - `main`: Production-ready code
