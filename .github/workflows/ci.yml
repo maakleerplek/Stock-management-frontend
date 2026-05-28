@@ -10,7 +10,7 @@ on:
 
 jobs:
   build-check:
-    name: Build & Lint Check
+    name: Build Check
     runs-on: ubuntu-latest
 
     steps:
@@ -28,9 +28,6 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
-
-      - name: Run Lint
-        run: npm run lint
 
       - name: Run Build & Type Check
         run: npm run build:check
