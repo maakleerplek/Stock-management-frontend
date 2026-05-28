@@ -2,6 +2,8 @@
 
 A brutalist-styled inventory management frontend for InvenTree backend, featuring barcode scanning, volunteer stock management, and checkout functionality.
 
+> ℹ️ **For more general information, guides, and internal documentation, visit the [HighTechLab SharePoint Stock Management Info Page](https://maakleerplek.sharepoint.com/sites/HighTechLab/SitePages/Stock-management-info-page.aspx).**
+
 ## Screenshots
 
 | Checkout / Visitor Mode | Volunteer / Admin Dashboard |
