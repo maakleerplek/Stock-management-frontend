@@ -4,6 +4,7 @@ import inventreeClient from './api/inventreeClient';
 import { useStock } from './StockContext';
 import type { SelectOption } from './AddPartForm';
 import { cn } from './lib/utils';
+import ImageDisplay from './ImageDisplay';
 
 interface OrderLine {
     supplierPartPk: number;
@@ -13,6 +14,7 @@ interface OrderLine {
     SKU: string;
     packQuantity: number;
     packs: string;
+    image: string | null;
 }
 
 interface OrderDraft {
@@ -127,6 +129,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                     SKU: sp.SKU,
                     packQuantity: parseFloat(sp.pack_quantity) || 1,
                     packs: prefillPartIds.includes(sp.part) ? '1' : '',
+                    image: stockItem?.image ?? null,
                 };
             });
             setDrafts(prev => prev.map(d => d.draftId === draftId ? { ...d, orderLines: lines, loadingParts: false } : d));
@@ -346,10 +349,17 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                                                 "transition-colors",
                                                                 packs > 0 ? "bg-amber-50" : "hover:bg-brand-beige/50"
                                                             )}>
-                                                                <td className="p-3">
-                                                                    <p className="text-xs font-black uppercase">{line.partName}</p>
-                                                                    <p className="text-[10px] font-mono text-brand-black/40">{line.SKU}</p>
-                                                                </td>
+                                                                 <td className="p-3">
+                                                                     <div className="flex items-center gap-3">
+                                                                         <div className="border border-brand-black bg-white w-10 h-10 overflow-hidden flex-shrink-0">
+                                                                             <ImageDisplay imagePath={line.image} alt={line.partName} width={40} height={40} />
+                                                                         </div>
+                                                                         <div>
+                                                                             <p className="text-xs font-black uppercase">{line.partName}</p>
+                                                                             <p className="text-[10px] font-mono text-brand-black/40">{line.SKU}</p>
+                                                                         </div>
+                                                                     </div>
+                                                                 </td>
                                                                 <td className="p-3 text-right">
                                                                     <span className={cn("text-sm font-black", line.currentStock === 0 && "text-red-600")}>
                                                                         {line.currentStock}
@@ -497,7 +507,14 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                     <tbody className="divide-y divide-brand-black/10">
                                         {confirmModal.lines.map(line => (
                                             <tr key={line.partPk}>
-                                                <td className="p-2 text-xs font-bold uppercase">{line.partName}</td>
+                                                <td className="p-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="border border-brand-black bg-white w-8 h-8 overflow-hidden flex-shrink-0">
+                                                            <ImageDisplay imagePath={line.image} alt={line.partName} width={32} height={32} />
+                                                        </div>
+                                                        <span className="text-xs font-bold uppercase">{line.partName}</span>
+                                                    </div>
+                                                </td>
                                                 <td className="p-2 text-right text-xs font-mono">{line.packs}</td>
                                                 <td className="p-2 text-right text-xs font-mono">{parseFloat(line.packs) * line.packQuantity}</td>
                                             </tr>
