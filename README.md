@@ -8,17 +8,25 @@ A brutalist-styled inventory management frontend for InvenTree backend, featurin
 | :---: | :---: |
 | ![Checkout Mode](https://github.com/maakleerplek/Stock-management-frontend/releases/download/v1.0.0/kiosk_scanner_view.png) | ![Admin Dashboard](https://github.com/maakleerplek/Stock-management-frontend/releases/download/v1.0.0/admin_dashboard_view.png) |
 
-## Features
+## What You Can Do (User Guide)
 
-- **Barcode Scanning**: USB scanner support and camera-based scanning
-- **Dual Mode Operation**:
-  - **Checkout Mode**: Customer-facing with shopping cart and payment QR codes
-  - **Volunteer Mode**: Admin tools for stock management with add/remove/set operations
-- **Real-time Stock Tracking**: See current stock, location, and category for each item
-- **Supplier Management**: Items are linked to suppliers (e.g. Prik&Tik) with pack barcodes and pack quantities
-- **Purchase Orders**: Track restocking via InvenTree purchase orders (internal tracking — does not notify suppliers automatically)
-- **PWA Support**: Works offline with service worker caching
-- **Mobile-First Design**: Optimized for touch devices with haptic feedback
+### 🛒 Visitor & Checkout Mode (Kiosk)
+Designed as a self-service terminal for makerspace members and visitors:
+- **Lookup & Scan Items**: Instantly fetch item details by scanning barcodes using a web-camera or a connected physical USB barcode scanner. (Manual barcode input is supported as a fallback).
+- **Manage Shopping Cart**: Add parts to the cart, review items, and adjust quantities with automatic cost calculations.
+- **Calculate Extra Services**: Log and calculate charges for machine usage during checkout:
+  - **Laser Cutting**: Charge by duration (minutes).
+  - **CNC Milling**: Charge by machine runtime (minutes).
+  - **3D Printing**: Charge by filament weight consumed (grams).
+- **EPC QR & Payconiq Payment**: Instantly generate EPC QR / Wero and Payconiq checkout QR codes for fast, scan-to-pay bank transfers.
+
+### 🛡️ Volunteer & Administrator Mode
+Access back-office tools (protected by volunteer authentication) to manage the makerspace inventory:
+- **Register New Inventory**: Add parts, define categories, and map storage locations or suppliers.
+- **Adjust Stock Levels**: Make direct stock changes (Add, Remove, or Set exact values) inline from the stock list with visual color-coded feedback (green for additions, red for removals, blue for sets).
+- **Procure via Purchase Orders**: Automatically group low-stock items into supplier draft orders, review with visual part previews, and issue or cancel purchase orders to keep stock filled.
+- **Bulk Data Repair**: Run audit checks to locate and patch missing barcodes, SKU mapping, or supplier part associations in bulk.
+- **Real-time Analytics**: Track overall inventory health, out-of-stock items, and low-stock items from the dashboard.
 
 ## Purchase Order Workflow
 
