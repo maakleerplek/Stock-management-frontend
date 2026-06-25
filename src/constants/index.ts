@@ -72,5 +72,8 @@ export const PAYMENT = {
 
 // Authentication
 export const AUTH = {
+  // TODO(remove): shared volunteer password is a temporary fallback alongside
+  // Microsoft sign-in. Remove this (and VITE_VOLUNTEER_PASSWORD) once Microsoft
+  // login is confirmed in production. See GitHub issue #3 "Remove volunteer password login".
   VOLUNTEER_PASSWORD: import.meta.env.VITE_VOLUNTEER_PASSWORD || 'volunteer',
 } as const;

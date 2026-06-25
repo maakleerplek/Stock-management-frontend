@@ -13,6 +13,8 @@ import Header from './components/Header';
 import { ToastProvider, useToast } from './ToastContext';
 import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
+import MicrosoftAuthSync from './auth/MicrosoftAuthSync';
+import { isMsalConfigured } from './auth/msalConfig';
 import AdminToolsBar from './components/AdminToolsBar';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import StockAnalytics from './StockAnalytics';
@@ -31,7 +33,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import './index.css';
 
-export type AppView = 'checkout' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
+export type AppView = 'checkout' | 'browse' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<AppView>('checkout');
@@ -272,7 +274,7 @@ function AppContent() {
     if (isVolunteerMode && currentPage === 'checkout') {
       setCurrentPage('volunteer');
     }
-    if (!isVolunteerMode && currentPage !== 'checkout') {
+    if (!isVolunteerMode && currentPage !== 'checkout' && currentPage !== 'browse') {
       setCurrentPage('checkout');
     }
   }, [isVolunteerMode, currentPage]);
@@ -325,6 +327,29 @@ function AppContent() {
     </div>
   );
 
+  const PublicNavigation = () => (
+    <div className="border-b border-brand-black bg-brand-beige px-2 sm:px-6 py-0 flex gap-1 sm:gap-4 overflow-x-auto shrink-0">
+      {[
+        { id: 'checkout', label: 'CHECKOUT', icon: ScanBarcode },
+        { id: 'browse', label: 'STOCK LIST', icon: Package },
+      ].map(tab => (
+        <button
+          key={tab.id}
+          onClick={() => setCurrentPage(tab.id as AppView)}
+          className={cn(
+            "px-3 sm:px-4 py-3 font-black uppercase tracking-widest text-[10px] sm:text-xs border-b-4 transition-all flex items-center gap-1.5",
+            currentPage === tab.id
+              ? "border-brand-black text-brand-black"
+              : "border-transparent text-brand-black/50 hover:text-brand-black hover:border-brand-black/30"
+          )}
+        >
+          <tab.icon size={14} className="flex-shrink-0" />
+          <span>{tab.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="h-screen flex flex-col bg-brand-beige">
       <Header
@@ -333,9 +358,17 @@ function AppContent() {
         onVolunteerClick={handleVolunteerClick}
       />
 
-      <main className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {!isVolunteerMode && <PublicNavigation />}
+
+        {currentPage === 'browse' && (
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <ItemList />
+          </div>
+        )}
+
         {currentPage === 'checkout' && (
-          <>
+          <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
             {/* ── Mobile: tab bar ── */}
             <div className="lg:hidden flex border-b border-brand-black bg-brand-beige shrink-0">
               <button
@@ -393,7 +426,7 @@ function AppContent() {
                 />
               </aside>
             </div>
-          </>
+          </div>
         )}
 
         {(currentPage === 'volunteer' || currentPage === 'scan' || currentPage === 'inventory' || currentPage === 'orders' || currentPage === 'analytics') && (
@@ -669,6 +702,9 @@ function AppContent() {
       </main>
 
       <Footer />
+
+      {/* Bridges Microsoft auth <-> volunteer mode (only when Azure is configured) */}
+      {isMsalConfigured && <MicrosoftAuthSync />}
 
       {/* Modals */}
       <VolunteerModal

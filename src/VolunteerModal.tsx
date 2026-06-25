@@ -3,6 +3,8 @@ import { X, LogIn, AlertCircle } from 'lucide-react';
 import { useVolunteer } from './VolunteerContext';
 import { AUTH } from './constants';
 import { cn } from './lib/utils';
+import { isMsalConfigured } from './auth/msalConfig';
+import MicrosoftSignInButton from './auth/MicrosoftSignInButton';
 
 interface VolunteerModalProps {
     open: boolean;
@@ -13,6 +15,14 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { setIsVolunteerMode } = useVolunteer();
+
+    // Called after a successful Microsoft popup sign-in.
+    const handleMicrosoftSuccess = () => {
+        setIsVolunteerMode(true);
+        setPassword('');
+        setError('');
+        onClose();
+    };
 
     const handleSubmit = () => {
         if (password === AUTH.VOLUNTEER_PASSWORD) {
@@ -55,7 +65,7 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between p-4 border-b border-brand-black bg-brand-black">
-                            <h2 className="text-sm font-black uppercase tracking-widest text-white">VOLUNTEER MODE</h2>
+                            <h2 className="text-sm font-black uppercase tracking-widest text-white">VOLUNTEER LOGIN</h2>
                             <button
                                 onClick={handleClose}
                                 className="p-1 hover:bg-zinc-800 transition-colors"
@@ -71,21 +81,39 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                     <AlertCircle className="w-4 h-4 flex-shrink-0 text-brand-black" />
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <h3 className="font-black text-xs uppercase tracking-widest">AUTHENTICATION REQUIRED</h3>
+                                    <h3 className="font-black text-xs uppercase tracking-widest">VOLUNTEERS SIGN IN HERE</h3>
                                     <p className="text-xs font-bold leading-relaxed text-brand-black/60 uppercase">
-                                        VOLUNTEER MODE ALLOWS YOU TO ADJUST STOCK LEVELS.
+                                        SIGN IN WITH YOUR MAAKLEERPLEK MICROSOFT ACCOUNT TO ADJUST STOCK LEVELS AND MANAGE INVENTORY.
                                     </p>
                                 </div>
                             </div>
-                            
+
+                            {/* Primary login: Microsoft (shown once Azure is configured) */}
+                            {isMsalConfigured && (
+                                <MicrosoftSignInButton onSuccess={handleMicrosoftSuccess} />
+                            )}
+
+                            {/* ----------------------------------------------------------------
+                                TODO(remove): Shared-password fallback — temporary.
+                                Remove this entire password block (and VITE_VOLUNTEER_PASSWORD)
+                                once Microsoft sign-in is confirmed working in production.
+                                Tracked in GitHub issue #3 "Remove volunteer password login".
+                                ---------------------------------------------------------------- */}
                             <div className="flex flex-col gap-2">
+                                {isMsalConfigured && (
+                                    <div className="flex items-center gap-3 my-1">
+                                        <div className="h-px flex-1 bg-brand-black/20" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/40">OR</span>
+                                        <div className="h-px flex-1 bg-brand-black/20" />
+                                    </div>
+                                )}
                                 <label className="text-xs font-black uppercase tracking-widest text-brand-black">ENTER PASSWORD</label>
                                 <input
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     onKeyDown={handleKeyPress}
-                                    autoFocus
+                                    autoFocus={!isMsalConfigured}
                                     className={cn(
                                         "w-full px-4 py-3 text-lg font-black tracking-widest border border-brand-black bg-white outline-none focus:bg-brand-beige transition-colors",
                                         error && "border-red-600 bg-red-50"
@@ -97,6 +125,7 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                     </p>
                                 )}
                             </div>
+                            {/* end password fallback */}
                         </div>
 
                         {/* Actions */}
@@ -107,6 +136,7 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                             >
                                 CANCEL
                             </button>
+                            {/* TODO(remove): password submit — remove with the password block above. */}
                             <button
                                 onClick={handleSubmit}
                                 className="flex-1 brutalist-button bg-amber-300 text-brand-black py-3 text-xs uppercase flex justify-center items-center gap-2"
