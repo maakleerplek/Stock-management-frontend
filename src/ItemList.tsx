@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Search, RefreshCw, Box, Euro, Loader2, Plus, Minus, Trash2, CheckCircle } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Search, RefreshCw, Box, Euro, Loader2, Plus, Minus, Trash2, CheckCircle, Tag, MapPin } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,25 +22,68 @@ interface Adjustment {
     delta: number;
 }
 
+// Compact brutalist chips showing an item's category and storage location.
+function MetaTags({ category, location, className }: { category?: string; location?: string | null; className?: string }) {
+    const showCategory = category && category !== 'Uncategorized';
+    if (!showCategory && !location) return null;
+    return (
+        <div className={cn("flex flex-wrap items-center gap-1", className)}>
+            {showCategory && (
+                <span className="inline-flex items-center gap-1 border border-brand-black bg-brand-beige-dark px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-brand-black/70 max-w-[160px]">
+                    <Tag size={10} className="flex-shrink-0" />
+                    <span className="truncate">{category}</span>
+                </span>
+            )}
+            {location && (
+                <span className="inline-flex items-center gap-1 border border-brand-black bg-brand-beige-dark px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-brand-black/70 max-w-[200px]">
+                    <MapPin size={10} className="flex-shrink-0" />
+                    <span className="truncate">{location}</span>
+                </span>
+            )}
+        </div>
+    );
+}
+
 export default function ItemList() {
     const { items, loading, error, refreshInventory } = useStock();
     const [searchQuery, setSearchQuery] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
+    const [locationFilter, setLocationFilter] = useState('');
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(50);
     const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
     const [isCommitting, setIsCommitting] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-    
+
     const { addToast } = useToast();
     const { isVolunteerMode } = useVolunteer();
 
+    // Unique category / location values present in the current stock, for the filter dropdowns.
+    const categoryOptions = useMemo(
+        () => Array.from(new Set(items.map(i => i.category).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+        [items]
+    );
+    const locationOptions = useMemo(
+        () => Array.from(new Set(items.map(i => i.location).filter((l): l is string => Boolean(l)))).sort((a, b) => a.localeCompare(b)),
+        [items]
+    );
+
     const filteredItems = useMemo(() => {
+        const q = searchQuery.toLowerCase();
         return items.filter(item =>
-            item.name.toLowerCase().includes(searchQuery.toLowerCase())
+            item.name.toLowerCase().includes(q) &&
+            (categoryFilter === '' || item.category === categoryFilter) &&
+            (locationFilter === '' || item.location === locationFilter)
         );
-    }, [items, searchQuery]);
+    }, [items, searchQuery, categoryFilter, locationFilter]);
+
+    // Keep pagination valid when the active filters shrink the result set.
+    useEffect(() => {
+        setPage(0);
+    }, [searchQuery, categoryFilter, locationFilter]);
 
     const pagedItems = filteredItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    const hasActiveFilters = categoryFilter !== '' || locationFilter !== '';
 
     const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
     const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -119,33 +162,73 @@ export default function ItemList() {
             {/* Main Table Area */}
             <main className="flex-1 flex flex-col min-h-0 p-4 sm:p-6 overflow-hidden">
                 {/* Header - Fixed at top */}
-                <div className="flex-shrink-0 flex flex-col md:flex-row justify-between items-stretch md:items-center mb-4 gap-4 border border-brand-black bg-brand-beige p-4">
-                    <div className="flex items-center gap-3">
-                        <Box className="w-6 h-6 text-brand-black" />
-                        <h2 className="text-lg font-black tracking-widest uppercase">STOCK LIST</h2>
-                    </div>
-                    <div className="flex gap-4 items-center flex-grow max-w-full md:max-w-[500px]">
-                        <div className="brutalist-input flex items-center flex-1 px-4 py-2 border border-brand-black bg-brand-beige">
-                            <Search className="w-5 h-5 text-brand-black mr-2" />
-                            <input
-                                type="text"
-                                placeholder="SEARCH ITEMS..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="flex-1 bg-transparent border-none outline-none text-sm font-bold placeholder-brand-black/50 uppercase"
-                            />
+                <div className="flex-shrink-0 mb-4 border border-brand-black bg-brand-beige">
+                    {/* Top row: title + search + refresh */}
+                    <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 p-4">
+                        <div className="flex items-center gap-3">
+                            <Box className="w-6 h-6 text-brand-black" />
+                            <h2 className="text-lg font-black tracking-widest uppercase">STOCK LIST</h2>
                         </div>
-                        <button
-                            onClick={async () => {
-                                await refreshInventory();
-                                addToast('Stock list refreshed', 'success');
-                            }}
-                            disabled={loading}
-                            title="Refresh List"
-                            className={cn("brutalist-button p-3", loading && "opacity-50 cursor-not-allowed")}
-                        >
-                            <RefreshCw className={cn("w-5 h-5 text-brand-black", loading && "animate-spin")} />
-                        </button>
+                        <div className="flex gap-4 items-center flex-grow max-w-full md:max-w-[500px]">
+                            <div className="brutalist-input flex items-center flex-1 px-4 py-2 border border-brand-black bg-brand-beige">
+                                <Search className="w-5 h-5 text-brand-black mr-2" />
+                                <input
+                                    type="text"
+                                    placeholder="SEARCH ITEMS..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="flex-1 bg-transparent border-none outline-none text-sm font-bold placeholder-brand-black/50 uppercase"
+                                />
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    await refreshInventory();
+                                    addToast('Stock list refreshed', 'success');
+                                }}
+                                disabled={loading}
+                                title="Refresh List"
+                                className={cn("brutalist-button p-3", loading && "opacity-50 cursor-not-allowed")}
+                            >
+                                <RefreshCw className={cn("w-5 h-5 text-brand-black", loading && "animate-spin")} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Filter row: category + location */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 pb-4 border-t border-brand-black/20 pt-4">
+                        <div className="flex items-center gap-2 border border-brand-black bg-brand-beige px-3 py-2 flex-1 sm:flex-none sm:min-w-[200px]">
+                            <Tag size={14} className="text-brand-black/60 flex-shrink-0" />
+                            <select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                className="flex-1 bg-transparent outline-none text-xs font-black uppercase tracking-widest cursor-pointer"
+                            >
+                                <option value="">ALL CATEGORIES</option>
+                                {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-2 border border-brand-black bg-brand-beige px-3 py-2 flex-1 sm:flex-none sm:min-w-[200px]">
+                            <MapPin size={14} className="text-brand-black/60 flex-shrink-0" />
+                            <select
+                                value={locationFilter}
+                                onChange={(e) => setLocationFilter(e.target.value)}
+                                className="flex-1 bg-transparent outline-none text-xs font-black uppercase tracking-widest cursor-pointer"
+                            >
+                                <option value="">ALL LOCATIONS</option>
+                                {locationOptions.map(l => <option key={l} value={l}>{l}</option>)}
+                            </select>
+                        </div>
+                        {hasActiveFilters && (
+                            <button
+                                onClick={() => { setCategoryFilter(''); setLocationFilter(''); }}
+                                className="brutalist-button px-3 py-2 text-[10px] font-black uppercase tracking-widest"
+                            >
+                                CLEAR FILTERS
+                            </button>
+                        )}
+                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/50 sm:ml-auto">
+                            {filteredItems.length} {filteredItems.length === 1 ? 'ITEM' : 'ITEMS'}
+                        </span>
                     </div>
                 </div>
 
@@ -182,6 +265,7 @@ export default function ItemList() {
                                                 <Euro className="w-3 h-3" />
                                                 <span className="font-bold text-xs">{item.price.toFixed(2)}</span>
                                             </div>
+                                            <MetaTags category={item.category} location={item.location} className="mt-1" />
                                         </div>
                                         <div className="flex items-center gap-3 justify-self-end">
                                             <div className="text-right">
@@ -263,6 +347,7 @@ export default function ItemList() {
                                                 </td>
                                                 <td className="p-3">
                                                     <p className="font-bold text-sm tracking-tight uppercase">{item.name}</p>
+                                                    <MetaTags category={item.category} location={item.location} className="mt-1.5" />
                                                 </td>
                                                 <td className="p-3 text-right">
                                                     <span className={cn(
@@ -346,11 +431,40 @@ export default function ItemList() {
                         </div>
                     </div>
                 </div>
+
+                {/* Mobile / tablet: compact pending-changes bar (sidebar is lg-only) */}
+                {isVolunteerMode && adjustments.length > 0 && (
+                    <div className="lg:hidden flex-shrink-0 mt-4 border border-brand-black bg-brand-beige p-3 flex items-center gap-3">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/70 whitespace-nowrap">
+                            {adjustments.length} PENDING
+                        </span>
+                        <button
+                            onClick={clearAdjustments}
+                            className="brutalist-button px-3 py-2 text-[10px] font-black uppercase tracking-widest"
+                        >
+                            CLEAR
+                        </button>
+                        <button
+                            disabled={isCommitting}
+                            onClick={() => setIsConfirmOpen(true)}
+                            className={cn(
+                                "brutalist-button flex-1 py-2 bg-emerald-400 text-brand-black text-xs font-black disabled:opacity-50 flex items-center justify-center gap-2 tracking-widest",
+                                isCommitting ? "opacity-75 cursor-not-allowed" : "hover:brightness-95"
+                            )}
+                        >
+                            {isCommitting ? (
+                                <><Loader2 className="w-4 h-4 animate-spin" /> SAVING...</>
+                            ) : (
+                                <><CheckCircle size={16} /> CONFIRM</>
+                            )}
+                        </button>
+                    </div>
+                )}
             </main>
 
-            {/* Right Sidebar: Pending Adjustments (only in volunteer mode) */}
+            {/* Right Sidebar: Pending Adjustments (volunteer mode, large screens only) */}
             {isVolunteerMode && (
-                <aside className="w-full lg:w-80 xl:w-96 flex-shrink-0 border-l-0 lg:border-l border-t lg:border-t-0 border-brand-black bg-brand-beige flex flex-col">
+                <aside className="hidden lg:flex lg:w-80 xl:w-96 flex-shrink-0 border-l border-brand-black bg-brand-beige flex-col">
                     <div className="p-2 border-b border-brand-black bg-brand-beige shrink-0">
                         <h2 className="text-brand-black uppercase tracking-widest text-xs font-black flex items-center justify-center gap-2">
                             <RefreshCw size={14} /> PENDING CHANGES
