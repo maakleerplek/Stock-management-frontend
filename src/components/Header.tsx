@@ -77,7 +77,7 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
             {isVolunteerMode ? (
               <>
                 <LogOut size={16} />
-                <span>EXIT VOLUNTEER</span>
+                <span>LOGOUT</span>
               </>
             ) : (
               <>
