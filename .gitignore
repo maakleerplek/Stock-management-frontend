@@ -22,3 +22,6 @@ build/
 # Docker volumes (certificates, data, config)
 frontend-caddy-data/
 frontend-caddy-config/
+
+# AI tool working dir
+.antigravitycli/

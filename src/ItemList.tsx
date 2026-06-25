@@ -40,6 +40,8 @@ export default function ItemList() {
         );
     }, [items, searchQuery]);
 
+    const pagedItems = filteredItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
     const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
     const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLSelectElement>) => {
         setRowsPerPage(parseInt(event.target.value, 10));
@@ -155,9 +157,75 @@ export default function ItemList() {
 
                 {/* Table Container - Fills remaining space and scrolls */}
                 <div className="flex-1 min-h-0 flex flex-col border border-brand-black bg-brand-beige">
-                    {/* Scrollable table wrapper */}
+                    {/* Scrollable list wrapper */}
                     <div className="flex-1 overflow-auto">
-                        <table className="w-full min-w-[600px] border-collapse">
+                        {/* ── Mobile: row cards (below sm) ── */}
+                        <ul className="sm:hidden divide-y divide-brand-black/30">
+                            {pagedItems.map((item) => {
+                                const delta = getAdjustmentDelta(item.id);
+                                return (
+                                    <li
+                                        key={item.id}
+                                        className={cn(
+                                            "grid grid-cols-[48px_1fr_auto] gap-3 items-center px-4 py-3",
+                                            delta > 0 && "bg-emerald-50",
+                                            delta < 0 && "bg-rose-50",
+                                            delta === 0 && item.quantity === 0 && "bg-rose-50/50"
+                                        )}
+                                    >
+                                        <div className="border border-brand-black bg-white w-12 h-12 overflow-hidden">
+                                            <ImageDisplay imagePath={item.image} alt={item.name} width={48} height={48} />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-sm tracking-tight uppercase truncate">{item.name}</p>
+                                            <div className="flex items-center gap-1 mt-0.5 text-brand-black/70">
+                                                <Euro className="w-3 h-3" />
+                                                <span className="font-bold text-xs">{item.price.toFixed(2)}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 justify-self-end">
+                                            <div className="text-right">
+                                                <div className={cn(
+                                                    "font-black text-lg leading-none",
+                                                    item.quantity === 0 && "text-rose-600"
+                                                )}>
+                                                    {item.quantity}
+                                                </div>
+                                                <div className="text-[9px] font-black uppercase tracking-widest text-brand-black/50 mt-0.5">
+                                                    {delta !== 0 ? (delta > 0 ? `+${delta}` : delta) : 'STOCK'}
+                                                </div>
+                                            </div>
+                                            {isVolunteerMode && item.id > 0 && (
+                                                <div className="flex">
+                                                    <button
+                                                        onClick={() => addAdjustment(item, -1)}
+                                                        className="w-11 h-11 flex items-center justify-center border border-brand-black bg-rose-400 active:translate-x-[1px] active:translate-y-[1px]"
+                                                        title="Remove 1 from stock"
+                                                    >
+                                                        <Minus size={18} className="text-brand-black" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => addAdjustment(item, 1)}
+                                                        className="w-11 h-11 flex items-center justify-center border border-l-0 border-brand-black bg-emerald-400 active:translate-x-[1px] active:translate-y-[1px]"
+                                                        title="Add 1 to stock"
+                                                    >
+                                                        <Plus size={18} className="text-brand-black" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </li>
+                                );
+                            })}
+                            {filteredItems.length === 0 && !loading && (
+                                <li className="p-16 text-center bg-brand-beige-dark">
+                                    <p className="text-sm font-black tracking-widest uppercase opacity-40">NO ITEMS FOUND</p>
+                                </li>
+                            )}
+                        </ul>
+
+                        {/* ── Desktop: table (sm and up) ── */}
+                        <table className="hidden sm:table w-full min-w-[600px] border-collapse">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-brand-black bg-brand-beige-dark">
                                     <th className="p-3 pl-6 text-left w-[80px]" />
@@ -178,8 +246,7 @@ export default function ItemList() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y-2 divide-brand-black/10">
-                                {filteredItems
-                                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                                {pagedItems
                                     .map((item) => {
                                         const delta = getAdjustmentDelta(item.id);
                                         return (
@@ -258,9 +325,9 @@ export default function ItemList() {
                     </div>
 
                     {/* Pagination - Fixed at bottom of table */}
-                    <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-t border-brand-black bg-brand-beige-dark">
-                        <div className="flex items-center gap-4">
-                            <label className="text-[10px] font-black tracking-widest uppercase">ROWS:</label>
+                    <div className="flex-shrink-0 flex items-center justify-between gap-2 px-4 sm:px-6 py-3 border-t border-brand-black bg-brand-beige-dark">
+                        <div className="flex items-center gap-2 sm:gap-4">
+                            <label className="hidden sm:inline text-[10px] font-black tracking-widest uppercase">ROWS:</label>
                             <select value={rowsPerPage} onChange={handleChangeRowsPerPage} className="brutalist-input px-3 py-1 text-xs font-bold border border-brand-black bg-brand-beige">
                                 <option value={10}>10</option>
                                 <option value={25}>25</option>
@@ -268,9 +335,9 @@ export default function ItemList() {
                                 <option value={100}>100</option>
                             </select>
                         </div>
-                        <div className="flex items-center gap-6">
-                            <span className="text-xs font-bold uppercase">
-                                {filteredItems.length > 0 ? `${page * rowsPerPage + 1}–${Math.min((page + 1) * rowsPerPage, filteredItems.length)} OF ${filteredItems.length}` : '0 ITEMS'}
+                        <div className="flex items-center gap-3 sm:gap-6">
+                            <span className="text-[11px] sm:text-xs font-bold uppercase whitespace-nowrap">
+                                {filteredItems.length > 0 ? `${page * rowsPerPage + 1}–${Math.min((page + 1) * rowsPerPage, filteredItems.length)} / ${filteredItems.length}` : '0 ITEMS'}
                             </span>
                             <div className="flex gap-2">
                                 <button onClick={() => handleChangePage(null, page - 1)} disabled={page === 0} className={cn("brutalist-button px-4 py-2 text-xs", page === 0 && "opacity-30 cursor-not-allowed")}>PREV</button>
