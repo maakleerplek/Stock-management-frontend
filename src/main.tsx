@@ -34,6 +34,11 @@ if (isMsalConfigured) {
         <App />
       </MsalProvider>,
     )
+  }).catch((err) => {
+    // Never let a bad MSAL setup blank the whole app — fall back to the
+    // password-only flow if initialization fails.
+    console.error('MSAL initialization failed; running without Microsoft sign-in', err)
+    render(<App />)
   })
 } else {
   // Azure not configured yet — run without MSAL (password fallback still works).
