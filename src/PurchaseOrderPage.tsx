@@ -199,7 +199,11 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                 await inventreeClient.addPurchaseOrderLine({
                     order: po.pk,
                     part: line.supplierPartPk,
-                    quantity: parseFloat(line.packs) * line.packQuantity,
+                    // InvenTree counts a PO line in supplier packs, not in single
+                    // units, and multiplies by the supplier part's pack_quantity
+                    // itself. Sending units here squared the order: 1 pack of 24
+                    // became quantity 24 and a total of 576.
+                    quantity: parseFloat(line.packs),
                 });
             }
             setSubmitResults(prev => ({
