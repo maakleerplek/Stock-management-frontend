@@ -394,7 +394,9 @@ export class InvenTreeClient {
             status: stockItem.status_text,
             name: partDetail?.name || '',
             description: partDetail?.description || '',
-            price: this.salePriceMap[stockItem.part] ?? partDetail?.pricing_max ?? partDetail?.pricing_min ?? 0,
+            // No pricing_max fallback: it is a cost figure now, and charging the
+            // supplier cost is a plausible-looking error nobody catches. 0 is not.
+            price: this.salePriceMap[stockItem.part] ?? 0,
             cost: this.supplierCostMap[stockItem.part] ?? 0,
             image: this.getFullImageUrl(partDetail?.image),
             part_id: stockItem.part,

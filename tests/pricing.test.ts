@@ -118,3 +118,39 @@ describe('selling price', () => {
             .toMatchObject({ part: 8, quantity: 1, price: '2.5' });
     });
 });
+
+describe('a part with no sale price', () => {
+    beforeEach(() => store.clear());
+
+    it('never falls back to a cost figure for the till price', async () => {
+        mockApi({
+            // no sale price for this part
+            '/part/sale-price/': { results: [] },
+            '/company/price-break/': { results: [{ part: 1, quantity: 1, price: '25.07' }] },
+            '/company/part/': { results: [{ pk: 1, part: 8, pack_quantity: '24' }] },
+            '/stock/99/': {
+                pk: 99,
+                part: 8,
+                quantity: 5,
+                part_detail: {
+                    pk: 8,
+                    name: 'Coca Cola',
+                    // these are cost figures post-migration; using either as a
+                    // selling price would undercharge by half
+                    pricing_min: 1.044583,
+                    pricing_max: 1.044583,
+                },
+            },
+        });
+        const c = client();
+        // reach the private formatter the way the barcode path does
+        const item = (c as unknown as {
+            formatStockItemData: (s: unknown) => { price: number; cost: number };
+        }).formatStockItemData({
+            pk: 99, part: 8, quantity: 5,
+            part_detail: { pk: 8, name: 'Coca Cola', pricing_min: 1.044583, pricing_max: 1.044583 },
+        });
+        expect(item.price).toBe(0);
+        expect(item.price).not.toBeCloseTo(1.0446, 3);
+    });
+});

@@ -54,8 +54,10 @@ export function StockProvider({ children }: { children: ReactNode }) {
         // Real cost per unit from the supplier price breaks. Parts with no
         // supplier are simply absent, which reads as "unknown" downstream.
         inventreeClient.getSupplierCostPerPart().catch(() => ({} as Record<number, number>)),
-        // Selling price from InvenTree's sale price breaks. Falls back to the old
-        // pricing_max below while any part still lacks one.
+        // Selling price from InvenTree's sale price breaks. There is no fallback
+        // to pricing_max: that is a cost figure now, and a cost shown as a price
+        // looks plausible enough to go unnoticed. A part with no sale price
+        // reads 0.00, which does not.
         inventreeClient.getSalePricePerPart().catch(() => ({} as Record<number, number>)),
       ]);
 
@@ -82,7 +84,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
           status: item.status_text,
           name: item.part_detail?.name || '',
           description: item.part_detail?.description || '',
-          price: salePrices[item.part] ?? item.part_detail?.pricing_max ?? item.part_detail?.pricing_min ?? 0,
+          price: salePrices[item.part] ?? 0,
           cost: supplierCosts[item.part] ?? 0,
           image: inventreeClient.getFullImageUrl(item.part_detail?.thumbnail || item.part_detail?.image) || null,
           part_id: item.part,
@@ -101,7 +103,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
             status: 'No Stock',
             name: part.name || '',
             description: part.description || '',
-            price: salePrices[part.pk] ?? part.pricing_max ?? part.pricing_min ?? 0,
+            price: salePrices[part.pk] ?? 0,
             cost: supplierCosts[part.pk] ?? 0,
             image: inventreeClient.getFullImageUrl(part.thumbnail || part.image) || null,
             part_id: part.pk,
