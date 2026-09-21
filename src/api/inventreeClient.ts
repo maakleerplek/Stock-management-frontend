@@ -37,7 +37,7 @@ interface InvenTreeConfig {
     token: string;
 }
 
-class InvenTreeClient {
+export class InvenTreeClient {
     private config: InvenTreeConfig;
 
     constructor(config: InvenTreeConfig) {
@@ -772,6 +772,53 @@ class InvenTreeClient {
         }
         this.invalidateCache('/stock/');
         return failed;
+    }
+
+    /**
+     * Record what customers pay for this part.
+     *
+     * Marks the part salable — InvenTree refuses a sale price break otherwise —
+     * and replaces any existing single-unit break so editing a price does not
+     * stack duplicates.
+     */
+    async setSalePrice(partPk: number, price: number, currency: string = 'EUR'): Promise<void> {
+        await this.request(`/part/${partPk}/`, 'PATCH', { salable: true }, false, false);
+        const existing = await this.request<{ results: { pk: number; part: number; quantity: number }[] }>(
+            `/part/sale-price/?part=${partPk}&limit=100`, 'GET', undefined, false, false
+        );
+        for (const b of existing.results || []) {
+            if (b.quantity === 1) {
+                await this.request(`/part/sale-price/${b.pk}/`, 'DELETE', undefined, false, false);
+            }
+        }
+        await this.request('/part/sale-price/', 'POST',
+            { part: partPk, quantity: 1, price: String(price), price_currency: currency }, false, false);
+        this.invalidateCache('/part/sale-price/?limit=500');
+    }
+
+    /**
+     * Selling price per unit, keyed by internal part pk.
+     *
+     * This is InvenTree's sale price break, which is where a "price the customer
+     * pays" actually belongs. It used to be kept in the stock item's
+     * purchase_price, which made InvenTree report the selling price as the cost
+     * of goods and left every margin figure wrong.
+     */
+    async getSalePricePerPart(): Promise<Record<number, number>> {
+        const resp = await this.request<{ results: { part: number; quantity: number; price: string | number }[] }>(
+            '/part/sale-price/?limit=500', 'GET', undefined, false, true, CACHE_TTL.MEDIUM
+        );
+        // Lowest break quantity is the single-unit price.
+        const best = new Map<number, { qty: number; price: number }>();
+        for (const b of resp.results || []) {
+            const price = typeof b.price === 'string' ? parseFloat(b.price) : b.price;
+            if (!isFinite(price)) continue;
+            const current = best.get(b.part);
+            if (!current || b.quantity < current.qty) best.set(b.part, { qty: b.quantity, price });
+        }
+        const out: Record<number, number> = {};
+        for (const [partPk, v] of best) out[partPk] = v.price;
+        return out;
     }
 
     /**

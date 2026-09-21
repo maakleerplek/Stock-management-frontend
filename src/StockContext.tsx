@@ -46,7 +46,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
       }
 
       // Fetch in parallel for speed
-      const [stockResp, partsResp, catResp, locResp, supplierCosts] = await Promise.all([
+      const [stockResp, partsResp, catResp, locResp, supplierCosts, salePrices] = await Promise.all([
         inventreeClient.getAllStockItems(),
         inventreeClient.getAllParts(),
         inventreeClient.getCategories(),
@@ -54,6 +54,9 @@ export function StockProvider({ children }: { children: ReactNode }) {
         // Real cost per unit from the supplier price breaks. Parts with no
         // supplier are simply absent, which reads as "unknown" downstream.
         inventreeClient.getSupplierCostPerPart().catch(() => ({} as Record<number, number>)),
+        // Selling price from InvenTree's sale price breaks. Falls back to the old
+        // pricing_max below while any part still lacks one.
+        inventreeClient.getSalePricePerPart().catch(() => ({} as Record<number, number>)),
       ]);
 
       const categoryMap = new Map<number, string>(
@@ -79,7 +82,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
           status: item.status_text,
           name: item.part_detail?.name || '',
           description: item.part_detail?.description || '',
-          price: item.part_detail?.pricing_max || item.part_detail?.pricing_min || 0,
+          price: salePrices[item.part] ?? item.part_detail?.pricing_max ?? item.part_detail?.pricing_min ?? 0,
           cost: supplierCosts[item.part] ?? 0,
           image: inventreeClient.getFullImageUrl(item.part_detail?.thumbnail || item.part_detail?.image) || null,
           part_id: item.part,
@@ -98,7 +101,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
             status: 'No Stock',
             name: part.name || '',
             description: part.description || '',
-            price: part.pricing_max || part.pricing_min || 0,
+            price: salePrices[part.pk] ?? part.pricing_max ?? part.pricing_min ?? 0,
             cost: supplierCosts[part.pk] ?? 0,
             image: inventreeClient.getFullImageUrl(part.thumbnail || part.image) || null,
             part_id: part.pk,

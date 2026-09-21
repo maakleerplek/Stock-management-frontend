@@ -197,6 +197,18 @@ function AppContent() {
         await inventreeClient.uploadPartImage(part.pk, formData.image);
       }
 
+      // What customers pay is a sale price on the part, not the stock item's
+      // purchase_price. Putting it on the stock item made InvenTree report the
+      // selling price as the cost of goods, so every margin came out as zero.
+      if (numericFields.sellingPrice > 0) {
+        try {
+          await inventreeClient.setSalePrice(part.pk, numericFields.sellingPrice, formData.sellingPriceCurrency);
+        } catch (priceErr) {
+          console.warn('[App] Could not set the selling price:', priceErr);
+          addToast('Part created, but the selling price could not be saved. Set it in InvenTree.', 'warning');
+        }
+      }
+
       // Create supplier part first so we can link the stock item to it
       let supplierPartPk: number | undefined;
       if (formData.supplier) {
@@ -216,10 +228,6 @@ function AppContent() {
           quantity: numericFields.initialQuantity,
           location: numericFields.locationId,
           notes: 'Initial stock from part creation',
-          ...(numericFields.purchasePrice > 0 ? {
-            purchase_price: numericFields.purchasePrice,
-            purchase_price_currency: formData.purchasePriceCurrency,
-          } : {}),
           ...(supplierPartPk ? { supplier_part: supplierPartPk } : {}),
         });
 

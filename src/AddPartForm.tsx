@@ -17,8 +17,8 @@ export interface PartFormData {
   storageLocation: string;
   minimumStock: string;
   barcode: string;
-  purchasePrice: string;
-  purchasePriceCurrency: string;
+  sellingPrice: string;
+  sellingPriceCurrency: string;
   supplier: string;
   supplierSku: string;
   supplierSetPrice: string;   // total price paid for one pack/set from supplier
@@ -56,8 +56,8 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
     minimumStock: '',
     storageLocation: '',
     barcode: '',
-    purchasePrice: '',
-    purchasePriceCurrency: 'EUR',
+    sellingPrice: '',
+    sellingPriceCurrency: 'EUR',
     supplier: '',
     supplierSku: '',
     supplierSetPrice: '',
@@ -103,8 +103,8 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
     if (formData.minimumStock && isNaN(parseFloat(formData.minimumStock))) {
       newErrors.minimumStock = 'MUST BE A NUMBER';
     }
-    if (formData.purchasePrice && isNaN(parseFloat(formData.purchasePrice))) {
-      newErrors.purchasePrice = 'MUST BE A NUMBER';
+    if (formData.sellingPrice && isNaN(parseFloat(formData.sellingPrice))) {
+      newErrors.sellingPrice = 'MUST BE A NUMBER';
     }
     if (formData.supplierSetPrice && isNaN(parseFloat(formData.supplierSetPrice))) {
       newErrors.supplierSetPrice = 'MUST BE A NUMBER';
@@ -468,12 +468,12 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
               <Label text="Selling Price" />
               <div className="flex border border-brand-black overflow-hidden">
                 <span className="bg-brand-beige-dark px-2 py-2 font-bold border-r border-brand-black text-xs">
-                  {formData.purchasePriceCurrency}
+                  {formData.sellingPriceCurrency}
                 </span>
                 <input
                   type="number"
-                  name="purchasePrice"
-                  value={formData.purchasePrice}
+                  name="sellingPrice"
+                  value={formData.sellingPrice}
                   onChange={handleChange}
                   step="0.01" min="0"
                   className="flex-1 px-2 py-2 border-none outline-none text-sm bg-white"
@@ -483,13 +483,13 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
               <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
                 Price customers pay per unit.
               </p>
-              <FieldError msg={errors.purchasePrice} />
+              <FieldError msg={errors.sellingPrice} />
             </div>
             <div>
               <Label text="Currency" />
               <select
-                name="purchasePriceCurrency"
-                value={formData.purchasePriceCurrency}
+                name="sellingPriceCurrency"
+                value={formData.sellingPriceCurrency}
                 onChange={handleChange}
                 className="brutalist-input w-full"
               >

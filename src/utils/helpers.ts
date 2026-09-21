@@ -42,7 +42,7 @@ export const parseNumericFields = (formData: PartFormData) => {
   const packPrice = parseFloat(formData.supplierSetPrice) || 0;
   return {
     initialQuantity: parseFloat(formData.initialQuantity) || 0,
-    purchasePrice: parseFloat(formData.purchasePrice) || 0,
+    sellingPrice: parseFloat(formData.sellingPrice) || 0,
     packQty,
     packPrice,
     locationId: parseInt(formData.storageLocation) || 0,
