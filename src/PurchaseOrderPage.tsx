@@ -47,6 +47,8 @@ interface ConfirmModal {
 /** One editable row in the receive modal. Counts are in supplier packs. */
 interface ReceiveRow {
     linePk: number;
+    /** Internal part, needed to fold the new stock item back into the existing one. */
+    partPk: number | null;
     name: string;
     ordered: number;
     alreadyReceived: number;
@@ -282,6 +284,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                 const outstanding = Math.max(l.quantity - l.received, 0);
                 return {
                     linePk: l.pk,
+                    partPk: l.internal_part ?? l.part_detail?.pk ?? null,
                     name: l.internal_part_name || l.part_detail?.name || l.sku || `Line ${l.pk}`,
                     ordered: l.quantity,
                     alreadyReceived: l.received,
@@ -323,8 +326,21 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
         setActionError(null);
         try {
             await inventreeClient.receivePurchaseOrderItems(receiveModal.poPk, items, locationPk);
+
+            // Receiving mints a new stock item per line. Everything downstream
+            // expects one item per part, so fold them together again. The stock
+            // is already booked in, so a failure here is cosmetic — say so
+            // instead of making it look like the delivery failed.
+            const receivedPartPks = receiveModal.rows
+                .filter(r => (parseFloat(r.packs) || 0) > 0 && r.partPk !== null)
+                .map(r => r.partPk as number);
+            const failed = await inventreeClient.consolidateStockForParts(receivedPartPks, locationPk);
+
             setReceiveModal(null);
             setConfirmingReceive(false);
+            if (failed.length > 0) {
+                setActionError(`Stock booked in, but ${failed.length} item(s) are now split over two stock entries. Merge them in InvenTree.`);
+            }
             loadOrders();
         } catch (err) {
             setActionError(err instanceof Error ? err.message : 'Receiving failed');

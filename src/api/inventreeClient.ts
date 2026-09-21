@@ -725,6 +725,55 @@ class InvenTreeClient {
         );
     }
 
+    /**
+     * Fold several stock items of the same part into one.
+     *
+     * Receiving always creates a fresh stock item, but this setup keeps a single
+     * long-lived item per part and the stock list, the TV screen and the barcode
+     * scanner all assume that. Merging straight after a delivery keeps that true.
+     * The lowest pk is merged into, so the item everything already points at is
+     * the one that survives.
+     */
+    async mergeStockItems(itemPks: number[], locationPk: number): Promise<void> {
+        if (itemPks.length < 2) return;
+        const ordered = [...itemPks].sort((a, b) => a - b);
+        await this.request(
+            '/stock/merge/',
+            'POST',
+            {
+                items: ordered.map(pk => ({ item: pk })),
+                location: locationPk,
+                allow_mismatched_suppliers: true,
+                allow_mismatched_status: true,
+                notes: 'Consolidated after receiving a purchase order',
+            },
+            false,
+            false
+        );
+    }
+
+    /**
+     * After a delivery, collapse each part back to one stock item per location.
+     * Reports which parts could not be merged rather than throwing — the stock is
+     * already booked in by this point, so a failure here is untidy, not lost.
+     */
+    async consolidateStockForParts(partPks: number[], locationPk: number): Promise<string[]> {
+        const failed: string[] = [];
+        for (const partPk of Array.from(new Set(partPks))) {
+            try {
+                const resp = await this.getAllStockItems({ part: partPk, location: locationPk });
+                const pks = (resp.results || []).map((i: { pk: number }) => i.pk);
+                if (pks.length > 1) {
+                    await this.mergeStockItems(pks, locationPk);
+                }
+            } catch {
+                failed.push(String(partPk));
+            }
+        }
+        this.invalidateCache('/stock/');
+        return failed;
+    }
+
     async getStockLocations(): Promise<{ pk: number; name: string; pathstring: string }[]> {
         const result = await this.request<{ results: { pk: number; name: string; pathstring: string }[] }>(
             '/stock/location/?limit=100',
