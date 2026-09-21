@@ -28,6 +28,7 @@ import type {
     CreateLocationPayload,
     InvenTreeCompany,
     CreateSupplierPartPayload,
+    PurchaseOrderLine,
 } from './types';
 import { ApiCache, CACHE_TTL } from '../lib/cache';
 
@@ -662,6 +663,77 @@ class InvenTreeClient {
 
     async cancelPurchaseOrder(poPk: number): Promise<void> {
         await this.request(`/order/po/${poPk}/cancel/`, 'POST', {}, false, false);
+    }
+
+    /**
+     * Line items on an order. `quantity` and `received` are both counted in
+     * supplier packs, not in single units — multiply by the supplier part's
+     * pack_quantity to show units.
+     */
+    async getPurchaseOrderLines(poPk: number): Promise<PurchaseOrderLine[]> {
+        const result = await this.request<{ results: PurchaseOrderLine[] }>(
+            `/order/po-line/?order=${poPk}&part_detail=true&limit=100`,
+            'GET',
+            undefined,
+            false,
+            false
+        );
+        return result.results;
+    }
+
+    /**
+     * Book received goods in against the order.
+     *
+     * Quantities are in packs, matching the line items. InvenTree creates the
+     * stock itself, applying pack_quantity, and bumps each line's `received`.
+     */
+    async receivePurchaseOrderItems(
+        poPk: number,
+        items: { line_item: number; quantity: number; location: number; batch_code?: string }[],
+        locationPk: number
+    ): Promise<void> {
+        await this.request(
+            `/order/po/${poPk}/receive/`,
+            'POST',
+            {
+                items: items.map(i => ({
+                    line_item: i.line_item,
+                    quantity: i.quantity,
+                    location: i.location,
+                    batch_code: i.batch_code ?? '',
+                    status: 10, // StockStatus.OK
+                })),
+                location: locationPk,
+            },
+            false,
+            false
+        );
+    }
+
+    /**
+     * Close the order. InvenTree refuses to close an order with outstanding
+     * lines unless accept_incomplete is set, which is the "we are not getting
+     * the rest" case.
+     */
+    async completePurchaseOrder(poPk: number, acceptIncomplete: boolean = false): Promise<void> {
+        await this.request(
+            `/order/po/${poPk}/complete/`,
+            'POST',
+            { accept_incomplete: acceptIncomplete },
+            false,
+            false
+        );
+    }
+
+    async getStockLocations(): Promise<{ pk: number; name: string; pathstring: string }[]> {
+        const result = await this.request<{ results: { pk: number; name: string; pathstring: string }[] }>(
+            '/stock/location/?limit=100',
+            'GET',
+            undefined,
+            false,
+            false
+        );
+        return result.results;
     }
 
     // ==================== Dashboard & Metrics ====================

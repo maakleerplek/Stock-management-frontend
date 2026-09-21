@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ShoppingBag, Plus, Loader2, CheckCircle, XCircle, Package, Trash2 } from 'lucide-react';
+import { ShoppingBag, Plus, Loader2, CheckCircle, XCircle, Package, Trash2, Truck, AlertTriangle } from 'lucide-react';
 import inventreeClient from './api/inventreeClient';
+import type { PurchaseOrderLine } from './api/types';
 import { useStock } from './StockContext';
 import type { SelectOption } from './AddPartForm';
 import { cn } from './lib/utils';
@@ -30,6 +31,7 @@ interface ExistingPO {
     reference: string;
     status: number;
     status_text: string;
+    supplier: number;
     supplier_detail: { name: string };
     description: string;
     creation_date: string;
@@ -40,6 +42,31 @@ interface ConfirmModal {
     supplierName: string;
     lines: OrderLine[];
     reference: string;
+}
+
+/** One editable row in the receive modal. Counts are in supplier packs. */
+interface ReceiveRow {
+    linePk: number;
+    name: string;
+    ordered: number;
+    alreadyReceived: number;
+    packQuantity: number;
+    /** What the user says actually turned up. Free text so the field can be emptied. */
+    packs: string;
+    destination: number | null;
+}
+
+interface ReceiveModal {
+    poPk: number;
+    reference: string;
+    rows: ReceiveRow[];
+    locationPk: string;
+}
+
+interface CompleteModal {
+    poPk: number;
+    reference: string;
+    outstanding: { name: string; ordered: number; received: number }[];
 }
 
 interface PurchaseOrderPageProps {
@@ -221,6 +248,124 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             setConfirmModal(null);
         } finally {
             setConfirming(false);
+        }
+    };
+
+    const [receiveModal, setReceiveModal] = useState<ReceiveModal | null>(null);
+    const [completeModal, setCompleteModal] = useState<CompleteModal | null>(null);
+    const [openingReceive, setOpeningReceive] = useState<number | null>(null);
+    const [receiving, setReceiving] = useState(false);
+    const [completing, setCompleting] = useState(false);
+    const [locations, setLocations] = useState<{ pk: number; name: string; pathstring: string }[]>([]);
+    const [actionError, setActionError] = useState<string | null>(null);
+
+    /** Pack size per supplier part, so the modal can show units next to packs. */
+    const packSizeFor = useCallback(
+        (supplierParts: { pk: number; pack_quantity: string }[], supplierPartPk: number) =>
+            parseFloat(supplierParts.find(sp => sp.pk === supplierPartPk)?.pack_quantity ?? '1') || 1,
+        []
+    );
+
+    const openReceive = async (po: ExistingPO) => {
+        setOpeningReceive(po.pk);
+        setActionError(null);
+        try {
+            const [lines, locs, supplierParts] = await Promise.all([
+                inventreeClient.getPurchaseOrderLines(po.pk),
+                locations.length ? Promise.resolve(locations) : inventreeClient.getStockLocations(),
+                inventreeClient.getSupplierPartsForSupplier(po.supplier),
+            ]);
+            setLocations(locs);
+
+            const rows: ReceiveRow[] = lines.map((l: PurchaseOrderLine) => {
+                const outstanding = Math.max(l.quantity - l.received, 0);
+                return {
+                    linePk: l.pk,
+                    name: l.internal_part_name || l.part_detail?.name || l.sku || `Line ${l.pk}`,
+                    ordered: l.quantity,
+                    alreadyReceived: l.received,
+                    packQuantity: packSizeFor(supplierParts, l.part),
+                    // Default to everything still outstanding — the common case is a
+                    // full delivery, and a short one is then a single edit.
+                    packs: outstanding > 0 ? String(outstanding) : '0',
+                    destination: l.destination ?? l.destination_detail?.pk ?? null,
+                };
+            });
+
+            const firstDest = rows.find(r => r.destination !== null)?.destination;
+            setReceiveModal({
+                poPk: po.pk,
+                reference: po.reference,
+                rows,
+                locationPk: String(firstDest ?? locs[0]?.pk ?? ''),
+            });
+        } catch (err) {
+            setActionError(err instanceof Error ? err.message : 'Could not load order lines');
+        } finally {
+            setOpeningReceive(null);
+        }
+    };
+
+    const submitReceive = async () => {
+        if (!receiveModal) return;
+        const locationPk = parseInt(receiveModal.locationPk);
+        const items = receiveModal.rows
+            .map(r => ({ line_item: r.linePk, quantity: parseFloat(r.packs), location: r.destination ?? locationPk }))
+            .filter(i => i.quantity > 0);
+
+        if (items.length === 0) {
+            setActionError('Nothing to receive — every quantity is zero.');
+            return;
+        }
+
+        setReceiving(true);
+        setActionError(null);
+        try {
+            await inventreeClient.receivePurchaseOrderItems(receiveModal.poPk, items, locationPk);
+            setReceiveModal(null);
+            loadOrders();
+        } catch (err) {
+            setActionError(err instanceof Error ? err.message : 'Receiving failed');
+        } finally {
+            setReceiving(false);
+        }
+    };
+
+    const openComplete = async (po: ExistingPO) => {
+        setOpeningReceive(po.pk);
+        setActionError(null);
+        try {
+            const lines = await inventreeClient.getPurchaseOrderLines(po.pk);
+            setCompleteModal({
+                poPk: po.pk,
+                reference: po.reference,
+                outstanding: lines
+                    .filter(l => l.received < l.quantity)
+                    .map(l => ({
+                        name: l.internal_part_name || l.part_detail?.name || l.sku || `Line ${l.pk}`,
+                        ordered: l.quantity,
+                        received: l.received,
+                    })),
+            });
+        } catch (err) {
+            setActionError(err instanceof Error ? err.message : 'Could not load order lines');
+        } finally {
+            setOpeningReceive(null);
+        }
+    };
+
+    const submitComplete = async () => {
+        if (!completeModal) return;
+        setCompleting(true);
+        setActionError(null);
+        try {
+            await inventreeClient.completePurchaseOrder(completeModal.poPk, completeModal.outstanding.length > 0);
+            setCompleteModal(null);
+            loadOrders();
+        } catch (err) {
+            setActionError(err instanceof Error ? err.message : 'Could not close the order');
+        } finally {
+            setCompleting(false);
         }
     };
 
@@ -437,6 +582,12 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             {/* Existing orders */}
             <div className="space-y-2">
                 <h2 className="text-[10px] font-black uppercase tracking-widest text-brand-black/60">OPEN ORDERS</h2>
+                {actionError && !receiveModal && !completeModal && (
+                    <div className="flex items-center gap-3 border border-red-500 bg-red-50 p-3">
+                        <XCircle size={16} className="text-red-600 flex-shrink-0" />
+                        <p className="text-xs font-black uppercase tracking-widest text-red-700">{actionError}</p>
+                    </div>
+                )}
                 {loadingOrders && (
                     <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-brand-black/60 py-4">
                         <Loader2 size={14} className="animate-spin" /> LOADING...
@@ -465,6 +616,18 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                     <button onClick={() => handleIssue(po.pk)} disabled={issuingPk === po.pk}
                                         className="brutalist-button px-3 py-1.5 text-[10px] bg-blue-200 text-brand-black flex items-center gap-1">
                                         {issuingPk === po.pk ? <Loader2 size={10} className="animate-spin" /> : null} ISSUE
+                                    </button>
+                                )}
+                                {po.status === 20 && (
+                                    <button onClick={() => openReceive(po)} disabled={openingReceive === po.pk}
+                                        className="brutalist-button px-3 py-1.5 text-[10px] bg-emerald-200 text-brand-black flex items-center gap-1">
+                                        {openingReceive === po.pk ? <Loader2 size={10} className="animate-spin" /> : <Truck size={10} />} RECEIVE
+                                    </button>
+                                )}
+                                {po.status === 20 && (
+                                    <button onClick={() => openComplete(po)} disabled={openingReceive === po.pk}
+                                        className="brutalist-button px-3 py-1.5 text-[10px] bg-amber-200 text-brand-black flex items-center gap-1">
+                                        CLOSE
                                     </button>
                                 )}
                                 {(po.status === 10 || po.status === 20) && (
@@ -545,6 +708,192 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                             >
                                 {confirming ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
                                 CONFIRM & CREATE
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Receive modal — record what actually turned up, line by line */}
+            {receiveModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+                    <div className="w-full max-w-2xl border border-brand-black bg-white max-h-[90vh] overflow-auto">
+                        <div className="flex items-center gap-2 p-4 border-b border-brand-black bg-brand-black">
+                            <Truck size={14} className="text-white" />
+                            <h2 className="text-sm font-black uppercase tracking-widest text-white">
+                                RECEIVE — {receiveModal.reference}
+                            </h2>
+                        </div>
+
+                        <div className="p-4 sm:p-6 space-y-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60">
+                                Quantities are in packs. Correct any line that arrived short.
+                            </p>
+
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-brand-black/70 mb-1.5">
+                                    Destination
+                                </label>
+                                <select
+                                    value={receiveModal.locationPk}
+                                    onChange={e => setReceiveModal({ ...receiveModal, locationPk: e.target.value })}
+                                    className="brutalist-input w-full"
+                                >
+                                    {locations.map(l => (
+                                        <option key={l.pk} value={l.pk}>{l.pathstring || l.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="border-b border-brand-black/20 text-[10px] uppercase tracking-widest text-brand-black/60">
+                                        <th className="text-left p-2">Item</th>
+                                        <th className="text-right p-2">Ordered</th>
+                                        <th className="text-right p-2">Already in</th>
+                                        <th className="text-right p-2">Receiving</th>
+                                        <th className="text-right p-2">Units</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {receiveModal.rows.map((row, i) => {
+                                        const packs = parseFloat(row.packs) || 0;
+                                        const outstanding = Math.max(row.ordered - row.alreadyReceived, 0);
+                                        const over = packs > outstanding;
+                                        return (
+                                            <tr key={row.linePk} className="border-b border-brand-black/10">
+                                                <td className="p-2 font-bold">{row.name}</td>
+                                                <td className="p-2 text-right font-mono">{row.ordered}</td>
+                                                <td className="p-2 text-right font-mono text-brand-black/50">{row.alreadyReceived}</td>
+                                                <td className="p-2 text-right">
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        value={row.packs}
+                                                        onChange={e => {
+                                                            const rows = [...receiveModal.rows];
+                                                            rows[i] = { ...row, packs: e.target.value };
+                                                            setReceiveModal({ ...receiveModal, rows });
+                                                        }}
+                                                        className={cn('brutalist-input w-20 text-right', over && 'border-amber-500')}
+                                                    />
+                                                </td>
+                                                <td className="p-2 text-right font-mono text-brand-black/60">
+                                                    {packs * row.packQuantity}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+
+                            {receiveModal.rows.some(r => (parseFloat(r.packs) || 0) > Math.max(r.ordered - r.alreadyReceived, 0)) && (
+                                <div className="flex items-center gap-2 border border-amber-500 bg-amber-50 p-3">
+                                    <AlertTriangle size={14} className="text-amber-600 flex-shrink-0" />
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                                        A line is over the amount ordered. InvenTree will accept it.
+                                    </p>
+                                </div>
+                            )}
+
+                            {actionError && (
+                                <div className="flex items-center gap-2 border border-red-500 bg-red-50 p-3">
+                                    <XCircle size={14} className="text-red-600 flex-shrink-0" />
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-red-700">{actionError}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-2 p-4 border-t border-brand-black">
+                            <button
+                                onClick={() => { setReceiveModal(null); setActionError(null); }}
+                                disabled={receiving}
+                                className="flex-1 brutalist-button py-3 text-xs bg-white text-brand-black"
+                            >
+                                BACK
+                            </button>
+                            <button
+                                onClick={submitReceive}
+                                disabled={receiving}
+                                className="flex-1 brutalist-button py-3 text-xs bg-emerald-400 text-brand-black flex items-center justify-center gap-2"
+                            >
+                                {receiving ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
+                                BOOK IN
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Close modal — spell out what is still outstanding before closing */}
+            {completeModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+                    <div className="w-full max-w-lg border border-brand-black bg-white">
+                        <div className="flex items-center gap-2 p-4 border-b border-brand-black bg-brand-black">
+                            <AlertTriangle size={14} className="text-white" />
+                            <h2 className="text-sm font-black uppercase tracking-widest text-white">
+                                CLOSE {completeModal.reference}?
+                            </h2>
+                        </div>
+
+                        <div className="p-4 sm:p-6 space-y-4">
+                            {completeModal.outstanding.length === 0 ? (
+                                <p className="text-xs font-bold uppercase tracking-widest text-brand-black/70">
+                                    Everything on this order has been received. Closing it is safe.
+                                </p>
+                            ) : (
+                                <>
+                                    <div className="flex items-start gap-2 border border-amber-500 bg-amber-50 p-3">
+                                        <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                                            Not everything is in. Closing now writes off the rest — it will never
+                                            arrive in stock. Use RECEIVE first if more is still coming.
+                                        </p>
+                                    </div>
+                                    <table className="w-full text-xs">
+                                        <thead>
+                                            <tr className="border-b border-brand-black/20 text-[10px] uppercase tracking-widest text-brand-black/60">
+                                                <th className="text-left p-2">Item</th>
+                                                <th className="text-right p-2">Received</th>
+                                                <th className="text-right p-2">Ordered</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {completeModal.outstanding.map(o => (
+                                                <tr key={o.name} className="border-b border-brand-black/10">
+                                                    <td className="p-2 font-bold">{o.name}</td>
+                                                    <td className="p-2 text-right font-mono text-amber-700">{o.received}</td>
+                                                    <td className="p-2 text-right font-mono">{o.ordered}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </>
+                            )}
+
+                            {actionError && (
+                                <div className="flex items-center gap-2 border border-red-500 bg-red-50 p-3">
+                                    <XCircle size={14} className="text-red-600 flex-shrink-0" />
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-red-700">{actionError}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-2 p-4 border-t border-brand-black">
+                            <button
+                                onClick={() => { setCompleteModal(null); setActionError(null); }}
+                                disabled={completing}
+                                className="flex-1 brutalist-button py-3 text-xs bg-white text-brand-black"
+                            >
+                                BACK
+                            </button>
+                            <button
+                                onClick={submitComplete}
+                                disabled={completing}
+                                className="flex-1 brutalist-button py-3 text-xs bg-amber-400 text-brand-black flex items-center justify-center gap-2"
+                            >
+                                {completing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+                                {completeModal.outstanding.length === 0 ? 'CLOSE ORDER' : 'CLOSE ANYWAY'}
                             </button>
                         </div>
                     </div>

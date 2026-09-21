@@ -191,3 +191,26 @@ export interface InvenTreeTrackingListResponse {
     count: number;
     results: InvenTreeTrackingEntry[];
 }
+
+/**
+ * A line on a purchase order.
+ *
+ * `quantity` and `received` are counted in supplier packs, not single units.
+ * InvenTree multiplies by the supplier part's pack_quantity when it creates the
+ * stock, so a line of 2 with a pack of 24 books in 48 cans.
+ */
+export interface PurchaseOrderLine {
+    pk: number;
+    order: number;
+    part: number;
+    quantity: number;
+    received: number;
+    reference: string;
+    sku: string | null;
+    ipn: string | null;
+    internal_part: number | null;
+    internal_part_name: string | null;
+    destination: number | null;
+    destination_detail: { pk: number; name: string; pathstring: string } | null;
+    part_detail?: { pk: number; name: string; thumbnail?: string; image?: string };
+}
