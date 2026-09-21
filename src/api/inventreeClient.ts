@@ -40,8 +40,31 @@ interface InvenTreeConfig {
 export class InvenTreeClient {
     private config: InvenTreeConfig;
 
+    /**
+     * Sale prices and supplier costs, memoised so the synchronous stock-item
+     * formatter can use them. Callers refresh via ensurePricingMaps() first.
+     */
+    private salePriceMap: Record<number, number> = {};
+    private supplierCostMap: Record<number, number> = {};
+    private pricingMapsAt = 0;
+
     constructor(config: InvenTreeConfig) {
         this.config = config;
+    }
+
+    private async ensurePricingMaps(): Promise<void> {
+        if (this.pricingMapsAt && Date.now() - this.pricingMapsAt < 60_000) return;
+        try {
+            const [sale, cost] = await Promise.all([
+                this.getSalePricePerPart(),
+                this.getSupplierCostPerPart(),
+            ]);
+            this.salePriceMap = sale;
+            this.supplierCostMap = cost;
+            this.pricingMapsAt = Date.now();
+        } catch {
+            // Keep whatever we had; the formatter falls back on its own.
+        }
     }
 
     /**
@@ -345,6 +368,9 @@ export class InvenTreeClient {
 
             // Get full details and format for the app
             const stockItem = await this.getStockItem(stockId);
+            // The till reads this. Without the maps it falls back to pricing_max,
+            // which is now the supplier cost, and would undercharge.
+            await this.ensurePricingMaps();
             return this.formatStockItemData(stockItem);
 
         } catch (error) {
@@ -368,8 +394,8 @@ export class InvenTreeClient {
             status: stockItem.status_text,
             name: partDetail?.name || '',
             description: partDetail?.description || '',
-            price: partDetail?.pricing_max || partDetail?.pricing_min || 0,
-            cost: partDetail?.pricing_min || 0,
+            price: this.salePriceMap[stockItem.part] ?? partDetail?.pricing_max ?? partDetail?.pricing_min ?? 0,
+            cost: this.supplierCostMap[stockItem.part] ?? 0,
             image: this.getFullImageUrl(partDetail?.image),
             part_id: stockItem.part,
             ipn: partDetail?.IPN || '',

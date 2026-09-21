@@ -110,15 +110,15 @@ export default function StockAnalytics() {
     return () => { cancelled = true; };
   }, [refreshKey]);
 
-  // part_id → { name, sellingPrice (pricing_max), costPrice (pricing_min), category }
+  // part_id -> { name, sellingPrice (sale price break), costPrice (supplier price), category }
   const partLookup = useMemo(() => {
     const map = new Map<number, { name: string; sellingPrice: number; costPrice: number; category: string }>();
     items.forEach(item => {
       if (item.part_id != null && !map.has(item.part_id)) {
         map.set(item.part_id, {
           name: item.name,
-          sellingPrice: item.price,   // pricing_max
-          costPrice: item.cost,       // pricing_min
+          sellingPrice: item.price,   // sale price break
+          costPrice: item.cost,       // supplier price / pack size
           category: item.category,
         });
       }
@@ -134,7 +134,7 @@ export default function StockAnalytics() {
     return trackingEntries.filter(e => new Date(e.date) >= cutoff);
   }, [trackingEntries, dateRange]);
 
-  // Aggregate by part — profit = (pricing_max - pricing_min) × units removed
+  // Aggregate by part - profit = (sale price - supplier cost) x units removed
   const analytics = useMemo(() => {
     const byPartMap = new Map<number, PartAnalytics>();
 
@@ -378,12 +378,12 @@ export default function StockAnalytics() {
               ))}
             </Section>
 
-            {/* Top profit = (pricing_max - pricing_min) × units removed */}
+            {/* Top profit = (sale price - supplier cost) x units removed */}
             <Section title="TOP PROFIT ITEMS" icon={Percent}>
               {mostProfit.length === 0 ? (
                 <div className="flex items-center justify-center py-6">
                   <span className="text-xs font-bold uppercase text-brand-black/40 text-center">
-                    NO PROFIT DATA —<br />SET PRICING MIN &amp; MAX ON PARTS IN INVENTREE
+                    NO PROFIT DATA —<br />ADD A SUPPLIER PRICE AND A SALE PRICE IN INVENTREE
                   </span>
                 </div>
               ) : mostProfit.map(item => (
