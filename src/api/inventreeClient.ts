@@ -774,6 +774,52 @@ class InvenTreeClient {
         return failed;
     }
 
+    /**
+     * Real supplier cost per single unit, keyed by internal part pk.
+     *
+     * Deliberately not pricing_min: that is InvenTree's blended "overall" low,
+     * which for a part with no supplier is just the selling price echoed back —
+     * it would show Multiplex costing the same as it sells for. Build it from
+     * the supplier price breaks instead, dividing the pack price by the pack
+     * size, and leave parts with no supplier out entirely so the UI can say
+     * "unknown" rather than print a wrong number.
+     */
+    async getSupplierCostPerPart(): Promise<Record<number, number>> {
+        const [breaksResp, partsResp] = await Promise.all([
+            this.request<{ results: { part: number; quantity: number; price: string | number }[] }>(
+                '/company/price-break/?limit=500', 'GET', undefined, false, true, CACHE_TTL.LONG
+            ),
+            this.request<{ results: { pk: number; part: number; pack_quantity: string }[] }>(
+                '/company/part/?limit=500', 'GET', undefined, false, true, CACHE_TTL.LONG
+            ),
+        ]);
+
+        // supplier part -> internal part and pack size
+        const supplierParts = new Map<number, { partPk: number; pack: number }>();
+        for (const sp of partsResp.results || []) {
+            supplierParts.set(sp.pk, { partPk: sp.part, pack: parseFloat(sp.pack_quantity) || 1 });
+        }
+
+        // Cheapest break at the smallest order quantity is the base unit price.
+        const bestBreak = new Map<number, { qty: number; price: number }>();
+        for (const b of breaksResp.results || []) {
+            const price = typeof b.price === 'string' ? parseFloat(b.price) : b.price;
+            if (!isFinite(price)) continue;
+            const current = bestBreak.get(b.part);
+            if (!current || b.quantity < current.qty) {
+                bestBreak.set(b.part, { qty: b.quantity, price });
+            }
+        }
+
+        const costs: Record<number, number> = {};
+        for (const [supplierPartPk, brk] of bestBreak) {
+            const sp = supplierParts.get(supplierPartPk);
+            if (!sp || sp.pack <= 0) continue;
+            costs[sp.partPk] = brk.price / sp.pack;
+        }
+        return costs;
+    }
+
     async getStockLocations(): Promise<{ pk: number; name: string; pathstring: string }[]> {
         const result = await this.request<{ results: { pk: number; name: string; pathstring: string }[] }>(
             '/stock/location/?limit=100',

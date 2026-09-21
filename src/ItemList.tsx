@@ -296,6 +296,11 @@ export default function ItemList() {
                                             <div className="flex items-center gap-1 mt-0.5 text-brand-black/70">
                                                 <Euro className="w-3 h-3" />
                                                 <span className="font-bold text-xs">{item.price.toFixed(2)}</span>
+                                                {item.cost > 0 && (
+                                                    <span className="text-[10px] font-bold text-brand-black/40">
+                                                        (cost {item.cost.toFixed(2)})
+                                                    </span>
+                                                )}
                                             </div>
                                             <MetaTags category={item.category} location={item.location} className="mt-1" />
                                         </div>
@@ -352,6 +357,9 @@ export default function ItemList() {
                                         <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/70">STOCK</span>
                                     </th>
                                     <th className="p-3 text-right w-[100px]">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/70">COST</span>
+                                    </th>
+                                    <th className="p-3 text-right w-[100px]">
                                         <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/70">PRICE</span>
                                     </th>
                                     {isVolunteerMode && (
@@ -398,6 +406,24 @@ export default function ItemList() {
                                                     )}
                                                 </td>
                                                 <td className="p-3 text-right">
+                                                    {item.cost > 0 ? (
+                                                        <div
+                                                            className="flex items-center justify-end gap-1 text-brand-black/55"
+                                                            title={item.price > 0 ? `Margin ${(item.price - item.cost).toFixed(2)} per unit` : undefined}
+                                                        >
+                                                            <Euro className="w-3 h-3" />
+                                                            <span className="font-bold text-sm">{item.cost.toFixed(2)}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span
+                                                            className="text-xs font-bold text-brand-black/25"
+                                                            title="No supplier price on this part"
+                                                        >
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="p-3 text-right">
                                                     <div className="flex items-center justify-end gap-1">
                                                         <Euro className="w-3 h-3 text-brand-black" />
                                                         <span className="font-bold text-sm">{item.price.toFixed(2)}</span>
@@ -432,7 +458,7 @@ export default function ItemList() {
                                     })}
                                 {filteredItems.length === 0 && !loading && (
                                     <tr>
-                                        <td colSpan={isVolunteerMode ? 5 : 4} className="p-16 text-center bg-brand-beige-dark">
+                                        <td colSpan={isVolunteerMode ? 6 : 5} className="p-16 text-center bg-brand-beige-dark">
                                             <p className="text-sm font-black tracking-widest uppercase opacity-40">NO ITEMS FOUND</p>
                                         </td>
                                     </tr>
