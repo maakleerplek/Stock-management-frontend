@@ -45,7 +45,7 @@ function MetaTags({ category, location, className }: { category?: string; locati
 }
 
 export default function ItemList() {
-    const { items, loading, error, refreshInventory } = useStock();
+    const { items, loading, error, refreshInventory, lastFetched } = useStock();
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [locationFilter, setLocationFilter] = useState('');
@@ -237,6 +237,38 @@ export default function ItemList() {
                         <p className="text-sm font-bold text-red-600 uppercase">{error}</p>
                     </div>
                 )}
+
+                {/* Say out loud how old these numbers are. Silently showing a stale
+                    list is worse than showing nothing, because it looks correct. */}
+                {!error && lastFetched !== null && (() => {
+                    const ageMs = Date.now() - lastFetched;
+                    const stale = ageMs > 5 * 60 * 1000;
+                    const mins = Math.floor(ageMs / 60000);
+                    const label = mins < 1 ? 'just now' : mins < 60
+                        ? `${mins} min ago`
+                        : `${Math.floor(mins / 60)} h ${mins % 60} min ago`;
+                    return (
+                        <div className={cn(
+                            'flex-shrink-0 flex items-center justify-between gap-3 px-3 py-2 mb-4 border',
+                            stale ? 'border-amber-500 bg-amber-50' : 'border-brand-black/15 bg-transparent'
+                        )}>
+                            <p className={cn(
+                                'text-[10px] font-black uppercase tracking-widest',
+                                stale ? 'text-amber-700' : 'text-brand-black/40'
+                            )}>
+                                {stale ? `Possibly out of date — last updated ${label}` : `Updated ${label}`}
+                            </p>
+                            {stale && (
+                                <button
+                                    onClick={() => refreshInventory()}
+                                    className="brutalist-button px-3 py-1 text-[10px] bg-amber-300 text-brand-black"
+                                >
+                                    REFRESH
+                                </button>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 {/* Table Container - Fills remaining space and scrolls */}
                 <div className="flex-1 min-h-0 flex flex-col border border-brand-black bg-brand-beige">

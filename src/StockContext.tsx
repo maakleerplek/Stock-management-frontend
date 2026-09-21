@@ -135,6 +135,29 @@ export function StockProvider({ children }: { children: ReactNode }) {
     fetchInventory();
   }, [fetchInventory]);
 
+  // Without this the inventory is only ever loaded once. An installed PWA that is
+  // left open — which is how this actually gets used — would keep showing the
+  // numbers from whenever it was opened, with no error and nothing on screen to
+  // say the data is old. Re-fetch whenever the app comes back to the foreground,
+  // and on a slow timer while it is visible.
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchInventory(true);
+      }
+    };
+
+    window.addEventListener('focus', refreshIfVisible);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    const timer = window.setInterval(refreshIfVisible, 2 * 60 * 1000);
+
+    return () => {
+      window.removeEventListener('focus', refreshIfVisible);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+      window.clearInterval(timer);
+    };
+  }, [fetchInventory]);
+
   return (
     <StockContext.Provider value={{ 
       items, 

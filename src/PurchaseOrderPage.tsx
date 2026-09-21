@@ -255,6 +255,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
     const [completeModal, setCompleteModal] = useState<CompleteModal | null>(null);
     const [openingReceive, setOpeningReceive] = useState<number | null>(null);
     const [receiving, setReceiving] = useState(false);
+    const [confirmingReceive, setConfirmingReceive] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [locations, setLocations] = useState<{ pk: number; name: string; pathstring: string }[]>([]);
     const [actionError, setActionError] = useState<string | null>(null);
@@ -323,6 +324,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
         try {
             await inventreeClient.receivePurchaseOrderItems(receiveModal.poPk, items, locationPk);
             setReceiveModal(null);
+            setConfirmingReceive(false);
             loadOrders();
         } catch (err) {
             setActionError(err instanceof Error ? err.message : 'Receiving failed');
@@ -806,19 +808,101 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
 
                         <div className="flex gap-2 p-4 border-t border-brand-black">
                             <button
-                                onClick={() => { setReceiveModal(null); setActionError(null); }}
+                                onClick={() => { setReceiveModal(null); setActionError(null); setConfirmingReceive(false); }}
                                 disabled={receiving}
                                 className="flex-1 brutalist-button py-3 text-xs bg-white text-brand-black"
                             >
                                 BACK
                             </button>
                             <button
+                                onClick={() => { setActionError(null); setConfirmingReceive(true); }}
+                                disabled={receiving}
+                                className="flex-1 brutalist-button py-3 text-xs bg-emerald-400 text-brand-black flex items-center justify-center gap-2"
+                            >
+                                <Truck size={14} />
+                                BOOK IN
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Receive confirmation — booking in writes stock and cannot be undone */}
+            {receiveModal && confirmingReceive && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+                    <div className="w-full max-w-lg border border-brand-black bg-white">
+                        <div className="flex items-center gap-2 p-4 border-b border-brand-black bg-brand-black">
+                            <AlertTriangle size={14} className="text-white" />
+                            <h2 className="text-sm font-black uppercase tracking-widest text-white">
+                                IS EVERYTHING RECEIVED?
+                            </h2>
+                        </div>
+
+                        <div className="p-4 sm:p-6 space-y-4">
+                            <div className="flex items-start gap-2 border border-amber-500 bg-amber-50 p-3">
+                                <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                                    This adds the stock below and cannot be undone. Only book in what is
+                                    physically here — anything still coming can be received later.
+                                </p>
+                            </div>
+
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="border-b border-brand-black/20 text-[10px] uppercase tracking-widest text-brand-black/60">
+                                        <th className="text-left p-2">Item</th>
+                                        <th className="text-right p-2">Packs</th>
+                                        <th className="text-right p-2">Units added</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {receiveModal.rows.filter(r => (parseFloat(r.packs) || 0) > 0).map(r => {
+                                        const packs = parseFloat(r.packs) || 0;
+                                        return (
+                                            <tr key={r.linePk} className="border-b border-brand-black/10">
+                                                <td className="p-2 font-bold">{r.name}</td>
+                                                <td className="p-2 text-right font-mono">{packs}</td>
+                                                <td className="p-2 text-right font-mono">{packs * r.packQuantity}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+
+                            {receiveModal.rows.some(r => (parseFloat(r.packs) || 0) === 0) && (
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/50">
+                                    Skipped (nothing received):{' '}
+                                    {receiveModal.rows.filter(r => (parseFloat(r.packs) || 0) === 0).map(r => r.name).join(', ')}
+                                </p>
+                            )}
+
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60">
+                                Destination: {locations.find(l => String(l.pk) === receiveModal.locationPk)?.pathstring ?? '—'}
+                            </p>
+
+                            {actionError && (
+                                <div className="flex items-center gap-2 border border-red-500 bg-red-50 p-3">
+                                    <XCircle size={14} className="text-red-600 flex-shrink-0" />
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-red-700">{actionError}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-2 p-4 border-t border-brand-black">
+                            <button
+                                onClick={() => { setConfirmingReceive(false); setActionError(null); }}
+                                disabled={receiving}
+                                className="flex-1 brutalist-button py-3 text-xs bg-white text-brand-black"
+                            >
+                                NO, GO BACK
+                            </button>
+                            <button
                                 onClick={submitReceive}
                                 disabled={receiving}
                                 className="flex-1 brutalist-button py-3 text-xs bg-emerald-400 text-brand-black flex items-center justify-center gap-2"
                             >
-                                {receiving ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
-                                BOOK IN
+                                {receiving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+                                YES, BOOK IN
                             </button>
                         </div>
                     </div>
