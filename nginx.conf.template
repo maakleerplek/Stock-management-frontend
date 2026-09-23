@@ -5,6 +5,9 @@
 # Volunteers prove themselves with X-Volunteer-Key = sha256(volunteer password);
 # entrypoint.sh computes VOLUNTEER_KEY from VOLUNTEER_PASSWORD at startup.
 
+# The key is a 64-character hex string, longer than the default bucket.
+map_hash_bucket_size 128;
+
 map $http_x_volunteer_key $is_volunteer {
     "${VOLUNTEER_KEY}" 1;
     default            0;
