@@ -7,9 +7,6 @@
 
 import { ImageCache, CACHE_TTL } from './lib/cache';
 
-// Import the InvenTree token from environment
-const INVENTREE_TOKEN = import.meta.env.VITE_INVENTREE_TOKEN || '';
-
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -60,7 +57,7 @@ export async function loadImage(imageRelativePath: string | null): Promise<Image
             const url = new URL(imageRelativePath);
             cleanPath = url.pathname; // This gives us /media/...
         }
-    } catch (e) {
+    } catch {
         console.warn('Failed to parse image path as URL:', imageRelativePath);
     }
 
@@ -88,14 +85,8 @@ export async function loadImage(imageRelativePath: string | null): Promise<Image
             const timeoutId = setTimeout(() => controller.abort(), IMAGE_LOAD_TIMEOUT);
 
             console.debug(`[Image] Fetching from network: ${proxiedUrl}`);
-            const response = await fetch(proxiedUrl, {
-                method: 'GET',
-                headers: {
-                    // Include Authorization header for InvenTree media access
-                    'Authorization': `Token ${INVENTREE_TOKEN}`,
-                },
-                signal: controller.signal,
-            });
+            // The proxy adds the InvenTree token for /media/.
+            const response = await fetch(proxiedUrl, { signal: controller.signal });
 
             clearTimeout(timeoutId);
 

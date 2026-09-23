@@ -137,6 +137,17 @@ export class ApiCache {
         localStorage.removeItem(API_CACHE_PREFIX + key);
     }
 
+    /** Remove every entry whose key starts with `prefix`, e.g. all `/stock/` queries. */
+    static removePrefix(prefix: string): void {
+        const full = API_CACHE_PREFIX + prefix;
+        const doomed: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key?.startsWith(full)) doomed.push(key);
+        }
+        doomed.forEach(k => localStorage.removeItem(k));
+    }
+
     /**
      * Clear all expired cache entries
      */

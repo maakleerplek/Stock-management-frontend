@@ -32,10 +32,29 @@ import type {
     PurchaseOrderLine,
 } from './types';
 import { ApiCache, CACHE_TTL } from '../lib/cache';
+import { getVolunteerKey, VOLUNTEER_AUTH_FAILED } from '../auth/volunteerKey';
+
+import { DEFAULTS } from '../constants';
+
+const CURRENCY = DEFAULTS.CURRENCY;
+
+/** Name of the InvenTree customer that till sales are booked on. */
+export const TILL_CUSTOMER = 'Walk-in customer';
+
+/** SalesOrderStatus.COMPLETE in InvenTree. */
+const SO_STATUS_COMPLETE = 30;
+
+/** How long checkout waits for InvenTree's worker to ship an order. */
+const SHIPMENT_TIMEOUT_MS = 30_000;
+const SHIPMENT_POLL_MS = 400;
+
+/** Still ours: not sold, installed, consumed or being built. */
+export function isHomeStock(item: InvenTreeStockItem): boolean {
+    return !item.customer && !item.sales_order && !item.belongs_to && !item.consumed_by && !item.is_building;
+}
 
 interface InvenTreeConfig {
     baseUrl: string;
-    token: string;
 }
 
 export class InvenTreeClient {
@@ -87,7 +106,6 @@ export class InvenTreeClient {
         cacheTTL: number = CACHE_TTL.MEDIUM
     ): Promise<T> {
         const url = `${this.config.baseUrl}/api/${endpoint.replace(/^\//, '')}`;
-        console.log(`[InvenTree] ${method} ${url}`, body !== undefined ? body : '');
 
         // Generate cache key for GET requests
         const cacheKey = `${method}_${endpoint}`;
@@ -100,9 +118,10 @@ export class InvenTreeClient {
             }
         }
         
-        const headers: Record<string, string> = {
-            'Authorization': `Token ${this.config.token}`,
-        };
+        // The proxy adds the InvenTree token. Volunteer-only calls need the key.
+        const headers: Record<string, string> = {};
+        const volunteerKey = getVolunteerKey();
+        if (volunteerKey) headers['X-Volunteer-Key'] = volunteerKey;
 
         if (!isFormData) {
             headers['Content-Type'] = 'application/json';
@@ -131,8 +150,11 @@ export class InvenTreeClient {
                     errorText = statusMessages[response.status] || `Server returned ${response.status}`;
                 }
                 
-                if (response.status === 401 || response.status === 403) {
-                    console.error(`[InvenTree] Authentication failed (${response.status}) — check VITE_INVENTREE_TOKEN.`, errorText);
+                if (response.status === 401) {
+                    if (volunteerKey) window.dispatchEvent(new Event(VOLUNTEER_AUTH_FAILED));
+                    throw new Error(volunteerKey
+                        ? 'Volunteer login expired - log in again'
+                        : 'Only volunteers can do this - log in first');
                 }
                 throw new Error(`InvenTree API error ${response.status}: ${errorText}`);
             }
@@ -168,8 +190,8 @@ export class InvenTreeClient {
      * Invalidate cached data for an endpoint
      */
     invalidateCache(endpoint: string, method: string = 'GET'): void {
-        const cacheKey = `${method}_${endpoint}`;
-        ApiCache.remove(cacheKey);
+        // Prefix match: '/stock/' also clears '/stock/?part=8&...'.
+        ApiCache.removePrefix(`${method}_${endpoint}`);
     }
     
     /**
@@ -253,156 +275,289 @@ export class InvenTreeClient {
         location?: number;
         in_stock?: boolean;
         search?: string;
+        /** Only stock that is still ours: not sold, consumed or installed. */
+        home?: boolean;
     }): Promise<InvenTreeStockListResponse> {
         const params = new URLSearchParams();
         if (filters?.part) params.append('part', String(filters.part));
         if (filters?.location) params.append('location', String(filters.location));
         if (filters?.in_stock !== undefined) params.append('in_stock', String(filters.in_stock));
         if (filters?.search) params.append('search', filters.search);
-
+        if (filters?.home) {
+            params.append('sent_to_customer', 'false');
+            params.append('consumed', 'false');
+            params.append('installed', 'false');
+        }
         params.append('part_detail', 'true');
         params.append('location_detail', 'true');
-        params.append('limit', '500'); // fetch all in one shot — avoids slow pagination
-        const queryString = params.toString();
-        const endpoint = `/stock/?${queryString}`;
-        
-        return this.request<InvenTreeStockListResponse>(
-            endpoint,
-            'GET',
-            undefined,
-            false,
-            true,
-            CACHE_TTL.MEDIUM
+
+        // Every sale adds a stock item at the customer, so page through
+        // instead of trusting one page to hold everything.
+        const pageSize = 500;
+        const results: InvenTreeStockListResponse['results'] = [];
+        for (let offset = 0; ; offset += pageSize) {
+            const page = await this.request<InvenTreeStockListResponse>(
+                `/stock/?${params.toString()}&limit=${pageSize}&offset=${offset}`,
+                'GET', undefined, false, true, CACHE_TTL.MEDIUM
+            );
+            results.push(...page.results);
+            if (page.results.length < pageSize || results.length >= page.count) {
+                return { count: results.length, results } as InvenTreeStockListResponse;
+            }
+        }
+    }
+
+    // ==================== Stock per part ====================
+    //
+    // The app works per part. Sales orders move sold units into new stock items
+    // "at the customer", and sometimes move a whole item, so a part's stock items
+    // change over time. These methods pick the right items at the moment of the
+    // action instead of remembering item IDs.
+
+    /** A part's stock items that are still ours, including empty ones, largest first. */
+    async getHomeStockItems(partId: number): Promise<InvenTreeStockItem[]> {
+        const resp = await this.request<InvenTreeStockListResponse>(
+            `/stock/?part=${partId}&sent_to_customer=false&consumed=false&installed=false&location_detail=true&limit=100`, 'GET', undefined, false, false
         );
+        return (resp.results as unknown as InvenTreeStockItem[])
+            .filter(isHomeStock)
+            .sort((a, b) => b.quantity - a.quantity);
+    }
+
+    /** Add to the part's main stock item, or create one in the part's default location. */
+    async addStockToPart(partId: number, quantity: number, notes: string): Promise<void> {
+        const [home] = await this.getHomeStockItems(partId);
+        if (home) return this.addStock(home.pk, quantity, notes);
+
+        const part = await this.request<{ default_location: number | null }>(`/part/${partId}/`, 'GET', undefined, false, false);
+        if (!part.default_location) {
+            throw new Error('This item has no stock yet and no default location. Set one in InvenTree first.');
+        }
+        await this.createStockItem({ part: partId, quantity, location: part.default_location, notes });
+    }
+
+    /** Remove from the part's stock items, largest first. For corrections, not sales. */
+    async removeStockFromPart(partId: number, quantity: number, notes: string): Promise<void> {
+        let left = quantity;
+        for (const item of await this.getHomeStockItems(partId)) {
+            if (left <= 0) break;
+            const take = Math.min(left, item.quantity);
+            if (take > 0) await this.removeStock(item.pk, take, notes);
+            left -= take;
+        }
+        if (left > 0) throw new Error(`Only ${quantity - left} in stock, could not remove ${quantity}.`);
+    }
+
+    /** Set the part's total stock. */
+    async setPartStock(partId: number, target: number, notes: string): Promise<void> {
+        const items = await this.getHomeStockItems(partId);
+        const total = items.reduce((sum, i) => sum + i.quantity, 0);
+        if (target > total) return this.addStockToPart(partId, target - total, notes);
+        if (target < total) return this.removeStockFromPart(partId, total - target, notes);
+    }
+
+    // ==================== Checkout via sales orders ====================
+
+    private tillCustomerPk: number | null = null;
+
+    /** The InvenTree customer every till sale is booked on. Creating it needs a volunteer. */
+    async getTillCustomer(): Promise<number> {
+        if (this.tillCustomerPk) return this.tillCustomerPk;
+        const found = await this.request<InvenTreeCompany[] | { results: InvenTreeCompany[] }>(
+            `/company/?is_customer=true&search=${encodeURIComponent(TILL_CUSTOMER)}`, 'GET', undefined, false, false
+        );
+        const list = Array.isArray(found) ? found : found.results;
+        const existing = list.find(c => c.name === TILL_CUSTOMER);
+        if (existing) return (this.tillCustomerPk = existing.pk);
+
+        try {
+            const created = await this.request<InvenTreeCompany>('/company/', 'POST', {
+                name: TILL_CUSTOMER,
+                description: 'Sales at the self-service till of the stock app',
+                is_customer: true,
+                is_supplier: false,
+                is_manufacturer: false,
+            }, false, false);
+            return (this.tillCustomerPk = created.pk);
+        } catch (err) {
+            if (!getVolunteerKey()) {
+                throw new Error(`InvenTree has no "${TILL_CUSTOMER}" customer yet. A volunteer has to log in once to set it up.`);
+            }
+            throw err;
+        }
+    }
+
+    /**
+     * Book a till sale as a sales order: create it, add the lines, issue it,
+     * allocate stock to one shipment, ship it and complete the order.
+     *
+     * Items the app thinks are out of stock are still sold: the line stays
+     * partly unshipped, which shows the difference in InvenTree instead of
+     * refusing the sale.
+     */
+    async sellParts(
+        lines: { partId: number; quantity: number; unitPrice: number }[],
+        extras: number,
+        description: string,
+    ): Promise<{ reference: string; unshipped: { partId: number; quantity: number }[] }> {
+        const customer = await this.getTillCustomer();
+        const order = await this.request<{ pk: number; reference: string }>('/order/so/', 'POST', {
+            customer,
+            description: description.slice(0, 250),
+        }, false, false);
+
+        // Once a shipment is handed to InvenTree's worker, cancelling the order
+        // could leave stock shipped against a cancelled order.
+        let shipping = false;
+        try {
+            const lineItems: { pk: number; partId: number; quantity: number }[] = [];
+            for (const line of lines) {
+                const created = await this.request<{ pk: number }>('/order/so-line/', 'POST', {
+                    order: order.pk,
+                    part: line.partId,
+                    quantity: line.quantity,
+                    sale_price: line.unitPrice.toFixed(2),
+                    sale_price_currency: CURRENCY,
+                }, false, false);
+                lineItems.push({ pk: created.pk, partId: line.partId, quantity: line.quantity });
+            }
+            if (extras > 0) {
+                await this.request('/order/so-extra-line/', 'POST', {
+                    order: order.pk,
+                    reference: 'Extra services',
+                    quantity: 1,
+                    price: extras.toFixed(2),
+                    price_currency: CURRENCY,
+                }, false, false);
+            }
+
+            await this.request(`/order/so/${order.pk}/issue/`, 'POST', {}, false, false);
+
+            const allocations: { line_item: number; stock_item: number; quantity: number }[] = [];
+            const unshipped: { partId: number; quantity: number }[] = [];
+            for (const line of lineItems) {
+                let left = line.quantity;
+                for (const item of await this.getHomeStockItems(line.partId)) {
+                    if (left <= 0) break;
+                    const take = Math.min(left, item.quantity);
+                    if (take > 0) allocations.push({ line_item: line.pk, stock_item: item.pk, quantity: take });
+                    left -= take;
+                }
+                if (left > 0) unshipped.push({ partId: line.partId, quantity: left });
+            }
+
+            if (allocations.length > 0) {
+                const shipment = await this.request<{ pk: number }>('/order/so/shipment/', 'POST', {
+                    order: order.pk,
+                    reference: '1',
+                }, false, false);
+                await this.request(`/order/so/${order.pk}/allocate/`, 'POST', {
+                    items: allocations,
+                    shipment: shipment.pk,
+                }, false, false);
+                await this.request(`/order/so/shipment/${shipment.pk}/ship/`, 'POST', {}, false, false);
+                shipping = true;
+                // Shipping runs in InvenTree's background worker, which sets
+                // shipment_date when the stock has actually moved.
+                const deadline = Date.now() + SHIPMENT_TIMEOUT_MS;
+                for (;;) {
+                    const state = await this.request<{ shipment_date: string | null }>(
+                        `/order/so/shipment/${shipment.pk}/`, 'GET', undefined, false, false
+                    );
+                    if (state.shipment_date) break;
+                    if (Date.now() > deadline) {
+                        throw new Error(`${order.reference} is booked, but InvenTree is still shipping it. Check the order in InvenTree.`);
+                    }
+                    await new Promise(r => setTimeout(r, SHIPMENT_POLL_MS));
+                }
+            }
+
+            // Without SALESORDER_SHIP_COMPLETE the first call only reaches "shipped".
+            for (let i = 0; i < 2; i++) {
+                const state = await this.request<{ status: number }>(`/order/so/${order.pk}/`, 'GET', undefined, false, false);
+                if (state.status === SO_STATUS_COMPLETE) break;
+                await this.request(`/order/so/${order.pk}/complete/`, 'POST', { accept_incomplete: true }, false, false);
+            }
+
+            this.invalidateCache('/stock/');
+            return { reference: order.reference, unshipped };
+        } catch (err) {
+            // Leave no half-finished order behind, unless stock may already be moving.
+            if (!shipping) {
+                await this.request(`/order/so/${order.pk}/cancel/`, 'POST', {}, false, false).catch(() => undefined);
+            }
+            throw err;
+        }
     }
 
     // ==================== Barcode Lookup ====================
 
     /**
-     * Look up stock item by barcode with multi-step fallback logic
-     * 
-     * Fallback order:
-     * 1. Direct barcode scan (stock item has this barcode)
-     * 2. Part barcode (find stock for that part)
-     * 3. IPN (Internal Part Number) search
-     * 4. Part name search (partial match)
-     * 
-     * Note: Barcode lookups are NOT cached since they're real-time user actions
+     * Find the part behind a scanned code, in this order:
+     * 1. InvenTree's barcode registry (a part, or a stock item's part)
+     * 2. the part's IPN
+     * 3. a part name search
+     *
+     * Not cached: a scan is a live action.
      */
     async lookupBarcode(barcode: string): Promise<ItemData | null> {
-        if (!barcode || barcode === 'No result') {
-            return null;
-        }
+        if (!barcode || barcode === 'No result') return null;
 
         try {
-            let stockId: number | null = null;
+            let partId: number | null = null;
 
-            // Step 1: Try direct barcode scan (no cache for real-time lookups)
             try {
-                const barcodeResp = await this.request<InvenTreeBarcodeResponse>(
-                    '/barcode/',
-                    'POST',
-                    { barcode },
-                    false,
-                    false // Don't cache barcode lookups
-                );
-
-                stockId = barcodeResp.stockitem?.pk ?? null;
-
-                // Step 2: If part matched but no stock item, find stock for that part
-                if (!stockId && barcodeResp.part?.pk) {
-                    console.debug(`Barcode matched part ${barcodeResp.part.pk}, searching for stock`);
-                    const stockItems = await this.getAllStockItems({
-                        part: barcodeResp.part.pk,
-                        in_stock: true,
-                    });
-                    stockId = stockItems.results[0]?.pk ?? null;
-                }
-            } catch (error) {
-                console.debug('Direct barcode lookup failed, trying fallbacks', error);
+                const resp = await this.request<InvenTreeBarcodeResponse>('/barcode/', 'POST', { barcode }, false, false);
+                partId = resp.part?.pk ?? null;
+                // Barcodes used to be linked to stock items. That item may have
+                // been sold since; only its part still means anything.
+                if (!partId && resp.stockitem?.pk) partId = (await this.getStockItem(resp.stockitem.pk)).part;
+            } catch {
+                // Unknown to the registry: try the fallbacks.
             }
 
-            // Step 3: Fallback - Search by IPN (Internal Part Number)
-            if (!stockId) {
-                console.debug('Trying IPN search for:', barcode);
-                const parts = await this.request<InvenTreePartListResponse>(
-                    `/part/?IPN=${encodeURIComponent(barcode)}`,
-                    'GET',
-                    undefined,
-                    false,
-                    false // Don't cache searches
-                );
-                const partId = parts.results[0]?.pk;
-                if (partId) {
-                    const stockItems = await this.getAllStockItems({
-                        part: partId,
-                        in_stock: true,
-                    });
-                    stockId = stockItems.results[0]?.pk ?? null;
-                }
+            for (const query of [`IPN=${encodeURIComponent(barcode)}`, `search=${encodeURIComponent(barcode)}`]) {
+                if (partId) break;
+                const parts = await this.request<InvenTreePartListResponse>(`/part/?${query}`, 'GET', undefined, false, false);
+                partId = parts.results[0]?.pk ?? null;
             }
 
-            // Step 4: Fallback - Search by part name (partial match)
-            if (!stockId) {
-                console.debug('Trying part name search for:', barcode);
-                const parts = await this.request<InvenTreePartListResponse>(
-                    `/part/?search=${encodeURIComponent(barcode)}`,
-                    'GET',
-                    undefined,
-                    false,
-                    false // Don't cache searches
-                );
-                const partId = parts.results[0]?.pk;
-                if (partId) {
-                    const stockItems = await this.getAllStockItems({
-                        part: partId,
-                        in_stock: true,
-                    });
-                    stockId = stockItems.results[0]?.pk ?? null;
-                }
-            }
-
-            if (!stockId) {
-                console.debug('No stock item found for barcode:', barcode);
-                return null;
-            }
-
-            // Get full details and format for the app
-            const stockItem = await this.getStockItem(stockId);
-            // The till reads this. Without the maps it falls back to pricing_max,
-            // which is now the supplier cost, and would undercharge.
-            await this.ensurePricingMaps();
-            return this.formatStockItemData(stockItem);
-
+            return partId ? await this.getPartItemData(partId) : null;
         } catch (error) {
             console.error('Barcode lookup failed:', error);
             return null;
         }
     }
 
-    /**
-     * Transform InvenTree stock item response to app's ItemData format
-     */
-    private formatStockItemData(stockItem: InvenTreeStockItem): ItemData {
-        const partDetail = stockItem.part_detail;
-        const locationDetail = stockItem.location_detail;
-
+    /** One part as the app shows it: its total stock over all its stock items. */
+    async getPartItemData(partId: number): Promise<ItemData> {
+        const [part, items] = await Promise.all([
+            this.request<{
+                pk: number; name: string; description: string; IPN: string | null;
+                image: string | null; thumbnail: string | null;
+                category_detail?: { name: string } | null;
+            }>(`/part/${partId}/?category_detail=true`, 'GET', undefined, false, false),
+            this.getHomeStockItems(partId),
+            // The till reads the price. Without the maps it would show 0.
+            this.ensurePricingMaps(),
+        ]);
+        const main = items[0];
         return {
-            id: stockItem.pk,
-            quantity: stockItem.quantity,
-            serial: stockItem.serial,
-            location: locationDetail?.pathstring || locationDetail?.name || null,
-            status: stockItem.status_text,
-            name: partDetail?.name || '',
-            description: partDetail?.description || '',
-            // No pricing_max fallback: it is a cost figure now, and charging the
+            id: partId,
+            quantity: items.reduce((sum, i) => sum + i.quantity, 0),
+            serial: null,
+            location: main?.location_detail?.pathstring || main?.location_detail?.name || null,
+            status: main?.status_text ?? 'No stock',
+            name: part.name,
+            description: part.description || '',
+            // No pricing_max fallback: it is a cost figure, and charging the
             // supplier cost is a plausible-looking error nobody catches. 0 is not.
-            price: this.salePriceMap[stockItem.part] ?? 0,
-            cost: this.supplierCostMap[stockItem.part] ?? 0,
-            image: this.getFullImageUrl(partDetail?.image),
-            part_id: stockItem.part,
-            ipn: partDetail?.IPN || '',
-            category: partDetail?.category_name || 'Uncategorized',
+            price: this.salePriceMap[partId] ?? 0,
+            cost: this.supplierCostMap[partId] ?? 0,
+            image: this.getFullImageUrl(part.image),
+            part_id: partId,
+            ipn: part.IPN || '',
+            category: part.category_detail?.name || 'Uncategorized',
         };
     }
 
@@ -430,7 +585,7 @@ export class InvenTreeClient {
 
     // ==================== Part Management ====================
 
-    async getAllParts(): Promise<{ count: number; results: any[] }> {
+    async getAllParts(): Promise<InvenTreePartListResponse> {
         return this.request(
             '/part/?active=true&limit=500',
             'GET',
@@ -535,16 +690,21 @@ export class InvenTreeClient {
     }
 
     /**
-     * Assign a barcode to a stock item in InvenTree's barcode registry
+     * Link a barcode to a part. A barcode can point at one thing only, so it
+     * is first taken off a stock item it may still be linked to.
      */
-    async assignBarcode(barcode: string, stockItemPk: number): Promise<void> {
-        await this.request(
-            '/barcode/link/',
-            'POST',
-            { barcode, stockitem: stockItemPk },
-            false,
-            false
-        );
+    async linkBarcodeToPart(barcode: string, partPk: number): Promise<'linked' | 'already'> {
+        try {
+            const current = await this.request<InvenTreeBarcodeResponse>('/barcode/', 'POST', { barcode }, false, false);
+            if (current.part?.pk === partPk) return 'already';
+            if (current.stockitem?.pk) {
+                await this.request('/barcode/unlink/', 'POST', { stockitem: current.stockitem.pk }, false, false);
+            }
+        } catch {
+            // Not in the registry yet.
+        }
+        await this.request('/barcode/link/', 'POST', { barcode, part: partPk }, false, false);
+        return 'linked';
     }
 
     // ==================== Categories ====================
@@ -601,7 +761,6 @@ export class InvenTreeClient {
      * Create a new location
      */
     async createLocation(payload: CreateLocationPayload): Promise<{ pk: number }> {
-        console.log('[InvenTree] createLocation called with payload:', payload);
         const result = await this.request<{ pk: number }>(
             '/stock/location/',
             'POST',
@@ -668,7 +827,7 @@ export class InvenTreeClient {
     // ==================== Purchase Orders ====================
 
     async getPurchaseOrders(): Promise<{ pk: number; reference: string; status: number; status_text: string; supplier: number; supplier_detail: { name: string }; description: string; creation_date: string }[]> {
-        const result = await this.request<{ results: any[] }>(
+        const result = await this.request<{ results: Awaited<ReturnType<InvenTreeClient['getPurchaseOrders']>> }>(
             '/order/po/?limit=50&ordering=-creation_date',
             'GET',
             undefined,
@@ -957,18 +1116,9 @@ export class InvenTreeClient {
 
 // ==================== Singleton Instance ====================
 const envUrl = import.meta.env.VITE_INVENTREE_URL;
-// Use empty string as default so it uses relative paths (current origin)
+// Empty string: relative paths through the proxy on the current origin.
 const INVENTREE_URL = (envUrl !== undefined && envUrl !== null) ? envUrl : '';
-const INVENTREE_TOKEN = import.meta.env.VITE_INVENTREE_TOKEN || '';
 
-console.log('[InvenTree] Client init — baseUrl:', JSON.stringify(INVENTREE_URL), '| token present:', !!INVENTREE_TOKEN, '| token prefix:', INVENTREE_TOKEN.slice(0, 12) || '(none)');
-if (!INVENTREE_TOKEN) {
-    console.error('[InvenTree] VITE_INVENTREE_TOKEN is not set! Please configure your .env file.');
-}
-
-export const inventreeClient = new InvenTreeClient({
-    baseUrl: INVENTREE_URL,
-    token: INVENTREE_TOKEN,
-});
+export const inventreeClient = new InvenTreeClient({ baseUrl: INVENTREE_URL });
 
 export default inventreeClient;

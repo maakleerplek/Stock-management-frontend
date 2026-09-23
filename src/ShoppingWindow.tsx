@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ShoppingCart, { type CartItem } from './ShoppingCart';
 import Extras from './Extras';
-import { type ItemData, type ScanEvent, handleTakeItem, handleAddItem, handleSetItem } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import { AlertCircle, Check, X, Settings } from 'lucide-react';
@@ -11,7 +11,8 @@ interface ShoppingWindowProps {
     onCheckoutResultChange?: (result: { total: number; description: string } | null) => void;
 }
 
-const CART_STORAGE_KEY = 'stockManagerCartItems';
+// v2: cart entries are keyed by part ID. Carts from before hold stock item IDs.
+const CART_STORAGE_KEY = 'stockManagerCartItems.v2';
 
 export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: ShoppingWindowProps) {
     const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -36,6 +37,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
     const [confirmOpen, setConfirmOpen] = useState(false);
     const { addToast } = useToast();
     const { isVolunteerMode } = useVolunteer();
+    const isVolunteerModeRef = useRef(isVolunteerMode);
+    isVolunteerModeRef.current = isVolunteerMode;
 
     const handleSetModeChange = useCallback((newMode: boolean) => {
         setIsSetMode(newMode);
@@ -66,14 +69,17 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
         setCartItems((prevItems) => {
             const existingItem = prevItems.find((i) => i.id === item.id);
             if (existingItem) {
-                const newQuantity = Math.min(existingItem.cartQuantity + 1, item.quantity);
+                // The till cannot sell more than is in stock; volunteers restocking can add any amount.
+                const newQuantity = isVolunteerModeRef.current
+                    ? existingItem.cartQuantity + 1
+                    : Math.min(existingItem.cartQuantity + 1, item.quantity);
                 return prevItems.map((i) =>
                     i.id === item.id ? { ...i, cartQuantity: newQuantity } : i
                 );
             }
             return [...prevItems, { ...item, cartQuantity: 1 }];
         });
-    }, []); // stable — reads checkedOutResult via ref, not state
+    }, []); // stable: reads checkedOutResult and volunteer mode via refs, not state
 
     useEffect(() => {
         if (scanEvent) {
@@ -105,51 +111,42 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
 
     const handleConfirmedCheckout = async () => {
         setConfirmOpen(false);
-        const checkoutTotal = cartItems.reduce((total, item) => total + item.price * item.cartQuantity, 0) + extraCosts;
-        const itemsSummary = cartItems.map(item => `${item.name} x${item.cartQuantity}`).join(', ');
-
-        let handler = handleTakeItem;
-        if (isVolunteerMode) {
-            handler = isSetMode ? handleSetItem : handleAddItem;
-        }
-
         setIsCheckingOut(true);
         try {
-            const source = isVolunteerMode ? 'volunteer-scanner' : 'checkout';
-            for (const item of cartItems) {
-                let success = false;
-                const totalPrice = item.price > 0 ? parseFloat((item.price * Math.abs(item.cartQuantity)).toFixed(2)) : undefined;
-                if (isVolunteerMode && !isSetMode && item.cartQuantity < 0) {
-                    success = await handleTakeItem(item.id, Math.abs(item.cartQuantity), item.name, totalPrice, source);
-                } else {
-                    success = await handler(item.id, item.cartQuantity, item.name, totalPrice, source);
+            if (isVolunteerMode) {
+                // Volunteer corrections, item by item.
+                for (const item of cartItems) {
+                    const totalPrice = item.price > 0 ? parseFloat((item.price * Math.abs(item.cartQuantity)).toFixed(2)) : undefined;
+                    const success = isSetMode
+                        ? await handleSetItem(item.id, item.cartQuantity, item.name, totalPrice)
+                        : item.cartQuantity < 0
+                            ? await removeStock(item.id, Math.abs(item.cartQuantity), item.name, totalPrice)
+                            : await handleAddItem(item.id, item.cartQuantity, item.name, totalPrice);
+                    if (!success) {
+                        addToast(`Failed to process "${item.name}". Operation stopped.`, 'error');
+                        return;
+                    }
                 }
-
-                if (!success) {
-                    addToast(`Failed to process "${item.name}". Operation stopped.`, 'error');
-                    setIsCheckingOut(false);
-                    return;
-                }
-            }
-
-            setCartItems([]);
-
-            if (!isVolunteerMode) {
-                let desc = itemsSummary;
-                if (extraCosts > 0) {
-                    desc += `, Extra services (€${extraCosts.toFixed(2)})`;
-                }
-                if (desc.length > 135) {
-                    desc = desc.substring(0, 132) + '...';
-                }
-                setCheckedOut({ total: checkoutTotal, description: desc });
-            } else {
+                setCartItems([]);
                 setCheckedOut(null);
                 addToast('Stock updated successfully!', 'success');
+                return;
             }
+
+            // A sale: one sales order for the whole cart.
+            const checkoutTotal = cartItems.reduce((total, item) => total + item.price * item.cartQuantity, 0) + extraCosts;
+            await bookSale(
+                cartItems.map(item => ({ partId: item.id, name: item.name, quantity: item.cartQuantity, unitPrice: item.price })),
+                extraCosts,
+            );
+            setCartItems([]);
+            let desc = cartItems.map(item => `${item.name} x${item.cartQuantity}`).join(', ');
+            if (extraCosts > 0) desc += `, Extra services (€${extraCosts.toFixed(2)})`;
+            if (desc.length > 135) desc = desc.substring(0, 132) + '...';
+            setCheckedOut({ total: checkoutTotal, description: desc });
         } catch (error) {
-            console.error('[Checkout] Unexpected error during checkout:', error);
-            addToast('An unexpected error occurred during checkout', 'error');
+            console.error('[Checkout] Failed:', error);
+            addToast(error instanceof Error ? `Checkout failed: ${error.message}` : 'Checkout failed', 'error');
         } finally {
             setIsCheckingOut(false);
         }

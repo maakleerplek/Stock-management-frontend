@@ -3,7 +3,7 @@ import { Scan, Plus, Minus, Trash2, RefreshCw, Loader2, Box, CheckCircle } from 
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import BarcodeScanner from './BarcodeScanner';
-import { handleSend, handleAddItem, handleTakeItem, handleSetItem, type ItemData } from './sendCodeHandler';
+import { handleSend, handleAddItem, handleRemoveItem, handleSetItem, type ItemData } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useStock } from './StockContext';
 import StockConfirmationModal from './components/StockConfirmationModal';
@@ -56,7 +56,7 @@ export default function VolunteerScanView() {
           targetQty: mode === 'set' ? item.quantity : undefined,
         }];
       });
-    } catch (error) {
+    } catch {
       addToast('Error looking up barcode', 'error');
     } finally {
       setIsProcessing(false);
@@ -91,7 +91,7 @@ export default function VolunteerScanView() {
         } else if (adj.delta > 0) {
           success = await handleAddItem(adj.id, adj.delta);
         } else if (adj.delta < 0) {
-          success = await handleTakeItem(adj.id, Math.abs(adj.delta));
+          success = await handleRemoveItem(adj.id, Math.abs(adj.delta));
         } else {
           success = true;
         }
@@ -113,7 +113,7 @@ export default function VolunteerScanView() {
       await refreshInventory();
 
     } catch (error) {
-      addToast('Unexpected error during stock update', 'error');
+      addToast(error instanceof Error ? error.message : 'Unexpected error during stock update', 'error');
     } finally {
       setIsCommitting(false);
     }

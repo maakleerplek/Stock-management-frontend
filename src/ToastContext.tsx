@@ -91,6 +91,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// The hook belongs with its provider; fast refresh reloads this file in full.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) {

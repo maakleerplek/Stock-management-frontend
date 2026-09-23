@@ -31,6 +31,7 @@ import {
 import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
+import { TRACKING } from './lib/stockHistory';
 import './index.css';
 
 export type AppView = 'checkout' | 'browse' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
@@ -223,25 +224,22 @@ function AppContent() {
       }
 
       if (formData.initialQuantity && numericFields.locationId) {
-        const stockItem = await inventreeClient.createStockItem({
+        await inventreeClient.createStockItem({
           part: part.pk,
           quantity: numericFields.initialQuantity,
           location: numericFields.locationId,
           notes: 'Initial stock from part creation',
           ...(supplierPartPk ? { supplier_part: supplierPartPk } : {}),
         });
+      }
 
-        if (formData.barcode) {
-          if (stockItem?.pk) {
-            try {
-              await inventreeClient.assignBarcode(formData.barcode, stockItem.pk);
-            } catch (barcodeErr) {
-              console.warn('[App] Barcode link to stock item failed (IPN still set on part):', barcodeErr);
-              addToast('Part created, but barcode could not be linked to stock item — scanning via IPN still works.', 'warning');
-            }
-          } else {
-            console.warn('[App] assignBarcode skipped: stockItem.pk is missing', stockItem);
-          }
+      // The barcode belongs to the part: stock items come and go as they are sold.
+      if (formData.barcode) {
+        try {
+          await inventreeClient.linkBarcodeToPart(formData.barcode, part.pk);
+        } catch (barcodeErr) {
+          console.warn('[App] Barcode link failed (IPN still set on part):', barcodeErr);
+          addToast('Part created, but the barcode could not be linked. Scanning via IPN still works.', 'warning');
         }
       }
 
@@ -488,7 +486,7 @@ function AppContent() {
                         <div className={cn("text-3xl font-semibold", outOfStockCount > 0 ? "text-amber-700" : "text-brand-black")}>{stockLoading ? '—' : outOfStockCount}</div>
                       </div>
                       <button
-                        onClick={() => { setLowStockOrderPartIds(lowStockItems.map((i: any) => i.pk)); setCurrentPage('orders'); }}
+                        onClick={() => { setLowStockOrderPartIds(lowStockItems.map(i => i.pk)); setCurrentPage('orders'); }}
                         disabled={lowStockItems.length === 0}
                         className={cn(
                           "border border-lijn p-4 text-left transition-colors",
@@ -509,18 +507,18 @@ function AppContent() {
                             <AlertCircle size={14} /> Low stock — {lowStockItems.length} item{lowStockItems.length !== 1 ? 's' : ''}
                           </h3>
                           <button
-                            onClick={() => { setLowStockOrderPartIds(lowStockItems.map((i: any) => i.pk)); setCurrentPage('orders'); }}
+                            onClick={() => { setLowStockOrderPartIds(lowStockItems.map(i => i.pk)); setCurrentPage('orders'); }}
                             className="text-[10px] font-semibold bg-white text-red-600 px-3 py-1 hover:bg-red-50 transition-colors border border-white"
                           >
                             Order all →
                           </button>
                         </div>
                         <ul className="divide-y divide-red-200">
-                          {lowStockItems.map((item: any) => (
+                          {lowStockItems.map(item => (
                             <li key={item.pk} className="px-4 py-2 text-xs font-bold text-brand-black flex items-center justify-between gap-4">
                               <span className="flex-1 truncate">{item.name}</span>
                               <div className="flex items-center gap-3 flex-shrink-0">
-                                {item.total_in_stock !== undefined && (
+                                {typeof item.total_in_stock === 'number' && (
                                   <span className="font-mono text-red-600">{item.total_in_stock} left</span>
                                 )}
                                 <button
@@ -578,8 +576,10 @@ function AppContent() {
                           {recentMovements.length > 0 ? (
                             <div className="divide-y divide-lijn">
                               {recentMovements.map((move) => {
-                                const isAdd = (move.deltas?.added ?? 0) > 0 || move.tracking_type === 10 || move.tracking_type === 100;
-                                const isRemove = (move.deltas?.removed ?? 0) > 0 || move.tracking_type === 11;
+                                const isAdd = (move.deltas?.added ?? 0) > 0 || move.tracking_type === TRACKING.STOCK_ADD;
+                                const isRemove = (move.deltas?.removed ?? 0) > 0
+                                  || move.tracking_type === TRACKING.SHIPPED_AGAINST_SALES_ORDER
+                                  || move.tracking_type === TRACKING.SENT_TO_CUSTOMER;
                                 return (
                                   <div key={move.pk} className={cn(
                                     "p-3 flex justify-between items-center",

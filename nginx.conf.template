@@ -1,15 +1,31 @@
+# Access rules for the InvenTree proxy. src/lib/apiAccess.ts holds the same
+# rules for the Vite dev server (and their tests) - keep the two in step.
+#
+# The browser never sees the InvenTree token: nginx adds it to every request.
+# Volunteers prove themselves with X-Volunteer-Key = sha256(volunteer password);
+# entrypoint.sh computes VOLUNTEER_KEY from VOLUNTEER_PASSWORD at startup.
+
+map $http_x_volunteer_key $is_volunteer {
+    "${VOLUNTEER_KEY}" 1;
+    default            0;
+}
+
+# Catalogue reads are open; writes there need a volunteer.
+map "$request_method:$is_volunteer" $catalogue_write_denied {
+    "~^(GET|HEAD):" 0;
+    "~:1$"          0;
+    default         1;
+}
+
 server {
     listen 80;
     server_name _;
-    
-    # Health check
+
     location /health {
         access_log off;
         return 200 "healthy\n";
     }
 
-    # Redirect all HTTP traffic to HTTPS
-    # Using 301 permanently is fine for local
     return 301 https://$host$request_uri;
 }
 
@@ -22,7 +38,6 @@ server {
     ssl_certificate /etc/nginx/ssl/server.crt;
     ssl_certificate_key /etc/nginx/ssl/server.key;
 
-    # Security headers
     add_header X-Frame-Options "SAMEORIGIN";
     add_header X-Content-Type-Options "nosniff";
     add_header X-XSS-Protection "1; mode=block";
@@ -30,41 +45,53 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # Health check
+    # Inherited by every proxied location below.
+    proxy_set_header Host $proxy_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Authorization "Token ${INVENTREE_TOKEN}";
+    proxy_set_header X-Volunteer-Key "";
+    proxy_ssl_verify off;
+
     location /health {
         access_log off;
         return 200 "healthy\n";
     }
 
-    # Proxy API calls
+    # The volunteer login asks here whether its key is right.
+    location = /api/auth/check/ {
+        if ($is_volunteer = 0) { return 401; }
+        return 204;
+    }
+
+    # Checkout: barcode lookups and the sales order, open to the till.
+    location ~ ^/api/(barcode/|order/so/(shipment/(\d+/ship/)?|\d+/(issue|allocate|complete|cancel)/)?|order/so-line/|order/so-extra-line/)$ {
+        proxy_pass ${INVENTREE_BACKEND_URL};
+    }
+
+    # Catalogue: anyone may read, volunteers may write.
+    location ~ ^/api/(part|stock|company|order|barcode)/ {
+        if ($catalogue_write_denied) { return 401; }
+        proxy_pass ${INVENTREE_BACKEND_URL};
+    }
+
+    # Everything else (users, settings, admin, ...) is volunteers only.
     location /api/ {
-        proxy_pass ${INVENTREE_BACKEND_URL}/api/;
-        proxy_set_header Host $proxy_host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_ssl_verify off;
+        if ($is_volunteer = 0) { return 401; }
+        proxy_pass ${INVENTREE_BACKEND_URL};
     }
 
-    # Proxy Media requests — ^~ beats regex so the static-asset rule below
-    # doesn't intercept .png/.jpg files under /media/
+    # ^~ beats the static-asset regex below for images under /media/.
     location ^~ /media/ {
-        proxy_pass ${INVENTREE_BACKEND_URL}/media/;
-        proxy_set_header Host $proxy_host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Authorization $http_authorization;
-        proxy_ssl_verify off;
+        proxy_pass ${INVENTREE_BACKEND_URL};
     }
 
-    # Cache static assets
     location ~* \.(?:js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
         expires 1y;
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
-    # SPA fallback
     location / {
         try_files $uri /index.html;
     }

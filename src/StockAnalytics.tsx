@@ -4,7 +4,7 @@ import inventreeClient from './api/inventreeClient';
 import { useStock } from './StockContext';
 import type { InvenTreeTrackingEntry } from './api/types';
 import { cn } from './lib/utils';
-import { isSale, type PartInfo } from './lib/stockHistory';
+import { isSale, unitsSold, TRACKING, type PartInfo } from './lib/stockHistory';
 import StockHistoryChart from './components/StockHistoryChart';
 
 
@@ -147,8 +147,8 @@ export default function StockAnalytics() {
 
     filteredEntries.forEach(entry => {
       // Stocktakes and volunteer corrections are not sales or restocks.
-      const removed = isSale(entry) ? entry.deltas.removed ?? 0 : 0;
-      const added = entry.tracking_type === 11 ? entry.deltas?.added ?? 0 : 0;
+      const removed = unitsSold(entry);
+      const added = entry.tracking_type === TRACKING.STOCK_ADD ? entry.deltas?.added ?? 0 : 0;
       if (removed === 0 && added === 0) return;
 
       const partId = entry.part;
@@ -179,7 +179,7 @@ export default function StockAnalytics() {
       totalAdded: byPart.reduce((s, p) => s + p.added, 0),
       totalRevenue: byPart.reduce((s, p) => s + p.revenue, 0),
       totalProfit: byPart.reduce((s, p) => s + p.profit, 0),
-      totalTransactions: filteredEntries.filter(e => isSale(e) || e.tracking_type === 11).length,
+      totalTransactions: filteredEntries.filter(e => isSale(e) || e.tracking_type === TRACKING.STOCK_ADD).length,
       hasCostPrices: byPart.some(p => p.costPrice > 0),
     };
   }, [filteredEntries, partLookup]);

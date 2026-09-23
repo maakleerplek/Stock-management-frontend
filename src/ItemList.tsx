@@ -3,7 +3,7 @@ import { Search, RefreshCw, Box, Euro, Loader2, Plus, Minus, Trash2, CheckCircle
 import ImageDisplay from './ImageDisplay';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { handleAddItem, handleTakeItem } from './sendCodeHandler';
+import { handleAddItem, handleRemoveItem } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import { useStock } from './StockContext';
@@ -121,7 +121,7 @@ export default function ItemList() {
                 if (adj.delta > 0) {
                     success = await handleAddItem(adj.item.id, adj.delta, adj.item.name, totalPrice, 'inventory-overview');
                 } else if (adj.delta < 0) {
-                    success = await handleTakeItem(adj.item.id, Math.abs(adj.delta), adj.item.name, totalPrice, 'inventory-overview');
+                    success = await handleRemoveItem(adj.item.id, Math.abs(adj.delta), adj.item.name, totalPrice, 'inventory-overview');
                 } else {
                     success = true;
                 }

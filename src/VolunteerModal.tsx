@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { X, LogIn, AlertCircle } from 'lucide-react';
 import { useVolunteer } from './VolunteerContext';
-import { AUTH } from './constants';
+import { logInVolunteer } from './auth/volunteerKey';
+import inventreeClient from './api/inventreeClient';
 import { cn } from './lib/utils';
 import { isMsalConfigured } from './auth/msalConfig';
 import MicrosoftSignInButton from './auth/MicrosoftSignInButton';
@@ -14,6 +15,7 @@ interface VolunteerModalProps {
 export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [checking, setChecking] = useState(false);
     const { setIsVolunteerMode } = useVolunteer();
 
     // Called after a successful Microsoft popup sign-in.
@@ -24,14 +26,21 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
         onClose();
     };
 
-    const handleSubmit = () => {
-        if (password === AUTH.VOLUNTEER_PASSWORD) {
+    // The proxy checks the password; the app only ever holds its hash.
+    const handleSubmit = async () => {
+        if (checking || !password) return;
+        setChecking(true);
+        const result = await logInVolunteer(password);
+        setChecking(false);
+        if (result === 'ok') {
+            // Till sales need this customer, and only a volunteer may create it.
+            void inventreeClient.getTillCustomer().catch(err => console.warn('[Volunteer] Till customer setup failed:', err));
             setIsVolunteerMode(true);
             setPassword('');
             setError('');
             onClose();
         } else {
-            setError('Incorrect password');
+            setError(result === 'wrong' ? 'Incorrect password' : 'Cannot reach the server - try again');
             setPassword('');
         }
     };
@@ -83,7 +92,9 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                 <div className="flex flex-col gap-1">
                                     <h3 className="font-semibold text-xs">Volunteers sign in here</h3>
                                     <p className="text-xs font-bold leading-relaxed text-brand-black/60">
-                                        Sign in with your Maakleerplek Microsoft account to adjust stock levels and manage inventory.
+                                        {isMsalConfigured
+                                            ? 'Sign in with your Maakleerplek Microsoft account to adjust stock levels and manage inventory.'
+                                            : 'Enter the volunteer password to adjust stock levels and manage inventory.'}
                                     </p>
                                 </div>
                             </div>
@@ -93,12 +104,7 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                 <MicrosoftSignInButton onSuccess={handleMicrosoftSuccess} />
                             )}
 
-                            {/* ----------------------------------------------------------------
-                                TODO(remove): Shared-password fallback — temporary.
-                                Remove this entire password block (and VITE_VOLUNTEER_PASSWORD)
-                                once Microsoft sign-in is confirmed working in production.
-                                Tracked in GitHub issue #3 "Remove volunteer password login".
-                                ---------------------------------------------------------------- */}
+                            {/* Password login: temporary, until Microsoft sign-in moves to its own server. */}
                             <div className="flex flex-col gap-2">
                                 {isMsalConfigured && (
                                     <div className="flex items-center gap-3 my-1">
@@ -125,7 +131,6 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                     </p>
                                 )}
                             </div>
-                            {/* end password fallback */}
                         </div>
 
                         {/* Actions */}
@@ -136,9 +141,9 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                             >
                                 Cancel
                             </button>
-                            {/* TODO(remove): password submit — remove with the password block above. */}
                             <button
                                 onClick={handleSubmit}
+                                disabled={checking}
                                 className="flex-1 brutalist-button bg-amber-300 text-brand-black py-3 text-xs flex justify-center items-center gap-2"
                             >
                                 <LogIn className="w-4 h-4" />

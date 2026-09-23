@@ -1,11 +1,40 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { inventreeClient } from './api/inventreeClient';
-import type { ItemData } from './api/types';
+import { inventreeClient, isHomeStock } from './api/inventreeClient';
+import type { ItemData, InvenTreeStockItem } from './api/types';
+
+export interface Category {
+  pk: number;
+  name: string;
+  parent?: number | null;
+  pathstring?: string;
+  [key: string]: unknown;
+}
+
+export interface Location {
+  pk: number;
+  name: string;
+  parent?: number | null;
+  pathstring?: string;
+  [key: string]: unknown;
+}
+
+interface PartRow {
+  pk: number;
+  name: string;
+  description?: string;
+  IPN?: string | null;
+  image?: string | null;
+  thumbnail?: string | null;
+  category?: number | null;
+  category_name?: string;
+  category_detail?: { name?: string } | null;
+}
 
 interface StockContextType {
+  /** One entry per part; `id` is the part ID. */
   items: ItemData[];
-  categories: any[];
-  locations: any[];
+  categories: Category[];
+  locations: Location[];
   lastFetched: number | null;
   loading: boolean;
   error: string | null;
@@ -19,8 +48,8 @@ const StockContext = createContext<StockContextType | undefined>(undefined);
 
 export function StockProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ItemData[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [locations, setLocations] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [lastFetched, setLastFetched] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +76,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
 
       // Fetch in parallel for speed
       const [stockResp, partsResp, catResp, locResp, supplierCosts, salePrices] = await Promise.all([
-        inventreeClient.getAllStockItems(),
+        inventreeClient.getAllStockItems({ home: true }),
         inventreeClient.getAllParts(),
         inventreeClient.getCategories(),
         inventreeClient.getLocations(),
@@ -61,61 +90,44 @@ export function StockProvider({ children }: { children: ReactNode }) {
         inventreeClient.getSalePricePerPart().catch(() => ({} as Record<number, number>)),
       ]);
 
-      const categoryMap = new Map<number, string>(
-        (catResp.results as any[]).map(c => [c.pk, c.name])
-      );
-      // part_detail in stock responses uses a brief serializer that omits category;
-      // build a part→categoryId lookup from the full parts response instead
-      const partCategoryMap = new Map<number, number>(
-        (partsResp.results as any[]).filter(p => p.category).map(p => [p.pk, p.category])
-      );
-      const resolveCategory = (categoryId: number | undefined, f1?: string, f2?: string): string =>
-        (categoryId && categoryMap.get(categoryId)) || f1 || f2 || 'Uncategorized';
+      const categories = catResp.results as Category[];
+      const categoryMap = new Map<number, string>(categories.map(c => [c.pk, c.name]));
+      const resolveCategory = (part: PartRow): string =>
+        (part.category && categoryMap.get(part.category)) || part.category_detail?.name || part.category_name || 'Uncategorized';
 
-      const stockByPartId = new Map<number, any>();
-      const formattedItems: ItemData[] = stockResp.results.map((item: any) => {
-        stockByPartId.set(item.part, item);
-        const categoryId = item.part_detail?.category ?? partCategoryMap.get(item.part);
+      // Group the stock items that are still ours by part. Sold items (at a
+      // customer, in a sales order) are not stock any more.
+      const stockByPart = new Map<number, InvenTreeStockItem[]>();
+      for (const item of stockResp.results as unknown as InvenTreeStockItem[]) {
+        if (!isHomeStock(item)) continue;
+        const list = stockByPart.get(item.part) ?? [];
+        list.push(item);
+        stockByPart.set(item.part, list);
+      }
+
+      const formattedItems: ItemData[] = (partsResp.results as PartRow[]).map(part => {
+        const stock = (stockByPart.get(part.pk) ?? []).sort((a, b) => b.quantity - a.quantity);
+        const main = stock[0];
         return {
-          id: item.pk,
-          quantity: item.quantity,
-          serial: item.serial,
-          location: item.location_detail?.pathstring || item.location_detail?.name || null,
-          status: item.status_text,
-          name: item.part_detail?.name || '',
-          description: item.part_detail?.description || '',
-          price: salePrices[item.part] ?? 0,
-          cost: supplierCosts[item.part] ?? 0,
-          image: inventreeClient.getFullImageUrl(item.part_detail?.thumbnail || item.part_detail?.image) || null,
-          part_id: item.part,
-          ipn: item.part_detail?.IPN || '',
-          category: resolveCategory(categoryId, item.part_detail?.category_detail?.name, item.part_detail?.category_name),
+          id: part.pk,
+          quantity: stock.reduce((sum, i) => sum + i.quantity, 0),
+          serial: null,
+          location: main?.location_detail?.pathstring || main?.location_detail?.name || null,
+          status: main?.status_text ?? 'No Stock',
+          name: part.name || '',
+          description: part.description || '',
+          price: salePrices[part.pk] ?? 0,
+          cost: supplierCosts[part.pk] ?? 0,
+          image: inventreeClient.getFullImageUrl(part.thumbnail || part.image) || null,
+          part_id: part.pk,
+          ipn: part.IPN || '',
+          category: resolveCategory(part),
         };
       });
 
-      for (const part of (partsResp.results as any[])) {
-        if (!stockByPartId.has(part.pk)) {
-          formattedItems.push({
-            id: -(part.pk),
-            quantity: 0,
-            serial: null,
-            location: null,
-            status: 'No Stock',
-            name: part.name || '',
-            description: part.description || '',
-            price: salePrices[part.pk] ?? 0,
-            cost: supplierCosts[part.pk] ?? 0,
-            image: inventreeClient.getFullImageUrl(part.thumbnail || part.image) || null,
-            part_id: part.pk,
-            ipn: part.IPN || '',
-            category: resolveCategory(part.category, part.category_detail?.name, part.category_name),
-          });
-        }
-      }
-
       setItems(formattedItems);
-      setCategories(catResp.results);
-      setLocations(locResp.results);
+      setCategories(categories);
+      setLocations(locResp.results as Location[]);
       setLastFetched(now);
       console.debug('[StockContext] Inventory successfully synchronized.');
     } catch (err) {
@@ -182,6 +194,8 @@ export function StockProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// The hook belongs with its provider; fast refresh reloads this file in full.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useStock() {
   const context = useContext(StockContext);
   if (!context) {

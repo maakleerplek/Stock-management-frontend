@@ -47,7 +47,7 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
         if (open && tab === 'suppliers' && !suppliersLoaded) {
             loadPartsWithoutSuppliers();
         }
-    }, [open, tab]);
+    }, [open, tab, suppliersLoaded]);
 
     const loadPartsWithoutSuppliers = async () => {
         setLoadingParts(true);
@@ -91,44 +91,18 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
             for (const part of partsWithIPN) {
                 const barcode = part.IPN!.trim();
                 try {
-                    const stockResp = await inventreeClient.getAllStockItems({ part: part.pk });
-                    const stockItems = stockResp.results;
-
-                    if (stockItems.length === 0) {
-                        setBarcodeResults(prev => [...prev, {
-                            partName: part.name,
-                            barcode,
-                            status: 'error',
-                            message: 'No stock item found',
-                        }]);
-                        continue;
-                    }
-
-                    // Assign to first stock item
-                    const stockItem = stockItems[0];
-                    try {
-                        await inventreeClient.assignBarcode(barcode, stockItem.pk);
-                        setBarcodeResults(prev => [...prev, {
-                            partName: part.name,
-                            barcode,
-                            status: 'fixed',
-                        }]);
-                    } catch (assignErr: unknown) {
-                        const msg = assignErr instanceof Error ? assignErr.message : String(assignErr);
-                        const alreadyLinked = msg.toLowerCase().includes('already') || msg.includes('400');
-                        setBarcodeResults(prev => [...prev, {
-                            partName: part.name,
-                            barcode,
-                            status: alreadyLinked ? 'already_ok' : 'error',
-                            message: alreadyLinked ? undefined : msg,
-                        }]);
-                    }
+                    const result = await inventreeClient.linkBarcodeToPart(barcode, part.pk);
+                    setBarcodeResults(prev => [...prev, {
+                        partName: part.name,
+                        barcode,
+                        status: result === 'already' ? 'already_ok' : 'fixed',
+                    }]);
                 } catch (err) {
                     setBarcodeResults(prev => [...prev, {
                         partName: part.name,
                         barcode,
                         status: 'error',
-                        message: 'Failed to fetch stock items',
+                        message: err instanceof Error ? err.message : String(err),
                     }]);
                 }
             }
@@ -218,7 +192,7 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
                 {tab === 'barcodes' && (
                     <div className="p-6 space-y-4">
                         <p className="text-xs font-bold text-brand-black/60">
-                            Scans all parts with a barcode (IPN) and links them to their stock item. Safe to run multiple times — already-linked barcodes are skipped.
+                            Links the barcode (IPN) of every part to the part itself, and takes it off the stock item it used to point at. Safe to run more than once: barcodes already on their part are skipped.
                         </p>
 
                         {!barcodeRunning && !barcodesDone && (

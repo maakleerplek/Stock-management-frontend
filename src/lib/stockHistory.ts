@@ -20,20 +20,38 @@ export interface LevelPoint {
   level: number;
 }
 
-/** InvenTree tracking codes: 12 = stock manually removed. */
-const TRACKING_REMOVED = 12;
+/** InvenTree StockHistoryCode values this module cares about. */
+export const TRACKING = {
+  STOCK_COUNT: 10,
+  STOCK_ADD: 11,
+  STOCK_REMOVE: 12,
+  SPLIT_FROM_PARENT: 40,
+  SPLIT_CHILD_ITEM: 42,
+  SHIPPED_AGAINST_SALES_ORDER: 60,
+  SENT_TO_CUSTOMER: 100,
+} as const;
+
+/** Codes after which a stock item is no longer ours. */
+const LEFT_STOCK: number[] = [TRACKING.SHIPPED_AGAINST_SALES_ORDER, TRACKING.SENT_TO_CUSTOMER];
 
 /**
- * A sale is a manual removal that is not a correction. Volunteer "set stock"
- * corrections are also logged as removals, with notes starting "Stock set";
- * stocktakes ("Stock counted") use a different tracking code entirely.
+ * Sales are sales-order shipments. Before the app used sales orders, a sale
+ * was a manual removal at checkout; those still count, except volunteer
+ * corrections (notes "... Volunteer Mode") and "set stock" adjustments.
  */
 export function isSale(e: InvenTreeTrackingEntry): boolean {
+  if (e.tracking_type === TRACKING.SHIPPED_AGAINST_SALES_ORDER) return (e.deltas?.quantity ?? 0) > 0;
   return (
-    e.tracking_type === TRACKING_REMOVED &&
+    e.tracking_type === TRACKING.STOCK_REMOVE &&
     (e.deltas?.removed ?? 0) > 0 &&
-    !/^stock set/i.test(e.notes ?? '')
+    !/^stock set|volunteer mode/i.test(e.notes ?? '')
   );
+}
+
+/** Units sold by a sale entry, 0 for anything else. */
+export function unitsSold(e: InvenTreeTrackingEntry): number {
+  if (!isSale(e)) return 0;
+  return e.tracking_type === TRACKING.SHIPPED_AGAINST_SALES_ORDER ? e.deltas.quantity ?? 0 : e.deltas.removed ?? 0;
 }
 
 /** Stock level of each part after every change, oldest first. */
@@ -46,13 +64,17 @@ export function stockLevels(entries: InvenTreeTrackingEntry[]): Map<number, Leve
   const out = new Map<number, LevelPoint[]>();
   for (const e of sorted) {
     const items = perItem.get(e.part) ?? new Map<number, number>();
-    items.set(e.item, e.deltas.quantity as number);
+    // A shipped item has left stock; its quantity is what was sold, not what is left.
+    items.set(e.item, LEFT_STOCK.includes(e.tracking_type) ? 0 : e.deltas.quantity as number);
     perItem.set(e.part, items);
 
     let level = 0;
     items.forEach(q => { level += q; });
+    const t = Date.parse(e.date);
     const points = out.get(e.part) ?? [];
-    points.push({ t: Date.parse(e.date), level: Math.round(level) });
+    // A shipment logs split + ship at the same moment: keep only the result.
+    if (points.length && points[points.length - 1].t === t) points[points.length - 1].level = Math.round(level);
+    else points.push({ t, level: Math.round(level) });
     out.set(e.part, points);
   }
   return out;
@@ -101,11 +123,12 @@ export function salesPerBucket(
   const index = new Map(buckets.map((b, i) => [b, i]));
   const out = new Map<number, number[]>();
   for (const e of entries) {
-    if (!isSale(e)) continue;
+    const sold = unitsSold(e);
+    if (!sold) continue;
     const i = index.get(bucketStart(Date.parse(e.date), bucket));
     if (i === undefined) continue;
     const row = out.get(e.part) ?? new Array(buckets.length).fill(0);
-    row[i] += e.deltas.removed ?? 0;
+    row[i] += sold;
     out.set(e.part, row);
   }
   return out;
@@ -121,7 +144,7 @@ export const OTHER_COLOR = '#9a9a93';
 
 export function assignColors(entries: InvenTreeTrackingEntry[], partIds: number[]): Map<number, string> {
   const sold = new Map<number, number>();
-  for (const e of entries) if (isSale(e)) sold.set(e.part, (sold.get(e.part) ?? 0) + (e.deltas.removed ?? 0));
+  for (const e of entries) sold.set(e.part, (sold.get(e.part) ?? 0) + unitsSold(e));
   const order = [...partIds].sort((a, b) => (sold.get(b) ?? 0) - (sold.get(a) ?? 0) || a - b);
   return new Map(order.map((p, i) => [p, SERIES_COLORS[i] ?? OTHER_COLOR]));
 }

@@ -30,7 +30,7 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type, checked } = e.target as HTMLInputElement;
         setFormData((prev) => ({
             ...prev,
@@ -105,7 +105,7 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                         <textarea
                             name="description"
                             value={formData.description}
-                            onChange={handleChange as any}
+                            onChange={handleChange}
                             rows={2}
                             className="brutalist-input w-full px-3 py-2 resize-y"
                         />
@@ -117,7 +117,7 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                         <select
                             name="parent"
                             value={formData.parent}
-                            onChange={handleChange as any}
+                            onChange={handleChange}
                             className="brutalist-input w-full px-3 py-2"
                         >
                             <option value="">None</option>
