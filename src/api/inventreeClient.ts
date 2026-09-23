@@ -20,6 +20,7 @@ import type {
     InvenTreeCategoryListResponse,
     InvenTreeLocationListResponse,
     InvenTreeTrackingListResponse,
+    InvenTreeTrackingEntry,
     StockOperationPayload,
     CreatePartPayload,
     CreateStockItemPayload,
@@ -930,6 +931,20 @@ export class InvenTreeClient {
         return this.request<InvenTreeTrackingListResponse>(
             `/stock/track/?limit=${limit}&ordering=-date`
         );
+    }
+
+    /**
+     * The complete tracking log, newest first. Pages through the API so the
+     * history charts are not cut off at the first page.
+     */
+    async getAllStockTracking(pageSize: number = 500): Promise<InvenTreeTrackingEntry[]> {
+        const all: InvenTreeTrackingEntry[] = [];
+        for (let offset = 0; ; offset += pageSize) {
+            const path = `/stock/track/?limit=${pageSize}&offset=${offset}&ordering=-date`;
+            const page = await this.request<InvenTreeTrackingListResponse>(path, 'GET', undefined, false, false);
+            all.push(...page.results);
+            if (page.results.length < pageSize || all.length >= page.count) return all;
+        }
     }
 
     /**

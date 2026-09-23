@@ -4,6 +4,8 @@ import inventreeClient from './api/inventreeClient';
 import { useStock } from './StockContext';
 import type { InvenTreeTrackingEntry } from './api/types';
 import { cn } from './lib/utils';
+import { isSale, type PartInfo } from './lib/stockHistory';
+import StockHistoryChart from './components/StockHistoryChart';
 
 
 const DATE_RANGES = [
@@ -97,9 +99,8 @@ export default function StockAnalytics() {
       setLoading(true);
       setError(null);
       try {
-        inventreeClient.invalidateCache('/stock/track/?limit=500&ordering=-date');
-        const resp = await inventreeClient.getStockTracking(500);
-        if (!cancelled) setTrackingEntries(resp.results);
+        const all = await inventreeClient.getAllStockTracking();
+        if (!cancelled) setTrackingEntries(all);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load tracking data');
       } finally {
@@ -126,6 +127,12 @@ export default function StockAnalytics() {
     return map;
   }, [items]);
 
+  const chartParts = useMemo(() => {
+    const map = new Map<number, PartInfo>();
+    partLookup.forEach((v, k) => map.set(k, { name: v.name, category: v.category || 'Uncategorized' }));
+    return map;
+  }, [partLookup]);
+
   // Filter entries by selected date range
   const filteredEntries = useMemo(() => {
     if (!dateRange.days) return trackingEntries;
@@ -139,8 +146,9 @@ export default function StockAnalytics() {
     const byPartMap = new Map<number, PartAnalytics>();
 
     filteredEntries.forEach(entry => {
-      const removed = entry.deltas?.removed ?? 0;
-      const added = entry.deltas?.added ?? 0;
+      // Stocktakes and volunteer corrections are not sales or restocks.
+      const removed = isSale(entry) ? entry.deltas.removed ?? 0 : 0;
+      const added = entry.tracking_type === 11 ? entry.deltas?.added ?? 0 : 0;
       if (removed === 0 && added === 0) return;
 
       const partId = entry.part;
@@ -171,7 +179,7 @@ export default function StockAnalytics() {
       totalAdded: byPart.reduce((s, p) => s + p.added, 0),
       totalRevenue: byPart.reduce((s, p) => s + p.revenue, 0),
       totalProfit: byPart.reduce((s, p) => s + p.profit, 0),
-      totalTransactions: filteredEntries.length,
+      totalTransactions: filteredEntries.filter(e => isSale(e) || e.tracking_type === 11).length,
       hasCostPrices: byPart.some(p => p.costPrice > 0),
     };
   }, [filteredEntries, partLookup]);
@@ -340,7 +348,7 @@ export default function StockAnalytics() {
         </div>
 
         {/* Summary stat cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 border border-lijn divide-x divide-brand-black">
+        <div className="grid grid-cols-2 sm:grid-cols-4 border border-lijn divide-x divide-lijn">
           {statCards.map((s, i) => (
             <div key={i} className={cn('p-4 flex flex-col gap-1', s.bg)}>
               <div className="flex items-center gap-1.5 text-[10px] font-semibold text-brand-black/60">
@@ -353,6 +361,10 @@ export default function StockAnalytics() {
             </div>
           ))}
         </div>
+
+        {trackingEntries.length > 0 && (
+          <StockHistoryChart entries={trackingEntries} parts={chartParts} days={dateRange.days} />
+        )}
 
         {analytics.totalTransactions === 0 && (
           <div className="border border-lijn p-8 text-center">
@@ -462,7 +474,7 @@ export default function StockAnalytics() {
         )}
 
         <p className="text-[10px] font-mono text-brand-black/30 text-center pb-2">
-          Based on the {trackingEntries.length} most recent tracking entries
+          Based on {trackingEntries.length} tracking entries
         </p>
 
       </div>
