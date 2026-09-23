@@ -24,12 +24,15 @@ server {
     listen 80;
     server_name _;
 
+    # Health check must be in a location block: a server-context return runs before locations.
     location /health {
         access_log off;
         return 200 "healthy\n";
     }
 
-    return 301 https://$host$request_uri;
+    location / {
+        return 301 https://$host$request_uri;
+    }
 }
 
 server {
@@ -40,6 +43,12 @@ server {
 
     ssl_certificate /etc/nginx/ssl/server.crt;
     ssl_certificate_key /etc/nginx/ssl/server.key;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css application/json application/javascript text/javascript application/x-javascript text/xml application/xml application/rss+xml image/svg+xml;
 
     add_header X-Frame-Options "SAMEORIGIN";
     add_header X-Content-Type-Options "nosniff";
