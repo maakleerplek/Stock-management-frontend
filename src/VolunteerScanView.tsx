@@ -124,23 +124,23 @@ export default function VolunteerScanView() {
       {/* Main: Scanner Area */}
       <main className="flex-1 p-6 flex flex-col items-center justify-center space-y-8 overflow-auto">
         <div className="w-full max-w-xl space-y-8">
-          <div className="text-center space-y-2 border-2 border-brand-black bg-brand-beige-dark p-6">
-            <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-widest flex items-center justify-center gap-4 text-brand-black">
-              <Scan size={32} className="sm:w-10 sm:h-10" /> STOCK SCAN
+          <div className="text-center space-y-2 border border-lijn bg-brand-beige-dark p-6">
+            <h2 className="text-2xl sm:text-4xl font-semibold flex items-center justify-center gap-4 text-brand-black">
+              <Scan size={32} className="sm:w-10 sm:h-10" /> Stock scan
             </h2>
-            <p className="text-sm font-bold opacity-60 uppercase tracking-widest">
-              SCAN ITEMS TO ADJUST STOCK
+            <p className="text-sm font-bold opacity-60">
+              Scan items to adjust stock
             </p>
           </div>
 
-          <div className="border-2 border-brand-black bg-white p-8 space-y-8 shadow-[8px_8px_0px_0px_rgba(30,27,24,1)]">
+          <div className="border border-lijn bg-white p-8 space-y-8">
             <BarcodeScanner onScan={handleItemScanned} compact />
 
             <div className="flex gap-4">
-              <div className="flex-1 p-4 border-2 border-brand-black bg-brand-beige font-mono">
-                <div className="text-[10px] uppercase font-black opacity-50 mb-1 tracking-widest">LAST SCANNED</div>
-                <div className={cn("text-lg font-black truncate uppercase", lastScanned ? "text-amber-600" : "opacity-20 text-brand-black")}>
-                  {lastScanned || "WAITING..."}
+              <div className="flex-1 p-4 border border-lijn bg-brand-beige font-mono">
+                <div className="text-[10px] font-semibold opacity-50 mb-1">Last scanned</div>
+                <div className={cn("text-lg font-semibold truncate", lastScanned ? "text-amber-600" : "opacity-20 text-brand-black")}>
+                  {lastScanned || "Waiting..."}
                 </div>
               </div>
             </div>
@@ -149,33 +149,33 @@ export default function VolunteerScanView() {
       </main>
 
       {/* Right Sidebar: Adjustments */}
-      <aside className="w-full lg:w-96 border-l-0 lg:border-l-2 border-t-2 lg:border-t-0 border-brand-black bg-white flex flex-col">
-        <div className="p-6 border-b-2 border-brand-black bg-brand-beige-dark">
-          <h2 className="text-lg font-black uppercase tracking-widest flex items-center gap-3">
-            <RefreshCw size={24} /> ADJUSTMENTS
+      <aside className="w-full lg:w-96 border-l-0 lg:border-l-2 border-t-2 lg:border-t-0 border-lijn bg-white flex flex-col">
+        <div className="p-6 border-b-2 border-lijn bg-brand-beige-dark">
+          <h2 className="text-lg font-semibold flex items-center gap-3">
+            <RefreshCw size={24} /> Adjustments
           </h2>
         </div>
 
         {/* Mode Toggle */}
-        <div className="px-5 py-4 border-b-2 border-brand-black bg-brand-beige">
+        <div className="px-5 py-4 border-b-2 border-lijn bg-brand-beige">
           <div className="grid grid-cols-2 gap-4">
             <button
               onClick={() => setMode('add')}
               className={cn(
-                "brutalist-button py-3 text-xs sm:text-sm font-black uppercase transition-colors tracking-widest",
+                "brutalist-button py-3 text-xs sm:text-sm font-semibold transition-colors",
                 mode === 'add' ? "bg-[linear-gradient(110deg,#e11d48_calc(50%-1.5px),#2c1e16_calc(50%-1.5px),#2c1e16_calc(50%+1.5px),#059669_calc(50%+1.5px))] text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
               )}
             >
-              ADD / REMOVE
+              Add / remove
             </button>
             <button
               onClick={() => setMode('set')}
               className={cn(
-                "brutalist-button py-3 text-xs sm:text-sm font-black uppercase transition-colors tracking-widest",
+                "brutalist-button py-3 text-xs sm:text-sm font-semibold transition-colors",
                 mode === 'set' ? "bg-blue-600 text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
               )}
             >
-              SET ABSOLUTE
+              Set absolute
             </button>
           </div>
         </div>
@@ -189,8 +189,8 @@ export default function VolunteerScanView() {
                 className="h-full flex flex-col items-center justify-center text-center p-8 opacity-30 text-brand-black"
               >
                 <Scan size={48} className="mb-4" />
-                <p className="font-black uppercase tracking-widest text-sm">NO ITEMS SCANNED.</p>
-                <p className="text-[10px] uppercase font-bold mt-2">SCAN OR SELECT AN ITEM TO START ADJUSTING STOCK.</p>
+                <p className="font-semibold text-sm">No items scanned.</p>
+                <p className="text-[10px] font-bold mt-2">Scan or select an item to start adjusting stock.</p>
               </motion.div>
             ) : (
               adjustments.map(item => (
@@ -200,9 +200,9 @@ export default function VolunteerScanView() {
                   initial={{ x: 20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   exit={{ x: -20, opacity: 0 }}
-                  className="border-2 border-brand-black bg-white p-3 flex gap-3 shadow-[2px_2px_0px_0px_rgba(30,27,24,1)]"
+                  className="border border-lijn bg-white p-3 flex gap-3"
                 >
-                  <div className="w-12 h-12 border-2 border-brand-black bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                  <div className="w-12 h-12 border border-lijn bg-gray-100 flex-shrink-0 flex items-center justify-center">
                     {item.image ? (
                       <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                     ) : (
@@ -210,26 +210,26 @@ export default function VolunteerScanView() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-black truncate text-sm uppercase">{item.name}</div>
-                    <div className="text-[10px] font-bold uppercase opacity-60 tracking-widest mt-1">CURRENT: {item.quantity}</div>
+                    <div className="font-semibold truncate text-sm">{item.name}</div>
+                    <div className="text-[10px] font-bold opacity-60 mt-1">Current: {item.quantity}</div>
                     <div className="flex items-center gap-2 mt-2">
                       {mode === 'add' ? (
                         <>
                           <button
                             onClick={() => updateDelta(item.id, item.delta - 1)}
-                            className="p-1 px-2 border-2 border-brand-black bg-rose-400 hover:brightness-95 transition-all shadow-[2px_2px_0px_0px_rgba(30,27,24,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                            className="p-1 px-2 border border-lijn bg-rose-400 hover:brightness-95 transition-all"
                           >
                             <Minus size={14} className="text-brand-black" />
                           </button>
                           <span className={cn(
-                            "font-bold text-sm w-12 text-center border-2 border-brand-black bg-white",
+                            "font-bold text-sm w-12 text-center border border-lijn bg-white",
                             item.delta > 0 ? "text-emerald-700" : item.delta < 0 ? "text-rose-600" : "text-brand-black"
                           )}>
                             {item.delta > 0 ? `+${item.delta}` : item.delta}
                           </span>
                           <button
                             onClick={() => updateDelta(item.id, item.delta + 1)}
-                            className="p-1 px-2 border-2 border-brand-black bg-emerald-400 hover:brightness-95 transition-all shadow-[2px_2px_0px_0px_rgba(30,27,24,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                            className="p-1 px-2 border border-lijn bg-emerald-400 hover:brightness-95 transition-all"
                           >
                             <Plus size={14} className="text-brand-black" />
                           </button>
@@ -239,16 +239,16 @@ export default function VolunteerScanView() {
                           <button
                             onClick={() => updateTargetQty(item.id, (item.targetQty ?? item.quantity) - 1)}
                             disabled={(item.targetQty ?? item.quantity) <= 0}
-                            className="p-1 px-2 border-2 border-brand-black bg-rose-400 hover:brightness-95 disabled:opacity-30 transition-all shadow-[2px_2px_0px_0px_rgba(30,27,24,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                            className="p-1 px-2 border border-lijn bg-rose-400 hover:brightness-95 disabled:opacity-30 transition-all"
                           >
                             <Minus size={14} className="text-brand-black" />
                           </button>
-                          <span className="font-bold text-sm w-12 text-center border-2 border-brand-black bg-white text-orange-600">
+                          <span className="font-bold text-sm w-12 text-center border border-lijn bg-white text-orange-600">
                             {item.targetQty ?? item.quantity}
                           </span>
                           <button
                             onClick={() => updateTargetQty(item.id, (item.targetQty ?? item.quantity) + 1)}
-                            className="p-1 px-2 border-2 border-brand-black bg-emerald-400 hover:brightness-95 transition-all shadow-[2px_2px_0px_0px_rgba(30,27,24,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                            className="p-1 px-2 border border-lijn bg-emerald-400 hover:brightness-95 transition-all"
                           >
                             <Plus size={14} className="text-brand-black" />
                           </button>
@@ -259,7 +259,7 @@ export default function VolunteerScanView() {
                   <div className="text-right flex flex-col justify-start items-end">
                     <button
                       onClick={() => removeAdjustment(item.id)}
-                      className="text-brand-black hover:text-red-600 hover:bg-brand-beige p-1.5 border-2 border-brand-black transition-colors"
+                      className="text-brand-black hover:text-red-600 hover:bg-brand-beige p-1.5 border border-lijn transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -270,24 +270,24 @@ export default function VolunteerScanView() {
           </AnimatePresence>
         </div>
 
-        <div className="p-6 border-t-2 border-brand-black bg-white space-y-4">
+        <div className="p-6 border-t-2 border-lijn bg-white space-y-4">
           <button
             disabled={adjustments.length === 0 || isCommitting}
             onClick={() => setIsConfirmOpen(true)}
             className={cn(
-              "brutalist-button w-full py-4 bg-emerald-400 text-brand-black text-base font-black disabled:opacity-50 flex items-center justify-center gap-3 tracking-widest",
+              "brutalist-button w-full py-4 bg-emerald-400 text-brand-black text-base font-semibold disabled:opacity-50 flex items-center justify-center gap-3",
               isCommitting ? "opacity-75 cursor-not-allowed hover:bg-emerald-400" : "hover:brightness-95"
             )}
           >
             {isCommitting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                SAVING...
+                Saving...
               </>
             ) : (
               <>
                 <CheckCircle size={20} />
-                SAVE CHANGES
+                Save changes
               </>
             )}
           </button>

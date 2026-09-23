@@ -18,12 +18,12 @@ export default defineConfig(({ mode }) => {
       svgr(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.png', 'apple-touch-icon.png'],
+        includeAssets: ['favicon.png', 'favicon.ico', 'apple-touch-icon.png'],
         manifest: {
           name: 'Inventree Assistant',
           short_name: 'Stock Manager',
           description: 'Manage stock and checkout at HTL.',
-          theme_color: '#3b82f6',
+          theme_color: '#171717',
           background_color: '#ffffff',
           display: 'standalone',
           orientation: 'portrait',

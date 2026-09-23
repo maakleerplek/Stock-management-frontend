@@ -61,13 +61,13 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
     return (
         <div className="w-full">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-brand-black bg-white">
-                <h2 className="text-lg font-black uppercase tracking-widest text-brand-black">
-                    CREATE CATEGORY
+            <div className="flex items-center justify-between p-4 border-b border-lijn bg-white">
+                <h2 className="text-lg font-semibold text-brand-black">
+                    Create category
                 </h2>
                 <button 
                     onClick={onCancel}
-                    className="p-1 border border-brand-black bg-white hover:bg-brand-beige transition-colors"
+                    className="p-1 border border-lijn bg-white hover:bg-brand-beige transition-colors"
                 >
                     <X size={18} className="text-brand-black" />
                 </button>
@@ -83,7 +83,7 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                 <div className="grid grid-cols-1 gap-4">
                     {/* Category Name */}
                     <div>
-                        <label className="block text-sm font-bold mb-2 uppercase">
+                        <label className="block text-sm font-bold mb-2">
                             Category Name <span className="text-red-600">*</span>
                         </label>
                         <input
@@ -95,14 +95,14 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                             autoFocus
                             className="brutalist-input w-full px-3 py-2"
                         />
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                        <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                             Name of the product group (e.g. Drinks, Tools, Electronics).
                         </p>
                     </div>
 
                     {/* Description */}
                     <div>
-                        <label className="block text-sm font-bold mb-2 uppercase">Description</label>
+                        <label className="block text-sm font-bold mb-2">Description</label>
                         <textarea
                             name="description"
                             value={formData.description}
@@ -115,7 +115,7 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                     {/* Parent Category & Default Location */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-bold mb-2 uppercase">Parent Category</label>
+                            <label className="block text-sm font-bold mb-2">Parent Category</label>
                             <select
                                 name="parent"
                                 value={formData.parent}
@@ -129,13 +129,13 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                                     </option>
                                 ))}
                             </select>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                            <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                                 Leave empty for a top-level category.
                             </p>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold mb-2 uppercase">Default Location</label>
+                            <label className="block text-sm font-bold mb-2">Default Location</label>
                             <select
                                 name="defaultLocation"
                                 value={formData.defaultLocation}
@@ -149,7 +149,7 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                                     </option>
                                 ))}
                             </select>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                            <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                                 New items in this category default to this storage location.
                             </p>
                         </div>
@@ -157,7 +157,7 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
 
                     {/* Default Keywords */}
                     <div>
-                        <label className="block text-sm font-bold mb-2 uppercase">Default Keywords</label>
+                        <label className="block text-sm font-bold mb-2">Default Keywords</label>
                         <input
                             type="text"
                             name="defaultKeywords"
@@ -166,7 +166,7 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                             placeholder="Comma separated keywords"
                             className="brutalist-input w-full px-3 py-2"
                         />
-                        <p className="text-xs text-gray-600 mt-1 text-[10px] uppercase font-bold opacity-60">Default keywords for parts in this category</p>
+                        <p className="text-xs text-gray-600 mt-1 text-[10px] font-bold opacity-60">Default keywords for parts in this category</p>
                     </div>
 
                     {/* Structural Checkbox */}
@@ -180,8 +180,8 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                                 className="brutalist-border w-5 h-5 mr-3"
                             />
                             <div className="flex flex-col">
-                                <span className="font-bold text-sm">STRUCTURAL</span>
-                                <span className="text-[10px] uppercase font-bold opacity-60">Parts may not be directly assigned</span>
+                                <span className="font-bold text-sm">Structural</span>
+                                <span className="text-[10px] font-bold opacity-60">Parts may not be directly assigned</span>
                             </div>
                         </label>
                     </div>
@@ -198,7 +198,7 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                             )}
                         >
                             <X className="w-4 h-4" />
-                            <span>CANCEL</span>
+                            <span>Cancel</span>
                         </button>
                         <button
                             type="submit"
@@ -211,12 +211,12 @@ const AddCategoryForm: React.FC<AddCategoryFormProps> = ({ onSubmit, categories,
                             {loading ? (
                                 <>
                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                    <span>CREATING...</span>
+                                    <span>Creating...</span>
                                 </>
                             ) : (
                                 <>
                                     <Save className="w-4 h-4" />
-                                    <span>CREATE CATEGORY</span>
+                                    <span>Create category</span>
                                 </>
                             )}
                         </button>

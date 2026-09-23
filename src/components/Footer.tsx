@@ -8,110 +8,32 @@ const FOOTER_LINKS = {
   github: import.meta.env.VITE_GITHUB_URL || 'https://github.com/maakleerplek/stock-management',
 };
 
+const linkClass = 'flex items-center gap-1.5 hover:text-brand-black underline-offset-4 hover:underline flex-shrink-0';
+
 export default function Footer() {
   const [cacheManagerOpen, setCacheManagerOpen] = useState(false);
 
   return (
     <>
-      <footer className="border-t border-brand-black bg-brand-beige py-2 px-4 sm:px-6 mt-auto flex-shrink-0">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-4">
-
-          {/* Left Side: All Links Clustered */}
-          <div className="flex items-center gap-3 sm:gap-6 md:gap-10 overflow-x-auto w-full sm:w-auto justify-center sm:justify-start">
-
-            {/* Docs */}
-            <a
-              href={FOOTER_LINKS.docs}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
-              title="Documentation"
-            >
-              <div className="border border-brand-black bg-white p-2 shadow-sm">
-                <Book size={18} className="text-brand-black" />
-              </div>
-              <div className="hidden md:flex flex-col justify-center">
-                <span className="text-[10px] font-black uppercase tracking-widest leading-none text-brand-black/70 mb-0.5">
-                  READ
-                </span>
-                <span className="text-xs font-black uppercase tracking-wider text-brand-black leading-none">
-                  DOCS
-                </span>
-              </div>
+      <footer className="border-t border-lijn bg-brand-beige-dark px-4 sm:px-8 py-2.5 mt-auto flex-shrink-0">
+        <div className="flex justify-between items-center gap-4 text-xs text-grafiet">
+          <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto">
+            <a href={FOOTER_LINKS.docs} target="_blank" rel="noopener noreferrer" className={linkClass} title="Documentation">
+              <Book size={14} /> <span className="hidden sm:inline">Docs</span>
             </a>
-
-            {/* Feedback */}
             {FOOTER_LINKS.feedback && (
-              <a
-                href={FOOTER_LINKS.feedback}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
-                title="Give Feedback"
-              >
-                <div className="border border-brand-black bg-white p-2 shadow-sm">
-                  <MessageSquare size={18} className="text-brand-black" />
-                </div>
-                <div className="hidden md:flex flex-col justify-center">
-                  <span className="text-[10px] font-black uppercase tracking-widest leading-none text-brand-black/70 mb-0.5">
-                    GIVE
-                  </span>
-                  <span className="text-xs font-black uppercase tracking-wider text-brand-black leading-none">
-                    FEEDBACK
-                  </span>
-                </div>
+              <a href={FOOTER_LINKS.feedback} target="_blank" rel="noopener noreferrer" className={linkClass} title="Give feedback">
+                <MessageSquare size={14} /> <span className="hidden sm:inline">Feedback</span>
               </a>
             )}
-
-            {/* GitHub */}
-            <a
-              href={FOOTER_LINKS.github}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
-              title="GitHub Repository"
-            >
-              <div className="border border-brand-black bg-white p-2 shadow-sm">
-                <Github size={18} className="text-brand-black" />
-              </div>
-              <div className="hidden md:flex flex-col justify-center">
-                <span className="text-[10px] font-black uppercase tracking-widest leading-none text-brand-black/70 mb-0.5">
-                  CONTRIBUTE
-                </span>
-                <span className="text-xs font-black uppercase tracking-wider text-brand-black leading-none">
-                  GITHUB
-                </span>
-              </div>
+            <a href={FOOTER_LINKS.github} target="_blank" rel="noopener noreferrer" className={linkClass} title="GitHub repository">
+              <Github size={14} /> <span className="hidden sm:inline">GitHub</span>
             </a>
-
-            {/* Cache Manager */}
-            <button
-              onClick={() => setCacheManagerOpen(true)}
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
-              title="Manage Cache"
-            >
-              <div className="border border-brand-black bg-white p-2 shadow-sm">
-                <Database size={18} className="text-brand-black" />
-              </div>
-              <div className="hidden md:flex flex-col justify-center">
-                <span className="text-[10px] font-black uppercase tracking-widest leading-none text-brand-black/70 mb-0.5">
-                  MANAGE
-                </span>
-                <span className="text-xs font-black uppercase tracking-wider text-brand-black leading-none">
-                  CACHE
-                </span>
-              </div>
+            <button onClick={() => setCacheManagerOpen(true)} className={linkClass} title="Manage cache">
+              <Database size={14} /> <span className="hidden sm:inline">Cache</span>
             </button>
-
           </div>
-
-          {/* Beta Version Badge */}
-          <div className="flex items-center justify-center flex-shrink-0">
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-brand-black border border-brand-black px-2 py-1 bg-white shadow-sm">
-              BETA VERSION
-            </span>
-          </div>
-
+          <span className="flex-shrink-0">Maakleerplek vzw · beta</span>
         </div>
       </footer>
 

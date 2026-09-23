@@ -60,13 +60,13 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
     return (
         <div className="w-full">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-brand-black bg-white">
-                <h2 className="text-lg font-black uppercase tracking-widest text-brand-black">
-                    CREATE LOCATION
+            <div className="flex items-center justify-between p-4 border-b border-lijn bg-white">
+                <h2 className="text-lg font-semibold text-brand-black">
+                    Create location
                 </h2>
                 <button 
                     onClick={onCancel}
-                    className="p-1 border border-brand-black bg-white hover:bg-brand-beige transition-colors"
+                    className="p-1 border border-lijn bg-white hover:bg-brand-beige transition-colors"
                 >
                     <X size={18} className="text-brand-black" />
                 </button>
@@ -82,7 +82,7 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                 <div className="grid grid-cols-1 gap-4">
                     {/* Location Name */}
                     <div>
-                        <label className="block text-sm font-bold mb-2 uppercase">
+                        <label className="block text-sm font-bold mb-2">
                             Location Name <span className="text-red-600">*</span>
                         </label>
                         <input
@@ -94,14 +94,14 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                             autoFocus
                             className="brutalist-input w-full px-3 py-2"
                         />
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                        <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                             Physical place where items are stored (e.g. Fridge, Shelf A, Storage Room).
                         </p>
                     </div>
 
                     {/* Description */}
                     <div>
-                        <label className="block text-sm font-bold mb-2 uppercase">Description</label>
+                        <label className="block text-sm font-bold mb-2">Description</label>
                         <textarea
                             name="description"
                             value={formData.description}
@@ -113,7 +113,7 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
 
                     {/* Parent Location */}
                     <div>
-                        <label className="block text-sm font-bold mb-2 uppercase">Parent Location</label>
+                        <label className="block text-sm font-bold mb-2">Parent Location</label>
                         <select
                             name="parent"
                             value={formData.parent}
@@ -127,7 +127,7 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                                 </option>
                             ))}
                         </select>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                        <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                             If this location is inside another (e.g. Shelf inside Storage Room).
                         </p>
                     </div>
@@ -143,8 +143,8 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                                 className="brutalist-border w-5 h-5 mr-3"
                             />
                             <div className="flex flex-col">
-                                <span className="font-bold text-sm uppercase">Structural</span>
-                                <span className="text-[10px] uppercase font-bold opacity-60">Stock items may not be directly located</span>
+                                <span className="font-bold text-sm">Structural</span>
+                                <span className="text-[10px] font-bold opacity-60">Stock items may not be directly located</span>
                             </div>
                         </label>
                         <label className="flex items-center cursor-pointer">
@@ -156,8 +156,8 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                                 className="brutalist-border w-5 h-5 mr-3"
                             />
                             <div className="flex flex-col">
-                                <span className="font-bold text-sm uppercase">External</span>
-                                <span className="text-[10px] uppercase font-bold opacity-60">This is an external stock location</span>
+                                <span className="font-bold text-sm">External</span>
+                                <span className="text-[10px] font-bold opacity-60">This is an external stock location</span>
                             </div>
                         </label>
                     </div>
@@ -174,7 +174,7 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                             )}
                         >
                             <X className="w-4 h-4" />
-                            <span>CANCEL</span>
+                            <span>Cancel</span>
                         </button>
                         <button
                             type="submit"
@@ -187,12 +187,12 @@ const AddLocationForm: React.FC<AddLocationFormProps> = ({ onSubmit, locations, 
                             {loading ? (
                                 <>
                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                    <span>CREATING...</span>
+                                    <span>Creating...</span>
                                 </>
                             ) : (
                                 <>
                                     <Save className="w-4 h-4" />
-                                    <span>CREATE LOCATION</span>
+                                    <span>Create location</span>
                                 </>
                             )}
                         </button>

@@ -44,17 +44,17 @@ function BrutalistBar({
 }) {
   const displayValue = decimals > 0 ? value.toFixed(decimals) : value;
   return (
-    <div className="flex items-center gap-2 sm:gap-3 py-2.5 border-b border-brand-black/10 last:border-0">
-      <div className="w-28 sm:w-36 text-[10px] sm:text-xs font-bold uppercase truncate flex-shrink-0 text-brand-black" title={label}>
+    <div className="flex items-center gap-2 sm:gap-3 py-2.5 border-b border-lijn last:border-0">
+      <div className="w-28 sm:w-36 text-[10px] sm:text-xs font-bold truncate flex-shrink-0 text-brand-black" title={label}>
         {label}
       </div>
-      <div className="flex-1 h-4 border border-brand-black bg-brand-beige-dark relative overflow-hidden">
+      <div className="flex-1 h-4 border border-lijn bg-brand-beige-dark relative overflow-hidden">
         <div
           className={cn('h-full transition-all duration-500', color)}
           style={{ width: `${Math.max(2, (value / maxValue) * 100)}%` }}
         />
       </div>
-      <div className="text-xs font-mono font-black w-16 sm:w-20 text-right flex-shrink-0 tabular-nums">
+      <div className="text-xs font-mono font-semibold w-16 sm:w-20 text-right flex-shrink-0 tabular-nums">
         {prefix}{displayValue}
       </div>
     </div>
@@ -64,13 +64,13 @@ function BrutalistBar({
 function Section({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
     <div>
-      <div className="bg-brand-accent px-4 py-2 border border-brand-black border-b-0">
-        <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+      <div className="bg-brand-accent px-4 py-2 border border-lijn border-b-0">
+        <h3 className="text-xs font-semibold flex items-center gap-2">
           <Icon size={13} />
           {title}
         </h3>
       </div>
-      <div className="border border-brand-black p-4 min-h-[80px]">
+      <div className="border border-lijn p-4 min-h-[80px]">
         {children}
       </div>
     </div>
@@ -79,7 +79,7 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.E
 
 const EMPTY = (
   <div className="flex items-center justify-center py-6">
-    <span className="text-xs font-bold uppercase text-brand-black/40">NO DATA</span>
+    <span className="text-xs font-bold text-brand-black/40">No data</span>
   </div>
 );
 
@@ -210,7 +210,7 @@ export default function StockAnalytics() {
   const exportCSV = useCallback(() => {
     const period = dateRange.days ? `last_${dateRange.days}d` : 'all_time';
     const rows: string[][] = [
-      ['STOCK ANALYTICS EXPORT'],
+      ['Stock analytics export'],
       [`Period: ${dateRange.label === 'ALL' ? 'All time' : `Last ${dateRange.days} days`}`],
       [`Exported: ${new Date().toISOString()}`],
       [],
@@ -257,8 +257,8 @@ export default function StockAnalytics() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
-        <span className="text-xs font-black uppercase tracking-widest text-brand-black/50 animate-pulse">
-          LOADING TRACKING DATA...
+        <span className="text-xs font-semibold text-brand-black/50 animate-pulse">
+          Loading tracking data...
         </span>
       </div>
     );
@@ -268,10 +268,10 @@ export default function StockAnalytics() {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="border border-red-600 p-6 max-w-sm text-center space-y-3">
-          <p className="text-xs font-black uppercase tracking-widest text-red-600">ERROR LOADING DATA</p>
+          <p className="text-xs font-semibold text-red-600">Error loading data</p>
           <p className="text-xs text-brand-black/60">{error}</p>
           <button onClick={() => setRefreshKey(k => k + 1)} className="brutalist-button py-2 px-4 text-xs">
-            RETRY
+            Retry
           </button>
         </div>
       </div>
@@ -279,11 +279,11 @@ export default function StockAnalytics() {
   }
 
   const statCards = [
-    { label: 'TRANSACTIONS', value: analytics.totalTransactions, icon: BarChart2, bg: 'bg-brand-beige-dark' },
-    { label: 'UNITS OUT', value: analytics.totalRemoved, icon: TrendingDown, bg: 'bg-rose-50' },
-    { label: 'REVENUE', value: `€${analytics.totalRevenue.toFixed(2)}`, icon: DollarSign, bg: 'bg-amber-50' },
+    { label: 'Transactions', value: analytics.totalTransactions, icon: BarChart2, bg: 'bg-brand-beige-dark' },
+    { label: 'Units out', value: analytics.totalRemoved, icon: TrendingDown, bg: 'bg-rose-50' },
+    { label: 'Revenue', value: `€${analytics.totalRevenue.toFixed(2)}`, icon: DollarSign, bg: 'bg-amber-50' },
     {
-      label: analytics.hasCostPrices ? 'PROFIT' : 'PROFIT*',
+      label: analytics.hasCostPrices ? 'Profit' : 'Profit*',
       value: `€${analytics.totalProfit.toFixed(2)}`,
       icon: Percent,
       bg: 'bg-emerald-50',
@@ -295,22 +295,22 @@ export default function StockAnalytics() {
       <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
 
         {/* Header row */}
-        <div className="border-b border-brand-black pb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="border-b border-lijn pb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-black uppercase tracking-widest text-brand-black">ANALYTICS</h2>
-            <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">
-              STOCK MOVEMENT & REVENUE — {dateRange.label === 'ALL' ? 'ALL TIME' : `LAST ${dateRange.label}`}
+            <h2 className="text-2xl font-semibold text-brand-black">Analytics</h2>
+            <p className="font-bold text-xs text-brand-black/60 mt-1">
+              Stock movement & revenue — {dateRange.label === 'ALL' ? 'all time' : `last ${dateRange.label}`}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex border border-brand-black">
+            <div className="flex border border-lijn">
               {DATE_RANGES.map(range => (
                 <button
                   key={range.label}
                   onClick={() => setDateRange(range)}
                   className={cn(
-                    'px-3 py-1.5 text-[10px] font-black uppercase tracking-widest border-r border-brand-black last:border-r-0 transition-colors',
+                    'px-3 py-1.5 text-[10px] font-semibold border-r border-lijn last:border-r-0 transition-colors',
                     dateRange.label === range.label
                       ? 'bg-brand-black text-white'
                       : 'bg-brand-beige text-brand-black hover:bg-brand-beige-dark'
@@ -323,15 +323,15 @@ export default function StockAnalytics() {
             <button
               onClick={exportCSV}
               disabled={analytics.totalTransactions === 0}
-              className="border border-brand-black px-3 py-1.5 hover:bg-brand-beige-dark transition-colors flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
+              className="border border-lijn px-3 py-1.5 hover:bg-brand-beige-dark transition-colors flex items-center gap-1.5 text-[10px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
               title="Export to CSV"
             >
               <Download size={12} />
-              <span className="hidden sm:inline">EXPORT</span>
+              <span className="hidden sm:inline">Export</span>
             </button>
             <button
               onClick={() => setRefreshKey(k => k + 1)}
-              className="border border-brand-black p-1.5 hover:bg-brand-beige-dark transition-colors"
+              className="border border-lijn p-1.5 hover:bg-brand-beige-dark transition-colors"
               title="Refresh"
             >
               <RefreshCw size={14} />
@@ -340,14 +340,14 @@ export default function StockAnalytics() {
         </div>
 
         {/* Summary stat cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 border border-brand-black divide-x divide-brand-black">
+        <div className="grid grid-cols-2 sm:grid-cols-4 border border-lijn divide-x divide-brand-black">
           {statCards.map((s, i) => (
             <div key={i} className={cn('p-4 flex flex-col gap-1', s.bg)}>
-              <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-brand-black/60">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold text-brand-black/60">
                 <s.icon size={11} />
                 {s.label}
               </div>
-              <div className="text-2xl font-black font-mono text-brand-black leading-none tabular-nums">
+              <div className="text-2xl font-semibold font-mono text-brand-black leading-none tabular-nums">
                 {s.value}
               </div>
             </div>
@@ -355,9 +355,9 @@ export default function StockAnalytics() {
         </div>
 
         {analytics.totalTransactions === 0 && (
-          <div className="border border-brand-black p-8 text-center">
-            <p className="text-xs font-black uppercase tracking-widest text-brand-black/40">
-              NO TRACKING EVENTS IN THIS PERIOD
+          <div className="border border-lijn p-8 text-center">
+            <p className="text-xs font-semibold text-brand-black/40">
+              No tracking events in this period
             </p>
           </div>
         )}
@@ -366,7 +366,7 @@ export default function StockAnalytics() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             {/* Most consumed */}
-            <Section title="MOST CONSUMED ITEMS" icon={TrendingDown}>
+            <Section title="Most consumed items" icon={TrendingDown}>
               {mostUsed.length === 0 ? EMPTY : mostUsed.map(item => (
                 <BrutalistBar
                   key={item.partId}
@@ -379,11 +379,11 @@ export default function StockAnalytics() {
             </Section>
 
             {/* Top profit = (sale price - supplier cost) x units removed */}
-            <Section title="TOP PROFIT ITEMS" icon={Percent}>
+            <Section title="Top profit items" icon={Percent}>
               {mostProfit.length === 0 ? (
                 <div className="flex items-center justify-center py-6">
-                  <span className="text-xs font-bold uppercase text-brand-black/40 text-center">
-                    NO PROFIT DATA —<br />ADD A SUPPLIER PRICE AND A SALE PRICE IN INVENTREE
+                  <span className="text-xs font-bold text-brand-black/40 text-center">
+                    No profit data —<br />Add a supplier price and a sale price in InvenTree
                   </span>
                 </div>
               ) : mostProfit.map(item => (
@@ -398,7 +398,7 @@ export default function StockAnalytics() {
                   />
                   {item.sellingPrice > 0 && item.costPrice > 0 && (
                     <div className="text-[9px] font-mono text-brand-black/40 pl-[calc(7rem+0.5rem)] sm:pl-[calc(9rem+0.75rem)] -mt-1.5 mb-1">
-                      SELL €{item.sellingPrice.toFixed(2)} — COST €{item.costPrice.toFixed(2)} = €{(item.sellingPrice - item.costPrice).toFixed(2)}/unit
+                      Sell €{item.sellingPrice.toFixed(2)} — cost €{item.costPrice.toFixed(2)} = €{(item.sellingPrice - item.costPrice).toFixed(2)}/unit
                     </div>
                   )}
                 </div>
@@ -406,11 +406,11 @@ export default function StockAnalytics() {
             </Section>
 
             {/* Top revenue */}
-            <Section title="TOP REVENUE ITEMS" icon={DollarSign}>
+            <Section title="Top revenue items" icon={DollarSign}>
               {mostProfitable.length === 0 ? (
                 <div className="flex items-center justify-center py-6">
-                  <span className="text-xs font-bold uppercase text-brand-black/40 text-center">
-                    NO REVENUE DATA —<br />ADD PRICES TO ITEMS
+                  <span className="text-xs font-bold text-brand-black/40 text-center">
+                    No revenue data —<br />Add prices to items
                   </span>
                 </div>
               ) : mostProfitable.map(item => (
@@ -427,7 +427,7 @@ export default function StockAnalytics() {
             </Section>
 
             {/* Most restocked */}
-            <Section title="MOST RESTOCKED ITEMS" icon={TrendingUp}>
+            <Section title="Most restocked items" icon={TrendingUp}>
               {mostAdded.length === 0 ? EMPTY : mostAdded.map(item => (
                 <BrutalistBar
                   key={item.partId}
@@ -440,7 +440,7 @@ export default function StockAnalytics() {
             </Section>
 
             {/* By category */}
-            <Section title="BY CATEGORY (UNITS OUT)" icon={Package}>
+            <Section title="By category (units out)" icon={Package}>
               {byCategory.length === 0 ? EMPTY : byCategory.map(item => (
                 <BrutalistBar
                   key={item.cat}
@@ -457,12 +457,12 @@ export default function StockAnalytics() {
 
         {!analytics.hasCostPrices && analytics.totalTransactions > 0 && (
           <p className="text-[10px] font-mono text-brand-black/40 text-center">
-            * PROFIT REQUIRES PRICING MIN (COST) AND MAX (SELL) SET ON PARTS IN INVENTREE
+            * Profit requires pricing min (cost) and max (sell) set on parts in InvenTree
           </p>
         )}
 
         <p className="text-[10px] font-mono text-brand-black/30 text-center pb-2">
-          BASED ON {trackingEntries.length} MOST RECENT TRACKING ENTRIES
+          Based on the {trackingEntries.length} most recent tracking entries
         </p>
 
       </div>

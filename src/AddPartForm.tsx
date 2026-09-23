@@ -93,24 +93,24 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
 
     requiredFields.forEach((field) => {
       if (!formData[field]?.toString().trim()) {
-        newErrors[field] = `${field} IS REQUIRED`;
+        newErrors[field] = `${field} is required`;
       }
     });
 
     if (formData.initialQuantity && isNaN(parseFloat(formData.initialQuantity))) {
-      newErrors.initialQuantity = 'MUST BE A NUMBER';
+      newErrors.initialQuantity = 'Must be a number';
     }
     if (formData.minimumStock && isNaN(parseFloat(formData.minimumStock))) {
-      newErrors.minimumStock = 'MUST BE A NUMBER';
+      newErrors.minimumStock = 'Must be a number';
     }
     if (formData.sellingPrice && isNaN(parseFloat(formData.sellingPrice))) {
-      newErrors.sellingPrice = 'MUST BE A NUMBER';
+      newErrors.sellingPrice = 'Must be a number';
     }
     if (formData.supplierSetPrice && isNaN(parseFloat(formData.supplierSetPrice))) {
-      newErrors.supplierSetPrice = 'MUST BE A NUMBER';
+      newErrors.supplierSetPrice = 'Must be a number';
     }
     if (formData.supplierSetQty && isNaN(parseFloat(formData.supplierSetQty))) {
-      newErrors.supplierSetQty = 'MUST BE A NUMBER';
+      newErrors.supplierSetQty = 'Must be a number';
     }
 
     setErrors(newErrors);
@@ -130,11 +130,11 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
 
   const handleImageFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
-      setErrors((prev) => ({ ...prev, image: 'PLEASE SELECT A VALID IMAGE' }));
+      setErrors((prev) => ({ ...prev, image: 'Please select a valid image' }));
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, image: 'IMAGE MUST BE LESS THAN 10MB' }));
+      setErrors((prev) => ({ ...prev, image: 'Image must be less than 10 MB' }));
       return;
     }
     
@@ -167,7 +167,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
       }, 50);
     } catch (err) {
       console.error('[AddPartForm] Camera access failed:', err);
-      setErrors(prev => ({ ...prev, image: 'CAMERA ACCESS DENIED — USE UPLOAD INSTEAD' }));
+      setErrors(prev => ({ ...prev, image: 'Camera access denied, use upload instead' }));
     }
   }, []);
 
@@ -249,7 +249,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
       await onSubmit(formData);
       // Close modal handles success toast and reset, no need to replicate logic
     } catch (error: unknown) {
-      let msg = (error instanceof Error ? error.message : String(error)) || 'FAILED TO ADD PART';
+      let msg = (error instanceof Error ? error.message : String(error)) || 'Failed to add part';
       // Strip raw HTML (e.g. nginx 413 pages)
       if (msg.includes('<') && msg.includes('>')) {
         const stripped = msg.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
@@ -263,13 +263,13 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
 
   // Label helper
   const Label = ({ text, required = false }: { text: string; required?: boolean }) => (
-    <label className="block text-[10px] font-black mb-1.5 uppercase tracking-widest text-brand-black/70">
+    <label className="block text-[10px] font-semibold mb-1.5 text-brand-black/70">
       {text} {required && <span className="text-red-500">*</span>}
     </label>
   );
 
   const FieldError = ({ msg }: { msg?: string }) => (
-    msg ? <p className="text-[10px] text-red-500 mt-1 font-bold uppercase tracking-widest">{msg}</p> : null
+    msg ? <p className="text-[10px] text-red-500 mt-1 font-bold">{msg}</p> : null
   );
 
   return (
@@ -278,9 +278,9 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
       <div className="w-full max-w-2xl">
         
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 mb-6 border-b border-brand-black">
-          <h2 className="text-lg font-black uppercase tracking-widest text-brand-black">
-            CREATE NEW ITEM
+        <div className="flex items-center justify-between pb-4 mb-6 border-b border-lijn">
+          <h2 className="text-lg font-semibold text-brand-black">
+            Create new item
           </h2>
           {onCancel && (
             <button 
@@ -295,19 +295,19 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
         {/* Content */}
         {errors.submit && (
           <div className="mb-4 border border-red-500 bg-red-50 p-3">
-            <p className="text-xs font-bold uppercase tracking-widest text-red-600">{errors.submit}</p>
+            <p className="text-xs font-bold text-red-600">{errors.submit}</p>
           </div>
         )}
 
         <form onSubmit={handleFinalSubmit} className="space-y-5">
 
           {/* Section 1: Barcode (most important — required) */}
-          <div className="border border-brand-black p-4 space-y-3">
+          <div className="border border-lijn p-4 space-y-3">
             <div>
-              <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-brand-black/70">
-                <QrCode size={14} /> BARCODE <span className="text-red-500">*</span>
+              <h3 className="text-[10px] font-semibold flex items-center gap-2 text-brand-black/70">
+                <QrCode size={14} /> Barcode <span className="text-red-500">*</span>
               </h3>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+              <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                 Scan or type the barcode on the individual item. Used for checkout scanning.
               </p>
             </div>
@@ -317,7 +317,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 name="barcode"
                 value={formData.barcode || ''}
                 onChange={handleChange}
-                placeholder="SCAN OR TYPE BARCODE"
+                placeholder="Scan or type barcode"
                 className={cn(
                   "brutalist-input flex-1 text-sm font-mono",
                   errors.barcode && "border-red-500 bg-red-50"
@@ -332,12 +332,12 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 )}
               >
                 {isScanning ? <StopCircle size={14} /> : <Camera size={14} />}
-                {isScanning ? 'STOP' : 'SCAN'}
+                {isScanning ? 'Stop' : 'Scan'}
               </button>
             </div>
             <FieldError msg={errors.barcode} />
             {isScanning && (
-              <div className="w-full aspect-[4/3] overflow-hidden border border-brand-black bg-black">
+              <div className="w-full aspect-[4/3] overflow-hidden border border-lijn bg-black">
                 <Scanner
                   onScan={(codes: IDetectedBarcode[]) => {
                     if (codes.length > 0) {
@@ -365,9 +365,9 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 <button
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, barcode: '' }))}
-                  className="text-red-500 font-bold text-[10px] uppercase tracking-widest hover:underline"
+                  className="text-red-500 font-bold text-[10px] hover:underline"
                 >
-                  CLEAR
+                  Clear
                 </button>
               </div>
             )}
@@ -382,10 +382,10 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 name="partName"
                 value={formData.partName}
                 onChange={handleChange}
-                placeholder="e.g., COLA ZERO"
+                placeholder="e.g. Cola Zero"
                 className={cn("brutalist-input w-full", errors.partName && "border-red-500 bg-red-50")}
               />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+              <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                 The display name shown in the stock list and at checkout.
               </p>
               <FieldError msg={errors.partName} />
@@ -399,12 +399,12 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 onChange={handleChange}
                 className={cn("brutalist-input w-full", errors.category && "border-red-500 bg-red-50")}
               >
-                <option value="">SELECT...</option>
+                <option value="">Select...</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={String(cat.id)}>{cat.name.toUpperCase()}</option>
                 ))}
               </select>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+              <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                 Product group this item belongs to (e.g. Drinks, Electronics).
               </p>
               <FieldError msg={errors.category} />
@@ -418,12 +418,12 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 onChange={handleChange}
                 className={cn("brutalist-input w-full", errors.storageLocation && "border-red-500 bg-red-50")}
               >
-                <option value="">SELECT...</option>
+                <option value="">Select...</option>
                 {locations.map((loc) => (
                   <option key={loc.id} value={String(loc.id)}>{loc.name.toUpperCase()}</option>
                 ))}
               </select>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+              <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                 Where this item is physically stored (e.g. Fridge, Shelf A).
               </p>
               <FieldError msg={errors.storageLocation} />
@@ -443,7 +443,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 className={cn("brutalist-input w-full", errors.initialQuantity && "border-red-500 bg-red-50")}
                 placeholder="0"
               />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+              <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                 Units in stock right now.
               </p>
               <FieldError msg={errors.initialQuantity} />
@@ -459,15 +459,15 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 className={cn("brutalist-input w-full", errors.minimumStock && "border-red-500 bg-red-50")}
                 placeholder="0"
               />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+              <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                 Low stock alert threshold.
               </p>
               <FieldError msg={errors.minimumStock} />
             </div>
             <div>
               <Label text="Selling Price" />
-              <div className="flex border border-brand-black overflow-hidden">
-                <span className="bg-brand-beige-dark px-2 py-2 font-bold border-r border-brand-black text-xs">
+              <div className="flex border border-lijn overflow-hidden">
+                <span className="bg-brand-beige-dark px-2 py-2 font-bold border-r border-lijn text-xs">
                   {formData.sellingPriceCurrency}
                 </span>
                 <input
@@ -480,7 +480,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                   placeholder="0.00"
                 />
               </div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+              <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                 Price customers pay per unit.
               </p>
               <FieldError msg={errors.sellingPrice} />
@@ -501,8 +501,8 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
           </div>
 
           {/* Section 4: Supplier */}
-          <div className="border border-brand-black p-4 space-y-4">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-brand-black/70">SUPPLIER INFO</h3>
+          <div className="border border-lijn p-4 space-y-4">
+            <h3 className="text-[10px] font-semibold text-brand-black/70">Supplier info</h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -518,7 +518,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                     <option key={s.id} value={String(s.id)}>{s.name.toUpperCase()}</option>
                   ))}
                 </select>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                   Who you purchase this item from.
                 </p>
               </div>
@@ -542,11 +542,11 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                     )}
                   >
                     {isSkuScanning ? <StopCircle size={14} /> : <Camera size={14} />}
-                    {isSkuScanning ? 'STOP' : 'SCAN'}
+                    {isSkuScanning ? 'Stop' : 'Scan'}
                   </button>
                 </div>
                 {isSkuScanning && (
-                  <div className="w-full aspect-[4/3] overflow-hidden border border-brand-black bg-black mt-2">
+                  <div className="w-full aspect-[4/3] overflow-hidden border border-lijn bg-black mt-2">
                     <Scanner
                       onScan={(codes: IDetectedBarcode[]) => {
                         if (codes.length > 0) {
@@ -574,13 +574,13 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                     <button
                       type="button"
                       onClick={() => setFormData(prev => ({ ...prev, supplierSku: '' }))}
-                      className="text-red-500 font-bold text-[10px] uppercase tracking-widest hover:underline"
+                      className="text-red-500 font-bold text-[10px] hover:underline"
                     >
-                      CLEAR
+                      Clear
                     </button>
                   </div>
                 )}
-                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                   Barcode on the box or pack (e.g. case of 24).
                 </p>
               </div>
@@ -598,15 +598,15 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                   className={cn("brutalist-input w-full", errors.supplierSetQty && "border-red-500 bg-red-50")}
                   placeholder="e.g. 24"
                 />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                   Units per pack/case.
                 </p>
                 <FieldError msg={errors.supplierSetQty} />
               </div>
               <div className="sm:col-span-2">
                 <Label text="Pack Price" />
-                <div className="flex border border-brand-black overflow-hidden">
-                  <span className="bg-brand-beige-dark px-2 py-2 font-bold border-r border-brand-black text-xs">
+                <div className="flex border border-lijn overflow-hidden">
+                  <span className="bg-brand-beige-dark px-2 py-2 font-bold border-r border-lijn text-xs">
                     {formData.supplierCurrency}
                   </span>
                   <input
@@ -619,7 +619,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                     placeholder="0.00"
                   />
                 </div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                   Total price paid for one pack.
                   {formData.supplierSetPrice && formData.supplierSetQty && parseFloat(formData.supplierSetQty) > 0 && (
                     <span className="text-emerald-700 ml-1">
@@ -666,40 +666,40 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
                 onDrop={handleDrop}
                 className={cn(
                   "flex flex-col items-center justify-center border border-dashed transition-all min-h-[120px] p-3",
-                  isDragging ? "border-brand-black bg-brand-beige-dark" : "border-brand-black/30",
+                  isDragging ? "border-lijn bg-brand-beige-dark" : "border-lijn",
                   imagePreview && "p-2"
                 )}
               >
                 {imagePreview ? (
                   <div className="flex flex-col items-center w-full gap-2">
-                    <img src={imagePreview} alt="Preview" className="w-24 h-24 object-contain border border-brand-black bg-white" />
+                    <img src={imagePreview} alt="Preview" className="w-24 h-24 object-contain border border-lijn bg-white" />
                     <div className="flex gap-3">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60 hover:text-brand-black cursor-pointer transition-colors">
-                        CHANGE
+                      <label className="text-[10px] font-bold text-brand-black/60 hover:text-brand-black cursor-pointer transition-colors">
+                        Change
                         <input type="file" hidden accept="image/*" onChange={handleImageChange} />
                       </label>
                       <button
                         type="button"
                         onClick={() => { setFormData(prev => ({ ...prev, image: undefined })); setImagePreview(null); }}
-                        className="text-[10px] font-bold uppercase tracking-widest text-red-500 hover:underline"
+                        className="text-[10px] font-bold text-red-500 hover:underline"
                       >
-                        REMOVE
+                        Remove
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center text-center gap-2">
                     <ImageIcon size={24} className="text-brand-black/20" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40">
-                      DROP, PASTE, OR
+                    <p className="text-[10px] font-bold text-brand-black/40">
+                      Drop, paste, or
                     </p>
                     <div className="flex gap-2">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60 hover:text-brand-black cursor-pointer border border-brand-black px-2 py-1 transition-colors">
-                        UPLOAD
+                      <label className="text-[10px] font-bold text-brand-black/60 hover:text-brand-black cursor-pointer border border-lijn px-2 py-1 transition-colors">
+                        Upload
                         <input type="file" hidden accept="image/*" onChange={handleImageChange} />
                       </label>
-                      <button type="button" onClick={openCamera} className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60 hover:text-brand-black border border-brand-black px-2 py-1 flex items-center gap-1 transition-colors">
-                        <Camera size={10} /> PHOTO
+                      <button type="button" onClick={openCamera} className="text-[10px] font-bold text-brand-black/60 hover:text-brand-black border border-lijn px-2 py-1 flex items-center gap-1 transition-colors">
+                        <Camera size={10} /> Photo
                       </button>
                     </div>
                   </div>
@@ -709,15 +709,15 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
           </div>
 
           {/* Actions */}
-          <div className="pt-4 border-t border-brand-black flex gap-3 justify-end">
+          <div className="pt-4 border-t border-lijn flex gap-3 justify-end">
             {onCancel && (
               <button
                 type="button"
                 onClick={onCancel}
-                className="text-xs font-black uppercase tracking-widest text-brand-black/60 hover:text-brand-black px-4 py-2 transition-colors"
+                className="text-xs font-semibold text-brand-black/60 hover:text-brand-black px-4 py-2 transition-colors"
                 disabled={loading}
               >
-                CANCEL
+                Cancel
               </button>
             )}
             <button
@@ -729,7 +729,7 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
               )}
             >
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              SAVE PART
+              Save part
             </button>
           </div>
         </form>
@@ -752,14 +752,14 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ onSubmit, categories, locatio
             onClick={capturePhoto}
             className="brutalist-button py-3 px-8 text-sm bg-emerald-400 text-brand-black flex items-center gap-2"
           >
-            <ZoomIn size={18} /> CAPTURE
+            <ZoomIn size={18} /> Capture
           </button>
           <button
             type="button"
             onClick={closeCamera}
             className="brutalist-button py-3 px-6 text-sm bg-white"
           >
-            CANCEL
+            Cancel
           </button>
         </div>
       </div>

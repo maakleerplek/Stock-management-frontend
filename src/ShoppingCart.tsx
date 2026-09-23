@@ -64,20 +64,20 @@ function ShoppingCart({
     return (
         <div className="w-full flex flex-col bg-brand-beige border-l-0">
             {/* Header */}
-            <div className="p-2 border-b border-brand-black bg-brand-beige-dark shrink-0">
-                <h2 className="text-brand-black uppercase tracking-widest text-xs font-black flex items-center justify-center gap-2">
+            <div className="px-4 sm:px-6 py-3 border-b border-lijn bg-brand-beige shrink-0">
+                <h2 className="text-brand-black text-base font-semibold flex items-center gap-2">
                     {isVolunteerMode ? (
                         <Heart className="w-4 h-4" />
                     ) : (
                         <ShoppingCartIcon className="w-4 h-4" />
                     )}
-                    {isVolunteerMode ? (isSetMode ? "SET STOCK" : "ADD TO STOCK") : "SHOPPING CART"}
+                    {isVolunteerMode ? (isSetMode ? "Set stock" : "Add to stock") : "Shopping cart"}
                 </h2>
             </div>
 
             {/* Volunteer Mode Toggle */}
             {isVolunteerMode && onSetModeChange && (
-                <div className="px-4 py-3 border-b border-brand-black bg-brand-beige-dark">
+                <div className="px-4 py-3 border-b border-lijn bg-brand-beige-dark">
                     <div className="grid grid-cols-2 gap-0">
                         <button
                             onClick={() => {
@@ -85,13 +85,13 @@ function ShoppingCart({
                                 onSetModeChange(false);
                             }}
                             className={cn(
-                                "py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer border border-brand-black flex items-center justify-center gap-1.5 transition-colors",
+                                "py-2.5 text-[10px] font-semibold cursor-pointer border border-lijn flex items-center justify-center gap-1.5 transition-colors",
                                 !isSetMode
                                     ? "bg-blue-600 text-white"
                                     : "bg-brand-beige text-brand-black hover:bg-blue-100"
                             )}
                         >
-                            ADD / REMOVE
+                            Add / remove
                         </button>
                         <button
                             onClick={() => {
@@ -99,13 +99,13 @@ function ShoppingCart({
                                 onSetModeChange(true);
                             }}
                             className={cn(
-                                "py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer border border-l-0 border-brand-black flex items-center justify-center gap-1.5 transition-colors",
+                                "py-2.5 text-[10px] font-semibold cursor-pointer border border-l-0 border-lijn flex items-center justify-center gap-1.5 transition-colors",
                                 isSetMode
                                     ? "bg-blue-600 text-white"
                                     : "bg-brand-beige text-brand-black hover:bg-blue-100"
                             )}
                         >
-                            SET ABSOLUTE
+                            Set absolute
                         </button>
                     </div>
                 </div>
@@ -118,9 +118,9 @@ function ShoppingCart({
                         <div className="text-emerald-500">
                             <CheckCircle className="w-12 h-12" />
                         </div>
-                        <h3 className="text-2xl font-black uppercase">DONE!</h3>
-                        <p className="text-lg font-bold uppercase px-4 py-2 border border-brand-black bg-white">
-                            TOTAL: €{checkedOutTotal?.toFixed(2)}
+                        <h3 className="text-2xl font-semibold">Done!</h3>
+                        <p className="text-lg font-bold px-4 py-2 border border-lijn bg-white">
+                            Total: €{checkedOutTotal?.toFixed(2)}
                         </p>
                         
                         <div className="w-full flex justify-center mt-2">
@@ -135,7 +135,7 @@ function ShoppingCart({
                                 onClick={onClearCheckout}
                                 className="brutalist-button mt-4 px-6 py-3 text-xs bg-white"
                             >
-                                START NEW TRANSACTION
+                                Start new transaction
                             </button>
                         )}
                     </div>
@@ -191,12 +191,12 @@ function ShoppingCart({
                                                 }}
                                                 exit={{ opacity: 0, x: -20, transition: { duration: 0.15 } }}
                                                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                                                className="px-3 py-3 border-b border-brand-black/20 hover:bg-brand-beige-dark/30"
+                                                className="px-3 py-3 border-b border-lijn hover:bg-brand-beige-dark/30"
                                             >
                                                 {/* Top row: Image, Name, Remove */}
                                                 <div className="flex items-start gap-3">
                                                     {/* Image */}
-                                                    <div className="w-14 h-14 flex-shrink-0 border border-brand-black bg-white overflow-hidden">
+                                                    <div className="w-14 h-14 flex-shrink-0 border border-lijn bg-white overflow-hidden">
                                                         <ImageDisplay
                                                             imagePath={item.image}
                                                             alt={item.name}
@@ -207,7 +207,7 @@ function ShoppingCart({
                                                     
                                                     {/* Info */}
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="font-black text-sm uppercase leading-tight truncate">
+                                                        <p className="font-semibold text-sm leading-tight truncate">
                                                             {item.name}
                                                         </p>
                                                         
@@ -234,10 +234,10 @@ function ShoppingCart({
                                                                 <span className="text-brand-black/60">Stock:</span>
                                                                 <span>{currentStock}</span>
                                                                 <span className="text-brand-black/40">→</span>
-                                                                <span className={cn("font-black", newStock < 0 ? "text-red-600" : stockChangeColor)}>
+                                                                <span className={cn("font-semibold", newStock < 0 ? "text-red-600" : stockChangeColor)}>
                                                                     {newStock}
                                                                 </span>
-                                                                <span className={cn("text-[10px] font-black", stockChangeColor)}>
+                                                                <span className={cn("text-[10px] font-semibold", stockChangeColor)}>
                                                                     ({stockChangeText})
                                                                 </span>
                                                             </span>
@@ -247,31 +247,31 @@ function ShoppingCart({
                                                     {/* Remove button */}
                                                     <button
                                                         onClick={() => handleRemoveItem(item.id)}
-                                                        className="w-11 h-11 flex items-center justify-center bg-red-500 text-white border border-brand-black hover:bg-red-600 active:scale-95 transition-all flex-shrink-0"
+                                                        className="w-11 h-11 flex items-center justify-center bg-red-500 text-white border border-lijn hover:bg-red-600 active:scale-95 transition-all flex-shrink-0"
                                                     >
                                                         <Trash2 size={16} />
                                                     </button>
                                                 </div>
 
                                                 {/* Bottom row: Quantity controls & Price */}
-                                                <div className="flex items-center justify-between mt-3 pt-2 border-t border-brand-black/20">
+                                                <div className="flex items-center justify-between mt-3 pt-2 border-t border-lijn">
                                                 {/* Quantity Controls */}
                                                     <div className="flex items-center gap-1">
                                                         <button
                                                             onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity - 1)}
-                                                            className="w-11 h-11 flex items-center justify-center border border-brand-black bg-red-400 hover:bg-red-500 active:scale-95 transition-all"
+                                                            className="w-11 h-11 flex items-center justify-center border border-lijn bg-red-400 hover:bg-red-500 active:scale-95 transition-all"
                                                         >
                                                             <Minus size={16} />
                                                         </button>
                                                         <span className={cn(
-                                                            "w-12 text-center font-black text-lg",
+                                                            "w-12 text-center font-semibold text-lg",
                                                             item.cartQuantity < 0 ? "text-red-600" : "text-brand-black"
                                                         )}>
                                                             {item.cartQuantity > 0 && !isVolunteerMode ? '' : ''}{item.cartQuantity}
                                                         </span>
                                                         <button
                                                             onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity + 1)}
-                                                            className="w-11 h-11 flex items-center justify-center border border-brand-black bg-emerald-400 hover:bg-emerald-500 active:scale-95 transition-all"
+                                                            className="w-11 h-11 flex items-center justify-center border border-lijn bg-emerald-400 hover:bg-emerald-500 active:scale-95 transition-all"
                                                         >
                                                             <Plus size={16} />
                                                         </button>
@@ -281,7 +281,7 @@ function ShoppingCart({
                                                     {!isVolunteerMode && (
                                                         <div className="text-right">
                                                             <span className="text-[10px] text-brand-black/50 block">€{item.price.toFixed(2)} × {item.cartQuantity}</span>
-                                                            <span className="font-black text-lg">€{(item.price * item.cartQuantity).toFixed(2)}</span>
+                                                            <span className="font-semibold text-lg">€{(item.price * item.cartQuantity).toFixed(2)}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -294,18 +294,18 @@ function ShoppingCart({
                         ) : (
                             <div className="py-12 flex flex-col items-center justify-center bg-brand-beige text-brand-black/40">
                                 <ShoppingCartIcon size={36} className="mb-3 opacity-30" />
-                                <p className="font-black text-xs uppercase tracking-widest">CART IS EMPTY</p>
-                                <p className="text-[10px] mt-1 opacity-60">SCAN ITEMS TO ADD</p>
+                                <p className="font-semibold text-xs">Cart is empty</p>
+                                <p className="text-[10px] mt-1 opacity-60">Scan items to add</p>
                             </div>
                         )}
 
                         {/* Footer: Total & Checkout */}
                         {(cartItems.length > 0 || extraCosts > 0) && (
-                            <div className="mt-auto border-t border-brand-black bg-brand-beige p-4">
+                            <div className="mt-auto border-t border-lijn bg-brand-beige p-4">
                                 {!isVolunteerMode && (
                                     <div className="flex justify-between items-center mb-3">
-                                        <span className="text-sm font-black uppercase text-brand-black/60">TOTAL</span>
-                                        <span className="font-black text-2xl">€{(totalPrice + extraCosts).toFixed(2)}</span>
+                                        <span className="text-sm font-semibold text-brand-black/60">Total</span>
+                                        <span className="font-semibold text-2xl">€{(totalPrice + extraCosts).toFixed(2)}</span>
                                     </div>
                                 )}
                                 <button
@@ -315,7 +315,7 @@ function ShoppingCart({
                                     }}
                                     disabled={isCheckingOut}
                                     className={cn(
-                                        "w-full py-3 text-sm font-black flex items-center justify-center gap-2 tracking-widest border border-brand-black transition-all",
+                                        "w-full py-3 text-sm font-semibold flex items-center justify-center gap-2 border border-lijn transition-all",
                                         isVolunteerMode
                                             ? "bg-amber-300 text-brand-black hover:brightness-95"
                                             : "bg-emerald-400 text-brand-black hover:brightness-95",
@@ -325,10 +325,10 @@ function ShoppingCart({
                                     {isCheckingOut ? (
                                         <>
                                             <Loader2 className="w-4 h-4 animate-spin" />
-                                            PROCESSING...
+                                            Processing...
                                         </>
                                     ) : (
-                                        isVolunteerMode ? (isSetMode ? 'SET STOCK' : 'ADD TO STOCK') : 'CHECKOUT'
+                                        isVolunteerMode ? (isSetMode ? 'Set stock' : 'Add to stock') : 'Checkout'
                                     )}
                                 </button>
                             </div>

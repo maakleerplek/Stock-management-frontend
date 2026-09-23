@@ -31,7 +31,7 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
             setError('');
             onClose();
         } else {
-            setError('INCORRECT PASSWORD');
+            setError('Incorrect password');
             setPassword('');
         }
     };
@@ -55,17 +55,17 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
             {/* Backdrop */}
             {open && (
                 <div 
-                    className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4 transition-opacity"
+                    className="fixed inset-0 bg-brand-black/50 z-50 flex items-center justify-center p-4 transition-opacity"
                     onClick={handleClose}
                 >
                     {/* Modal */}
                     <div 
-                        className="border border-brand-black bg-white w-full max-w-md flex flex-col"
+                        className="border border-lijn bg-white w-full max-w-md flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="flex items-center justify-between p-4 border-b border-brand-black bg-brand-black">
-                            <h2 className="text-sm font-black uppercase tracking-widest text-white">VOLUNTEER LOGIN</h2>
+                        <div className="flex items-center justify-between p-4 border-b border-lijn bg-brand-black">
+                            <h2 className="text-sm font-semibold text-white">Volunteer login</h2>
                             <button
                                 onClick={handleClose}
                                 className="p-1 hover:bg-zinc-800 transition-colors"
@@ -77,13 +77,13 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                         {/* Content */}
                         <div className="flex flex-col gap-6 p-6 bg-white">
                             <div className="flex gap-3 items-start">
-                                <div className="p-1 border border-brand-black bg-amber-200">
+                                <div className="p-1 border border-lijn bg-amber-200">
                                     <AlertCircle className="w-4 h-4 flex-shrink-0 text-brand-black" />
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <h3 className="font-black text-xs uppercase tracking-widest">VOLUNTEERS SIGN IN HERE</h3>
-                                    <p className="text-xs font-bold leading-relaxed text-brand-black/60 uppercase">
-                                        SIGN IN WITH YOUR MAAKLEERPLEK MICROSOFT ACCOUNT TO ADJUST STOCK LEVELS AND MANAGE INVENTORY.
+                                    <h3 className="font-semibold text-xs">Volunteers sign in here</h3>
+                                    <p className="text-xs font-bold leading-relaxed text-brand-black/60">
+                                        Sign in with your Maakleerplek Microsoft account to adjust stock levels and manage inventory.
                                     </p>
                                 </div>
                             </div>
@@ -103,11 +103,11 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                 {isMsalConfigured && (
                                     <div className="flex items-center gap-3 my-1">
                                         <div className="h-px flex-1 bg-brand-black/20" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-black/40">OR</span>
+                                        <span className="text-[10px] font-semibold text-brand-black/40">Or</span>
                                         <div className="h-px flex-1 bg-brand-black/20" />
                                     </div>
                                 )}
-                                <label className="text-xs font-black uppercase tracking-widest text-brand-black">ENTER PASSWORD</label>
+                                <label className="text-xs font-semibold text-brand-black">Enter password</label>
                                 <input
                                     type="password"
                                     value={password}
@@ -115,12 +115,12 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                     onKeyDown={handleKeyPress}
                                     autoFocus={!isMsalConfigured}
                                     className={cn(
-                                        "w-full px-4 py-3 text-lg font-black tracking-widest border border-brand-black bg-white outline-none focus:bg-brand-beige transition-colors",
+                                        "w-full px-4 py-3 text-lg font-semibold border border-lijn bg-white outline-none focus:bg-brand-beige transition-colors",
                                         error && "border-red-600 bg-red-50"
                                     )}
                                 />
                                 {error && (
-                                    <p className="text-xs font-black uppercase tracking-widest text-red-600 mt-1">
+                                    <p className="text-xs font-semibold text-red-600 mt-1">
                                         {error}
                                     </p>
                                 )}
@@ -129,20 +129,20 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-4 p-4 border-t border-brand-black bg-white">
+                        <div className="flex gap-4 p-4 border-t border-lijn bg-white">
                             <button
                                 onClick={handleClose}
-                                className="flex-1 brutalist-button bg-white text-brand-black py-3 text-xs uppercase flex justify-center items-center gap-2"
+                                className="flex-1 brutalist-button bg-white text-brand-black py-3 text-xs flex justify-center items-center gap-2"
                             >
-                                CANCEL
+                                Cancel
                             </button>
                             {/* TODO(remove): password submit — remove with the password block above. */}
                             <button
                                 onClick={handleSubmit}
-                                className="flex-1 brutalist-button bg-amber-300 text-brand-black py-3 text-xs uppercase flex justify-center items-center gap-2"
+                                className="flex-1 brutalist-button bg-amber-300 text-brand-black py-3 text-xs flex justify-center items-center gap-2"
                             >
                                 <LogIn className="w-4 h-4" />
-                                AUTHENTICATE
+                                Authenticate
                             </button>
                         </div>
                     </div>

@@ -46,7 +46,7 @@ function WeroQrCode({ total = 0, description = 'Stock Purchase' }: WeroQrCodePro
             <div className="brutalist-card flex flex-col items-center gap-4 p-6 text-center w-full max-w-[400px] mx-auto">
                 <div className="flex items-center gap-2">
                     <CreditCard className="w-7 h-7" />
-                    <h2 className="text-2xl font-bold uppercase">Pay Now</h2>
+                    <h2 className="text-2xl font-bold">Pay Now</h2>
                 </div>
                 
                 {total > 0 ? (

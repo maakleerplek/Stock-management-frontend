@@ -50,7 +50,7 @@ export default function MicrosoftSignInButton({ onSuccess }: MicrosoftSignInButt
         return; // user closed the popup — not an error worth showing
       }
       console.error('MSAL login failed', err);
-      setError('MICROSOFT SIGN-IN FAILED');
+      setError('Microsoft sign-in failed');
     }
   };
 
@@ -59,13 +59,13 @@ export default function MicrosoftSignInButton({ onSuccess }: MicrosoftSignInButt
       <button
         onClick={handleSignIn}
         disabled={busy}
-        className="brutalist-button bg-white text-brand-black py-3 text-xs uppercase flex justify-center items-center gap-2 disabled:opacity-60"
+        className="brutalist-button bg-white text-brand-black py-3 text-xs flex justify-center items-center gap-2 disabled:opacity-60"
       >
         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <MicrosoftLogo />}
-        SIGN IN WITH MICROSOFT
+        Sign in with Microsoft
       </button>
       {error && (
-        <p className="text-xs font-black uppercase tracking-widest text-red-600">{error}</p>
+        <p className="text-xs font-semibold text-red-600">{error}</p>
       )}
     </div>
   );

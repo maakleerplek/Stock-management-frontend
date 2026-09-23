@@ -102,16 +102,16 @@ export default function CacheManagerComponent({ open, onClose }: CacheManagerPro
                         className="fixed inset-0 z-50 flex items-center justify-center p-4"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-white border border-brand-black shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] max-w-md w-full">
+                        <div className="bg-white border border-lijn max-w-md w-full">
                             {/* Header */}
-                            <div className="flex items-center justify-between p-6 border-b border-brand-black bg-brand-beige-dark">
+                            <div className="flex items-center justify-between p-6 border-b border-lijn bg-brand-beige-dark">
                                 <div className="flex items-center gap-3">
                                     <Database className="w-6 h-6" />
-                                    <h2 className="text-lg font-black uppercase tracking-widest">CACHE MANAGER</h2>
+                                    <h2 className="text-lg font-semibold">Cache manager</h2>
                                 </div>
                                 <button
                                     onClick={onClose}
-                                    className="p-2 hover:bg-brand-beige border border-brand-black transition-colors"
+                                    className="p-2 hover:bg-brand-beige border border-lijn transition-colors"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
@@ -128,46 +128,46 @@ export default function CacheManagerComponent({ open, onClose }: CacheManagerPro
                                         {/* Stats */}
                                         <div className="space-y-4">
                                             {/* API Cache */}
-                                            <div className="border border-brand-black bg-white p-4">
+                                            <div className="border border-lijn bg-white p-4">
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <HardDrive className="w-5 h-5" />
-                                                    <h3 className="font-black uppercase text-sm tracking-widest">API CACHE</h3>
+                                                    <h3 className="font-semibold text-sm">API cache</h3>
                                                 </div>
                                                 <div className="space-y-2 text-sm">
                                                     <div className="flex justify-between">
-                                                        <span className="font-bold uppercase text-xs">ENTRIES:</span>
-                                                        <span className="font-black">{stats.apiCacheCount}</span>
+                                                        <span className="font-bold text-xs">Entries:</span>
+                                                        <span className="font-semibold">{stats.apiCacheCount}</span>
                                                     </div>
                                                     <div className="flex justify-between">
-                                                        <span className="font-bold uppercase text-xs">SIZE:</span>
-                                                        <span className="font-black">{formatBytes(stats.apiCacheSize)}</span>
+                                                        <span className="font-bold text-xs">Size:</span>
+                                                        <span className="font-semibold">{formatBytes(stats.apiCacheSize)}</span>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Image Cache */}
-                                            <div className="border border-brand-black bg-white p-4">
+                                            <div className="border border-lijn bg-white p-4">
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <Database className="w-5 h-5" />
-                                                    <h3 className="font-black uppercase text-sm tracking-widest">IMAGE CACHE</h3>
+                                                    <h3 className="font-semibold text-sm">Image cache</h3>
                                                 </div>
                                                 <div className="space-y-2 text-sm">
                                                     <div className="flex justify-between">
-                                                        <span className="font-bold uppercase text-xs">IMAGES:</span>
-                                                        <span className="font-black">{stats.imageCacheCount}</span>
+                                                        <span className="font-bold text-xs">Images:</span>
+                                                        <span className="font-semibold">{stats.imageCacheCount}</span>
                                                     </div>
                                                     <div className="flex justify-between">
-                                                        <span className="font-bold uppercase text-xs">SIZE:</span>
-                                                        <span className="font-black">{formatBytes(stats.imageCacheSize)}</span>
+                                                        <span className="font-bold text-xs">Size:</span>
+                                                        <span className="font-semibold">{formatBytes(stats.imageCacheSize)}</span>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Total */}
-                                            <div className="border border-brand-black bg-emerald-400 p-4">
+                                            <div className="border border-lijn bg-emerald-400 p-4">
                                                 <div className="flex justify-between items-center">
-                                                    <span className="font-black uppercase tracking-widest">TOTAL SIZE:</span>
-                                                    <span className="font-black text-lg">
+                                                    <span className="font-semibold">Total size:</span>
+                                                    <span className="font-semibold text-lg">
                                                         {formatBytes(stats.apiCacheSize + stats.imageCacheSize)}
                                                     </span>
                                                 </div>
@@ -185,8 +185,8 @@ export default function CacheManagerComponent({ open, onClose }: CacheManagerPro
                                                 )}
                                             >
                                                 <RefreshCw className={cn("w-5 h-5", clearing && "animate-spin")} />
-                                                <span className="font-black uppercase text-sm tracking-widest">
-                                                    CLEAR EXPIRED
+                                                <span className="font-semibold text-sm">
+                                                    Clear expired
                                                 </span>
                                             </button>
 
@@ -199,29 +199,29 @@ export default function CacheManagerComponent({ open, onClose }: CacheManagerPro
                                                 )}
                                             >
                                                 <Trash2 className="w-5 h-5" />
-                                                <span className="font-black uppercase text-sm tracking-widest">
-                                                    CLEAR ALL CACHE
+                                                <span className="font-semibold text-sm">
+                                                    Clear all cache
                                                 </span>
                                             </button>
                                         </div>
 
                                         {/* Info */}
-                                        <div className="text-xs font-bold uppercase tracking-wide text-brand-black/60 text-center">
+                                        <div className="text-xs font-bold text-brand-black/60 text-center">
                                             <p>Cache helps speed up the app by storing data locally.</p>
                                             <p className="mt-1">Clear if you're experiencing issues.</p>
                                         </div>
                                     </>
                                 ) : (
                                     <div className="text-center py-8">
-                                        <p className="font-black uppercase text-sm tracking-widest text-brand-black/40">
-                                            FAILED TO LOAD STATS
+                                        <p className="font-semibold text-sm text-brand-black/40">
+                                            Failed to load stats
                                         </p>
                                     </div>
                                 )}
                             </div>
 
                             {/* Footer */}
-                            <div className="flex gap-3 p-6 border-t border-brand-black bg-white">
+                            <div className="flex gap-3 p-6 border-t border-lijn bg-white">
                                 <button
                                     onClick={loadStats}
                                     disabled={loading}
@@ -234,9 +234,9 @@ export default function CacheManagerComponent({ open, onClose }: CacheManagerPro
                                 </button>
                                 <button
                                     onClick={onClose}
-                                    className="brutalist-button flex-1 py-3 font-black uppercase tracking-widest"
+                                    className="brutalist-button flex-1 py-3 font-semibold"
                                 >
-                                    CLOSE
+                                    Close
                                 </button>
                             </div>
                         </div>

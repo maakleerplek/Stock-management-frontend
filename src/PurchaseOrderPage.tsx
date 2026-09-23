@@ -406,7 +406,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <ShoppingBag size={20} className="text-brand-black" />
-                    <h1 className="text-lg font-black uppercase tracking-widest">PURCHASE ORDERS</h1>
+                    <h1 className="text-lg font-semibold">Purchase orders</h1>
                 </div>
                 <button
                     onClick={() => {
@@ -418,7 +418,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                     className="brutalist-button px-4 py-2 text-xs bg-amber-300 text-brand-black flex items-center gap-2"
                 >
                     <Plus size={14} />
-                    NEW ORDER
+                    New order
                 </button>
             </div>
 
@@ -426,7 +426,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             {Object.entries(submitResults).map(([id, result]) => result.success && (
                 <div key={id} className="flex items-center gap-3 border border-emerald-600 bg-emerald-50 p-3">
                     <CheckCircle size={16} className="text-emerald-600 flex-shrink-0" />
-                    <p className="text-xs font-black uppercase tracking-widest text-emerald-700">{result.success}</p>
+                    <p className="text-xs font-semibold text-emerald-700">{result.success}</p>
                 </div>
             ))}
 
@@ -439,10 +439,10 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                         const supplierName = suppliers.find(s => String(s.id) === draft.selectedSupplier)?.name;
 
                         return (
-                            <div key={draft.draftId} className="border border-brand-black bg-white">
-                                <div className="flex items-center justify-between p-4 border-b border-brand-black bg-brand-black">
-                                    <h2 className="text-sm font-black uppercase tracking-widest text-white">
-                                        ORDER {idx + 1}{supplierName ? ` — ${supplierName.toUpperCase()}` : ''}
+                            <div key={draft.draftId} className="border border-lijn bg-white">
+                                <div className="flex items-center justify-between p-4 border-b border-lijn bg-brand-black">
+                                    <h2 className="text-sm font-semibold text-white">
+                                        Order {idx + 1}{supplierName ? ` — ${supplierName}` : ''}
                                     </h2>
                                     <button onClick={() => removeDraft(draft.draftId)} className="text-white/60 hover:text-white transition-colors p-1">
                                         <Trash2 size={14} />
@@ -452,7 +452,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                 <div className="p-4 sm:p-6 space-y-5">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-[10px] font-black uppercase tracking-widest text-brand-black/70 mb-1.5">
+                                            <label className="block text-[10px] font-semibold text-brand-black/70 mb-1.5">
                                                 Supplier <span className="text-red-500">*</span>
                                             </label>
                                             <select
@@ -460,14 +460,14 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                                 onChange={e => updateDraftSupplier(draft.draftId, e.target.value)}
                                                 className="brutalist-input w-full"
                                             >
-                                                <option value="">SELECT SUPPLIER...</option>
+                                                <option value="">Select supplier...</option>
                                                 {suppliers.map(s => (
                                                     <option key={s.id} value={String(s.id)}>{s.name.toUpperCase()}</option>
                                                 ))}
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-[10px] font-black uppercase tracking-widest text-brand-black/70 mb-1.5">
+                                            <label className="block text-[10px] font-semibold text-brand-black/70 mb-1.5">
                                                 Reference (optional)
                                             </label>
                                             <input
@@ -477,37 +477,37 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                                 placeholder="e.g. PO-0002"
                                                 className="brutalist-input w-full"
                                             />
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/40 mt-1">
+                                            <p className="text-[10px] font-bold text-brand-black/40 mt-1">
                                                 Auto-generated if left blank.
                                             </p>
                                         </div>
                                     </div>
 
                                     {draft.loadingParts && (
-                                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-brand-black/60 py-4">
-                                            <Loader2 size={14} className="animate-spin" /> LOADING ITEMS...
+                                        <div className="flex items-center gap-2 text-xs font-bold text-brand-black/60 py-4">
+                                            <Loader2 size={14} className="animate-spin" /> Loading items...
                                         </div>
                                     )}
 
                                     {draft.selectedSupplier && !draft.loadingParts && draft.orderLines.length === 0 && (
-                                        <p className="text-xs font-bold uppercase tracking-widest text-brand-black/40 py-4">
+                                        <p className="text-xs font-bold text-brand-black/40 py-4">
                                             No items linked to this supplier.
                                         </p>
                                     )}
 
                                     {draft.orderLines.length > 0 && (
-                                        <div className="border border-brand-black overflow-x-auto">
+                                        <div className="border border-lijn overflow-x-auto">
                                             <table className="w-full min-w-[500px]">
                                                 <thead>
-                                                    <tr className="bg-brand-beige-dark border-b border-brand-black">
-                                                        <th className="text-left p-3 text-[10px] font-black uppercase tracking-widest">Item</th>
-                                                        <th className="text-right p-3 text-[10px] font-black uppercase tracking-widest">In Stock</th>
-                                                        <th className="text-center p-3 text-[10px] font-black uppercase tracking-widest">Pack Size</th>
-                                                        <th className="text-center p-3 text-[10px] font-black uppercase tracking-widest w-28">Packs to Order</th>
-                                                        <th className="text-right p-3 text-[10px] font-black uppercase tracking-widest">Units</th>
+                                                    <tr className="bg-brand-beige-dark border-b border-lijn">
+                                                        <th className="text-left p-3 text-[10px] font-semibold">Item</th>
+                                                        <th className="text-right p-3 text-[10px] font-semibold">In Stock</th>
+                                                        <th className="text-center p-3 text-[10px] font-semibold">Pack Size</th>
+                                                        <th className="text-center p-3 text-[10px] font-semibold w-28">Packs to Order</th>
+                                                        <th className="text-right p-3 text-[10px] font-semibold">Units</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-brand-black/10">
+                                                <tbody className="divide-y divide-lijn">
                                                     {draft.orderLines.map(line => {
                                                         const packs = parseFloat(line.packs) || 0;
                                                         const units = packs * line.packQuantity;
@@ -518,17 +518,17 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                                             )}>
                                                                  <td className="p-3">
                                                                      <div className="flex items-center gap-3">
-                                                                         <div className="border border-brand-black bg-white w-10 h-10 overflow-hidden flex-shrink-0">
+                                                                         <div className="border border-lijn bg-white w-10 h-10 overflow-hidden flex-shrink-0">
                                                                              <ImageDisplay imagePath={line.image} alt={line.partName} width={40} height={40} />
                                                                          </div>
                                                                          <div>
-                                                                             <p className="text-xs font-black uppercase">{line.partName}</p>
+                                                                             <p className="text-xs font-semibold">{line.partName}</p>
                                                                              <p className="text-[10px] font-mono text-brand-black/40">{line.SKU}</p>
                                                                          </div>
                                                                      </div>
                                                                  </td>
                                                                 <td className="p-3 text-right">
-                                                                    <span className={cn("text-sm font-black", line.currentStock === 0 && "text-red-600")}>
+                                                                    <span className={cn("text-sm font-semibold", line.currentStock === 0 && "text-red-600")}>
                                                                         {line.currentStock}
                                                                     </span>
                                                                 </td>
@@ -545,11 +545,11 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                                                         value={line.packs}
                                                                         onChange={e => updatePacks(draft.draftId, line.partPk, e.target.value)}
                                                                         placeholder="0"
-                                                                        className="brutalist-input w-full text-center text-sm font-black py-1.5"
+                                                                        className="brutalist-input w-full text-center text-sm font-semibold py-1.5"
                                                                     />
                                                                 </td>
                                                                 <td className="p-3 text-right">
-                                                                    <span className="text-sm font-black text-brand-black/60">
+                                                                    <span className="text-sm font-semibold text-brand-black/60">
                                                                         {units > 0 ? units : '—'}
                                                                     </span>
                                                                 </td>
@@ -564,13 +564,13 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                     {draftError && (
                                         <div className="flex items-center gap-2 border border-red-500 bg-red-50 p-3">
                                             <XCircle size={14} className="text-red-500 flex-shrink-0" />
-                                            <p className="text-xs font-bold uppercase tracking-widest text-red-600">{draftError}</p>
+                                            <p className="text-xs font-bold text-red-600">{draftError}</p>
                                         </div>
                                     )}
 
                                     {linesWithQty.length > 0 && (
-                                        <div className="flex items-center justify-between pt-2 border-t border-brand-black/20">
-                                            <div className="text-xs font-bold uppercase tracking-widest text-brand-black/60">
+                                        <div className="flex items-center justify-between pt-2 border-t border-lijn">
+                                            <div className="text-xs font-bold text-brand-black/60">
                                                 {linesWithQty.length} item(s) — {linesWithQty.reduce((s, l) => s + parseFloat(l.packs) * l.packQuantity, 0)} units total
                                             </div>
                                             <button
@@ -578,7 +578,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                                 className="brutalist-button px-6 py-2.5 text-xs bg-emerald-400 text-brand-black flex items-center gap-2 hover:brightness-95"
                                             >
                                                 <ShoppingBag size={14} />
-                                                REVIEW & ORDER
+                                                Review & order
                                             </button>
                                         </div>
                                     )}
@@ -592,66 +592,66 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                         className="brutalist-button w-full py-3 text-xs bg-white text-brand-black flex items-center justify-center gap-2"
                         style={{ borderStyle: 'dashed' }}
                     >
-                        <Plus size={14} /> ADD ORDER FOR ANOTHER SUPPLIER
+                        <Plus size={14} /> Add order for another supplier
                     </button>
                 </div>
             )}
 
             {/* Existing orders */}
             <div className="space-y-2">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-brand-black/60">OPEN ORDERS</h2>
+                <h2 className="text-[10px] font-semibold text-brand-black/60">Open orders</h2>
                 {actionError && !receiveModal && !completeModal && (
                     <div className="flex items-center gap-3 border border-red-500 bg-red-50 p-3">
                         <XCircle size={16} className="text-red-600 flex-shrink-0" />
-                        <p className="text-xs font-black uppercase tracking-widest text-red-700">{actionError}</p>
+                        <p className="text-xs font-semibold text-red-700">{actionError}</p>
                     </div>
                 )}
                 {loadingOrders && (
-                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-brand-black/60 py-4">
-                        <Loader2 size={14} className="animate-spin" /> LOADING...
+                    <div className="flex items-center gap-2 text-xs font-bold text-brand-black/60 py-4">
+                        <Loader2 size={14} className="animate-spin" /> Loading...
                     </div>
                 )}
                 {!loadingOrders && existingOrders.length === 0 && (
-                    <div className="border border-brand-black/20 bg-white p-6 text-center text-xs font-bold uppercase tracking-widest text-brand-black/40">
+                    <div className="border border-lijn bg-white p-6 text-center text-xs font-bold text-brand-black/40">
                         No open purchase orders
                     </div>
                 )}
                 {existingOrders.map(po => (
-                    <div key={po.pk} className="border border-brand-black bg-white">
+                    <div key={po.pk} className="border border-lijn bg-white">
                         <div className="flex items-center justify-between p-4">
                             <div>
-                                <p className="text-sm font-black uppercase tracking-widest">{po.reference}</p>
-                                <p className="text-[10px] font-bold uppercase text-brand-black/50">
+                                <p className="text-sm font-semibold">{po.reference}</p>
+                                <p className="text-[10px] font-bold text-brand-black/50">
                                     {po.supplier_detail?.name} · {po.creation_date?.slice(0, 10)}
                                 </p>
                                 {po.description && <p className="text-[10px] text-brand-black/40 mt-0.5">{po.description}</p>}
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className={cn("text-[10px] font-black uppercase tracking-widest px-2 py-1", statusColor(po.status_text))}>
+                                <span className={cn("text-[10px] font-semibold px-2 py-1", statusColor(po.status_text))}>
                                     {po.status_text}
                                 </span>
                                 {po.status === 10 && (
                                     <button onClick={() => handleIssue(po.pk)} disabled={issuingPk === po.pk}
                                         className="brutalist-button px-3 py-1.5 text-[10px] bg-blue-200 text-brand-black flex items-center gap-1">
-                                        {issuingPk === po.pk ? <Loader2 size={10} className="animate-spin" /> : null} ISSUE
+                                        {issuingPk === po.pk ? <Loader2 size={10} className="animate-spin" /> : null} Issue
                                     </button>
                                 )}
                                 {po.status === 20 && (
                                     <button onClick={() => openReceive(po)} disabled={openingReceive === po.pk}
                                         className="brutalist-button px-3 py-1.5 text-[10px] bg-emerald-200 text-brand-black flex items-center gap-1">
-                                        {openingReceive === po.pk ? <Loader2 size={10} className="animate-spin" /> : <Truck size={10} />} RECEIVE
+                                        {openingReceive === po.pk ? <Loader2 size={10} className="animate-spin" /> : <Truck size={10} />} Receive
                                     </button>
                                 )}
                                 {po.status === 20 && (
                                     <button onClick={() => openComplete(po)} disabled={openingReceive === po.pk}
                                         className="brutalist-button px-3 py-1.5 text-[10px] bg-amber-200 text-brand-black flex items-center gap-1">
-                                        CLOSE
+                                        Close
                                     </button>
                                 )}
                                 {(po.status === 10 || po.status === 20) && (
                                     <button onClick={() => handleCancel(po.pk)} disabled={cancellingPk === po.pk}
                                         className="brutalist-button px-3 py-1.5 text-[10px] bg-white text-red-600 border-red-400 flex items-center gap-1">
-                                        {cancellingPk === po.pk ? <Loader2 size={10} className="animate-spin" /> : null} CANCEL
+                                        {cancellingPk === po.pk ? <Loader2 size={10} className="animate-spin" /> : null} Cancel
                                     </button>
                                 )}
                             </div>
@@ -663,41 +663,41 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             {/* Confirmation modal */}
             {confirmModal && (
                 <div
-                    className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4"
+                    className="fixed inset-0 bg-brand-black/50 z-50 flex items-center justify-center p-4"
                     onClick={() => !confirming && setConfirmModal(null)}
                 >
                     <div
-                        className="border-2 border-brand-black bg-white w-full max-w-lg shadow-[8px_8px_0px_0px_rgba(30,27,24,1)]"
+                        className="border border-lijn bg-white w-full max-w-lg"
                         onClick={e => e.stopPropagation()}
                     >
-                        <div className="p-4 border-b-2 border-brand-black bg-brand-black">
-                            <h2 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-2">
-                                <ShoppingBag size={14} /> CONFIRM ORDER
+                        <div className="p-4 border-b-2 border-lijn bg-brand-black">
+                            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                                <ShoppingBag size={14} /> Confirm order
                             </h2>
                         </div>
                         <div className="p-5 space-y-4">
-                            <div className="text-xs font-bold uppercase tracking-widest text-brand-black/70">
+                            <div className="text-xs font-bold text-brand-black/70">
                                 Supplier: <span className="text-brand-black">{confirmModal.supplierName}</span>
                                 {confirmModal.reference && <> &nbsp;·&nbsp; Ref: <span className="text-brand-black">{confirmModal.reference}</span></>}
                             </div>
-                            <div className="border border-brand-black overflow-hidden">
+                            <div className="border border-lijn overflow-hidden">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className="bg-brand-beige-dark border-b border-brand-black">
-                                            <th className="text-left p-2 text-[10px] font-black uppercase tracking-widest">Item</th>
-                                            <th className="text-right p-2 text-[10px] font-black uppercase tracking-widest">Packs</th>
-                                            <th className="text-right p-2 text-[10px] font-black uppercase tracking-widest">Units</th>
+                                        <tr className="bg-brand-beige-dark border-b border-lijn">
+                                            <th className="text-left p-2 text-[10px] font-semibold">Item</th>
+                                            <th className="text-right p-2 text-[10px] font-semibold">Packs</th>
+                                            <th className="text-right p-2 text-[10px] font-semibold">Units</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-brand-black/10">
+                                    <tbody className="divide-y divide-lijn">
                                         {confirmModal.lines.map(line => (
                                             <tr key={line.partPk}>
                                                 <td className="p-2">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="border border-brand-black bg-white w-8 h-8 overflow-hidden flex-shrink-0">
+                                                        <div className="border border-lijn bg-white w-8 h-8 overflow-hidden flex-shrink-0">
                                                             <ImageDisplay imagePath={line.image} alt={line.partName} width={32} height={32} />
                                                         </div>
-                                                        <span className="text-xs font-bold uppercase">{line.partName}</span>
+                                                        <span className="text-xs font-bold">{line.partName}</span>
                                                     </div>
                                                 </td>
                                                 <td className="p-2 text-right text-xs font-mono">{line.packs}</td>
@@ -707,17 +707,17 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                     </tbody>
                                 </table>
                             </div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-brand-black/60">
+                            <p className="text-xs font-bold text-brand-black/60">
                                 Total: {confirmModal.lines.reduce((s, l) => s + parseFloat(l.packs) * l.packQuantity, 0)} units across {confirmModal.lines.length} item(s)
                             </p>
                         </div>
-                        <div className="p-4 border-t-2 border-brand-black flex gap-3">
+                        <div className="p-4 border-t-2 border-lijn flex gap-3">
                             <button
                                 onClick={() => setConfirmModal(null)}
                                 disabled={confirming}
                                 className="flex-1 brutalist-button py-3 text-xs bg-white text-brand-black"
                             >
-                                BACK
+                                Back
                             </button>
                             <button
                                 onClick={handleConfirmedSubmit}
@@ -725,7 +725,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                 className="flex-1 brutalist-button py-3 text-xs bg-emerald-400 text-brand-black flex items-center justify-center gap-2"
                             >
                                 {confirming ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                                CONFIRM & CREATE
+                                Confirm & create
                             </button>
                         </div>
                     </div>
@@ -735,21 +735,21 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             {/* Receive modal — record what actually turned up, line by line */}
             {receiveModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-                    <div className="w-full max-w-2xl border border-brand-black bg-white max-h-[90vh] overflow-auto">
-                        <div className="flex items-center gap-2 p-4 border-b border-brand-black bg-brand-black">
+                    <div className="w-full max-w-2xl border border-lijn bg-white max-h-[90vh] overflow-auto">
+                        <div className="flex items-center gap-2 p-4 border-b border-lijn bg-brand-black">
                             <Truck size={14} className="text-white" />
-                            <h2 className="text-sm font-black uppercase tracking-widest text-white">
-                                RECEIVE — {receiveModal.reference}
+                            <h2 className="text-sm font-semibold text-white">
+                                Receive — {receiveModal.reference}
                             </h2>
                         </div>
 
                         <div className="p-4 sm:p-6 space-y-4">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60">
+                            <p className="text-[10px] font-bold text-brand-black/60">
                                 Quantities are in packs. Correct any line that arrived short.
                             </p>
 
                             <div>
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-brand-black/70 mb-1.5">
+                                <label className="block text-[10px] font-semibold text-brand-black/70 mb-1.5">
                                     Destination
                                 </label>
                                 <select
@@ -765,7 +765,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
 
                             <table className="w-full text-xs">
                                 <thead>
-                                    <tr className="border-b border-brand-black/20 text-[10px] uppercase tracking-widest text-brand-black/60">
+                                    <tr className="border-b border-lijn text-[10px] text-brand-black/60">
                                         <th className="text-left p-2">Item</th>
                                         <th className="text-right p-2">Ordered</th>
                                         <th className="text-right p-2">Already in</th>
@@ -779,7 +779,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                         const outstanding = Math.max(row.ordered - row.alreadyReceived, 0);
                                         const over = packs > outstanding;
                                         return (
-                                            <tr key={row.linePk} className="border-b border-brand-black/10">
+                                            <tr key={row.linePk} className="border-b border-lijn">
                                                 <td className="p-2 font-bold">{row.name}</td>
                                                 <td className="p-2 text-right font-mono">{row.ordered}</td>
                                                 <td className="p-2 text-right font-mono text-brand-black/50">{row.alreadyReceived}</td>
@@ -808,7 +808,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                             {receiveModal.rows.some(r => (parseFloat(r.packs) || 0) > Math.max(r.ordered - r.alreadyReceived, 0)) && (
                                 <div className="flex items-center gap-2 border border-amber-500 bg-amber-50 p-3">
                                     <AlertTriangle size={14} className="text-amber-600 flex-shrink-0" />
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                                    <p className="text-[10px] font-bold text-amber-700">
                                         A line is over the amount ordered. InvenTree will accept it.
                                     </p>
                                 </div>
@@ -817,18 +817,18 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                             {actionError && (
                                 <div className="flex items-center gap-2 border border-red-500 bg-red-50 p-3">
                                     <XCircle size={14} className="text-red-600 flex-shrink-0" />
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-red-700">{actionError}</p>
+                                    <p className="text-[10px] font-bold text-red-700">{actionError}</p>
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex gap-2 p-4 border-t border-brand-black">
+                        <div className="flex gap-2 p-4 border-t border-lijn">
                             <button
                                 onClick={() => { setReceiveModal(null); setActionError(null); setConfirmingReceive(false); }}
                                 disabled={receiving}
                                 className="flex-1 brutalist-button py-3 text-xs bg-white text-brand-black"
                             >
-                                BACK
+                                Back
                             </button>
                             <button
                                 onClick={() => { setActionError(null); setConfirmingReceive(true); }}
@@ -836,7 +836,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                 className="flex-1 brutalist-button py-3 text-xs bg-emerald-400 text-brand-black flex items-center justify-center gap-2"
                             >
                                 <Truck size={14} />
-                                BOOK IN
+                                Book in
                             </button>
                         </div>
                     </div>
@@ -846,18 +846,18 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             {/* Receive confirmation — booking in writes stock and cannot be undone */}
             {receiveModal && confirmingReceive && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
-                    <div className="w-full max-w-lg border border-brand-black bg-white">
-                        <div className="flex items-center gap-2 p-4 border-b border-brand-black bg-brand-black">
+                    <div className="w-full max-w-lg border border-lijn bg-white">
+                        <div className="flex items-center gap-2 p-4 border-b border-lijn bg-brand-black">
                             <AlertTriangle size={14} className="text-white" />
-                            <h2 className="text-sm font-black uppercase tracking-widest text-white">
-                                IS EVERYTHING RECEIVED?
+                            <h2 className="text-sm font-semibold text-white">
+                                Is everything received?
                             </h2>
                         </div>
 
                         <div className="p-4 sm:p-6 space-y-4">
                             <div className="flex items-start gap-2 border border-amber-500 bg-amber-50 p-3">
                                 <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                                <p className="text-[10px] font-bold text-amber-700">
                                     This adds the stock below and cannot be undone. Only book in what is
                                     physically here — anything still coming can be received later.
                                 </p>
@@ -865,7 +865,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
 
                             <table className="w-full text-xs">
                                 <thead>
-                                    <tr className="border-b border-brand-black/20 text-[10px] uppercase tracking-widest text-brand-black/60">
+                                    <tr className="border-b border-lijn text-[10px] text-brand-black/60">
                                         <th className="text-left p-2">Item</th>
                                         <th className="text-right p-2">Packs</th>
                                         <th className="text-right p-2">Units added</th>
@@ -875,7 +875,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                     {receiveModal.rows.filter(r => (parseFloat(r.packs) || 0) > 0).map(r => {
                                         const packs = parseFloat(r.packs) || 0;
                                         return (
-                                            <tr key={r.linePk} className="border-b border-brand-black/10">
+                                            <tr key={r.linePk} className="border-b border-lijn">
                                                 <td className="p-2 font-bold">{r.name}</td>
                                                 <td className="p-2 text-right font-mono">{packs}</td>
                                                 <td className="p-2 text-right font-mono">{packs * r.packQuantity}</td>
@@ -886,31 +886,31 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                             </table>
 
                             {receiveModal.rows.some(r => (parseFloat(r.packs) || 0) === 0) && (
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/50">
+                                <p className="text-[10px] font-bold text-brand-black/50">
                                     Skipped (nothing received):{' '}
                                     {receiveModal.rows.filter(r => (parseFloat(r.packs) || 0) === 0).map(r => r.name).join(', ')}
                                 </p>
                             )}
 
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60">
+                            <p className="text-[10px] font-bold text-brand-black/60">
                                 Destination: {locations.find(l => String(l.pk) === receiveModal.locationPk)?.pathstring ?? '—'}
                             </p>
 
                             {actionError && (
                                 <div className="flex items-center gap-2 border border-red-500 bg-red-50 p-3">
                                     <XCircle size={14} className="text-red-600 flex-shrink-0" />
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-red-700">{actionError}</p>
+                                    <p className="text-[10px] font-bold text-red-700">{actionError}</p>
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex gap-2 p-4 border-t border-brand-black">
+                        <div className="flex gap-2 p-4 border-t border-lijn">
                             <button
                                 onClick={() => { setConfirmingReceive(false); setActionError(null); }}
                                 disabled={receiving}
                                 className="flex-1 brutalist-button py-3 text-xs bg-white text-brand-black"
                             >
-                                NO, GO BACK
+                                No, go back
                             </button>
                             <button
                                 onClick={submitReceive}
@@ -918,7 +918,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                 className="flex-1 brutalist-button py-3 text-xs bg-emerald-400 text-brand-black flex items-center justify-center gap-2"
                             >
                                 {receiving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                                YES, BOOK IN
+                                Yes, book in
                             </button>
                         </div>
                     </div>
@@ -928,31 +928,31 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             {/* Close modal — spell out what is still outstanding before closing */}
             {completeModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-                    <div className="w-full max-w-lg border border-brand-black bg-white">
-                        <div className="flex items-center gap-2 p-4 border-b border-brand-black bg-brand-black">
+                    <div className="w-full max-w-lg border border-lijn bg-white">
+                        <div className="flex items-center gap-2 p-4 border-b border-lijn bg-brand-black">
                             <AlertTriangle size={14} className="text-white" />
-                            <h2 className="text-sm font-black uppercase tracking-widest text-white">
-                                CLOSE {completeModal.reference}?
+                            <h2 className="text-sm font-semibold text-white">
+                                Close {completeModal.reference}?
                             </h2>
                         </div>
 
                         <div className="p-4 sm:p-6 space-y-4">
                             {completeModal.outstanding.length === 0 ? (
-                                <p className="text-xs font-bold uppercase tracking-widest text-brand-black/70">
+                                <p className="text-xs font-bold text-brand-black/70">
                                     Everything on this order has been received. Closing it is safe.
                                 </p>
                             ) : (
                                 <>
                                     <div className="flex items-start gap-2 border border-amber-500 bg-amber-50 p-3">
                                         <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                                        <p className="text-[10px] font-bold text-amber-700">
                                             Not everything is in. Closing now writes off the rest — it will never
-                                            arrive in stock. Use RECEIVE first if more is still coming.
+                                            arrive in stock. Use Receive first if more is still coming.
                                         </p>
                                     </div>
                                     <table className="w-full text-xs">
                                         <thead>
-                                            <tr className="border-b border-brand-black/20 text-[10px] uppercase tracking-widest text-brand-black/60">
+                                            <tr className="border-b border-lijn text-[10px] text-brand-black/60">
                                                 <th className="text-left p-2">Item</th>
                                                 <th className="text-right p-2">Received</th>
                                                 <th className="text-right p-2">Ordered</th>
@@ -960,7 +960,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                         </thead>
                                         <tbody>
                                             {completeModal.outstanding.map(o => (
-                                                <tr key={o.name} className="border-b border-brand-black/10">
+                                                <tr key={o.name} className="border-b border-lijn">
                                                     <td className="p-2 font-bold">{o.name}</td>
                                                     <td className="p-2 text-right font-mono text-amber-700">{o.received}</td>
                                                     <td className="p-2 text-right font-mono">{o.ordered}</td>
@@ -974,18 +974,18 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                             {actionError && (
                                 <div className="flex items-center gap-2 border border-red-500 bg-red-50 p-3">
                                     <XCircle size={14} className="text-red-600 flex-shrink-0" />
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-red-700">{actionError}</p>
+                                    <p className="text-[10px] font-bold text-red-700">{actionError}</p>
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex gap-2 p-4 border-t border-brand-black">
+                        <div className="flex gap-2 p-4 border-t border-lijn">
                             <button
                                 onClick={() => { setCompleteModal(null); setActionError(null); }}
                                 disabled={completing}
                                 className="flex-1 brutalist-button py-3 text-xs bg-white text-brand-black"
                             >
-                                BACK
+                                Back
                             </button>
                             <button
                                 onClick={submitComplete}
@@ -993,7 +993,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                 className="flex-1 brutalist-button py-3 text-xs bg-amber-400 text-brand-black flex items-center justify-center gap-2"
                             >
                                 {completing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                                {completeModal.outstanding.length === 0 ? 'CLOSE ORDER' : 'CLOSE ANYWAY'}
+                                {completeModal.outstanding.length === 0 ? 'Close order' : 'Close anyway'}
                             </button>
                         </div>
                     </div>

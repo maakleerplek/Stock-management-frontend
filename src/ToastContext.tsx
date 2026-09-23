@@ -27,10 +27,10 @@ const toastIcons = {
 };
 
 const toastStyles = {
-  success: 'bg-green-600 text-white border-green-800',
-  error: 'bg-red-600 text-white border-red-800',
-  warning: 'bg-yellow-100 text-black border-yellow-500',
-  info: 'bg-blue-600 text-white border-blue-800',
+  success: 'bg-emerald-300 text-emerald-700 border-l-emerald-600',
+  error: 'bg-red-50 text-red-700 border-l-red-500',
+  warning: 'bg-amber-200 text-amber-800 border-l-amber-700',
+  info: 'bg-blue-200 text-blue-800 border-l-blue-600',
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -70,11 +70,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 className="pointer-events-auto"
               >
                 <div className={cn(
-                  'brutalist-card min-w-[300px] max-w-md p-4 flex items-start gap-3',
+                  'brutalist-card border-l-4 min-w-[300px] max-w-md p-4 flex items-start gap-3',
                   toastStyles[toast.type]
                 )}>
                   <Icon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                  <p className="flex-1 text-sm font-bold">{toast.message}</p>
+                  <p className="flex-1 text-sm font-medium">{toast.message}</p>
                   <button
                     onClick={() => removeToast(toast.id)}
                     className="flex-shrink-0 hover:opacity-70 transition-opacity"
