@@ -31,6 +31,7 @@ import {
 import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
+import { TRACKING } from './lib/stockHistory';
 import './index.css';
 
 export type AppView = 'checkout' | 'browse' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
@@ -223,25 +224,22 @@ function AppContent() {
       }
 
       if (formData.initialQuantity && numericFields.locationId) {
-        const stockItem = await inventreeClient.createStockItem({
+        await inventreeClient.createStockItem({
           part: part.pk,
           quantity: numericFields.initialQuantity,
           location: numericFields.locationId,
           notes: 'Initial stock from part creation',
           ...(supplierPartPk ? { supplier_part: supplierPartPk } : {}),
         });
+      }
 
-        if (formData.barcode) {
-          if (stockItem?.pk) {
-            try {
-              await inventreeClient.assignBarcode(formData.barcode, stockItem.pk);
-            } catch (barcodeErr) {
-              console.warn('[App] Barcode link to stock item failed (IPN still set on part):', barcodeErr);
-              addToast('Part created, but barcode could not be linked to stock item — scanning via IPN still works.', 'warning');
-            }
-          } else {
-            console.warn('[App] assignBarcode skipped: stockItem.pk is missing', stockItem);
-          }
+      // The barcode belongs to the part: stock items come and go as they are sold.
+      if (formData.barcode) {
+        try {
+          await inventreeClient.linkBarcodeToPart(formData.barcode, part.pk);
+        } catch (barcodeErr) {
+          console.warn('[App] Barcode link failed (IPN still set on part):', barcodeErr);
+          addToast('Part created, but the barcode could not be linked. Scanning via IPN still works.', 'warning');
         }
       }
 
@@ -297,22 +295,22 @@ function AppContent() {
   const inventreePanelUrl = import.meta.env.VITE_INVENTREE_PANEL_URL || '';
 
   const VolunteerNavigation = () => (
-    <div className="border-b border-brand-black bg-brand-beige px-2 sm:px-6 py-0 flex gap-1 sm:gap-4 overflow-x-auto">
+    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto">
       {[
-        { id: 'volunteer', label: 'OVERVIEW', icon: LayoutDashboard },
-        { id: 'scan', label: 'VOLUNTEER SCAN', icon: ScanBarcode },
-        { id: 'inventory', label: 'STOCK LIST', icon: Package },
-        { id: 'orders', label: 'PURCHASE ORDERS', icon: ShoppingBag },
-        { id: 'analytics', label: 'ANALYTICS', icon: BarChart2 },
+        { id: 'volunteer', label: 'Overview', icon: LayoutDashboard },
+        { id: 'scan', label: 'Scan', icon: ScanBarcode },
+        { id: 'inventory', label: 'Stock list', icon: Package },
+        { id: 'orders', label: 'Purchase orders', icon: ShoppingBag },
+        { id: 'analytics', label: 'Analytics', icon: BarChart2 },
       ].map(tab => (
         <button
           key={tab.id}
           onClick={() => setCurrentPage(tab.id as AppView)}
           className={cn(
-            "px-3 sm:px-4 py-3 font-black uppercase tracking-widest text-[10px] sm:text-xs border-b-4 transition-all flex items-center gap-1.5",
+            "px-1 py-3.5 font-medium text-xs sm:text-sm border-b-2 -mb-px transition-colors flex items-center gap-1.5 whitespace-nowrap",
             currentPage === tab.id
               ? "border-brand-black text-brand-black"
-              : "border-transparent text-brand-black/50 hover:text-brand-black hover:border-brand-black/30"
+              : "border-transparent text-grafiet hover:text-brand-black"
           )}
         >
           <tab.icon size={14} className="flex-shrink-0" />
@@ -325,30 +323,30 @@ function AppContent() {
           href={inventreePanelUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="px-3 sm:px-4 py-3 font-black uppercase tracking-widest text-[10px] sm:text-xs border-b-4 border-transparent text-brand-black/50 hover:text-brand-black hover:border-brand-black/30 transition-all flex items-center gap-1.5"
+          className="px-1 py-3.5 font-medium text-xs sm:text-sm border-b-2 -mb-px border-transparent text-grafiet hover:text-brand-black transition-colors flex items-center gap-1.5 whitespace-nowrap"
         >
           <ExternalLink size={14} className="flex-shrink-0" />
-          <span className="hidden sm:inline">INVENTREE</span>
-          <span className="sm:hidden">PANEL</span>
+          <span className="hidden sm:inline">InvenTree</span>
+          <span className="sm:hidden">Panel</span>
         </a>
       )}
     </div>
   );
 
   const PublicNavigation = () => (
-    <div className="border-b border-brand-black bg-brand-beige px-2 sm:px-6 py-0 flex gap-1 sm:gap-4 overflow-x-auto shrink-0">
+    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto shrink-0">
       {[
-        { id: 'checkout', label: 'CHECKOUT', icon: ScanBarcode },
-        { id: 'browse', label: 'STOCK LIST', icon: Package },
+        { id: 'checkout', label: 'Checkout', icon: ScanBarcode },
+        { id: 'browse', label: 'Stock list', icon: Package },
       ].map(tab => (
         <button
           key={tab.id}
           onClick={() => setCurrentPage(tab.id as AppView)}
           className={cn(
-            "px-3 sm:px-4 py-3 font-black uppercase tracking-widest text-[10px] sm:text-xs border-b-4 transition-all flex items-center gap-1.5",
+            "px-1 py-3.5 font-medium text-xs sm:text-sm border-b-2 -mb-px transition-colors flex items-center gap-1.5 whitespace-nowrap",
             currentPage === tab.id
               ? "border-brand-black text-brand-black"
-              : "border-transparent text-brand-black/50 hover:text-brand-black hover:border-brand-black/30"
+              : "border-transparent text-grafiet hover:text-brand-black"
           )}
         >
           <tab.icon size={14} className="flex-shrink-0" />
@@ -378,28 +376,28 @@ function AppContent() {
         {currentPage === 'checkout' && (
           <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
             {/* ── Mobile: tab bar ── */}
-            <div className="lg:hidden flex border-b border-brand-black bg-brand-beige shrink-0">
+            <div className="lg:hidden flex border-b border-lijn bg-brand-beige shrink-0">
               <button
                 onClick={() => setMobileCheckoutTab('scan')}
                 className={cn(
-                  "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors",
+                  "flex-1 py-3 text-xs font-semibold transition-colors",
                   mobileCheckoutTab === 'scan'
                     ? "bg-brand-black text-white"
                     : "bg-brand-beige text-brand-black"
                 )}
               >
-                SCAN
+                Scan
               </button>
               <button
                 onClick={() => setMobileCheckoutTab('cart')}
                 className={cn(
-                  "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors border-l border-brand-black",
+                  "flex-1 py-3 text-xs font-semibold transition-colors border-l border-lijn",
                   mobileCheckoutTab === 'cart'
                     ? "bg-brand-black text-white"
                     : "bg-brand-beige text-brand-black"
                 )}
               >
-                CART
+                Cart
               </button>
             </div>
 
@@ -427,7 +425,7 @@ function AppContent() {
               <div className="flex-1 p-6 flex flex-col items-center justify-center bg-brand-beige">
                 <BarcodeScannerContainer onItemScanned={handleItemScanned} />
               </div>
-              <aside className="w-[40%] border-l border-brand-black bg-brand-beige flex flex-col">
+              <aside className="w-[40%] border-l border-lijn bg-brand-beige flex flex-col">
                 <ShoppingWindow
                   scanEvent={scanEvent}
                   onCheckoutResultChange={(result) => setCheckoutResult(result)}
@@ -462,42 +460,42 @@ function AppContent() {
                   {/* Dashboard Content */}
                   <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
                     {/* Header */}
-                    <div className="border-b border-brand-black pb-4 flex items-end justify-between">
+                    <div className="border-b border-lijn pb-4 flex items-end justify-between">
                       <div>
-                        <h2 className="text-2xl font-black uppercase tracking-widest text-brand-black">DASHBOARD</h2>
-                        <p className="font-bold text-xs uppercase tracking-widest text-brand-black/60 mt-1">
+                        <h2 className="text-2xl font-semibold text-brand-black">Dashboard</h2>
+                        <p className="font-bold text-xs text-brand-black/60 mt-1">
                           {stockLastFetched
-                            ? `UPDATED ${Math.max(0, Math.round((Date.now() - stockLastFetched) / 60000))} MIN AGO`
-                            : stockLoading ? 'LOADING...' : 'SYSTEM STATUS'}
+                            ? `Updated ${Math.max(0, Math.round((Date.now() - stockLastFetched) / 60000))} min ago`
+                            : stockLoading ? 'Loading...' : 'System status'}
                         </p>
                       </div>
                     </div>
 
                     {/* Stat cards */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="border-2 border-brand-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(30,27,24,1)]">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/50 mb-1">PARTS TRACKED</div>
-                        <div className="text-3xl font-black text-brand-black">{stockLoading ? '—' : totalParts}</div>
+                      <div className="border border-lijn bg-white p-4">
+                        <div className="text-[10px] font-semibold text-brand-black/50 mb-1">Parts tracked</div>
+                        <div className="text-3xl font-semibold text-brand-black">{stockLoading ? '—' : totalParts}</div>
                       </div>
-                      <div className="border-2 border-brand-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(30,27,24,1)]">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700/70 mb-1">IN STOCK</div>
-                        <div className="text-3xl font-black text-emerald-700">{stockLoading ? '—' : inStockCount}</div>
+                      <div className="border border-lijn bg-emerald-50 p-4">
+                        <div className="text-[10px] font-semibold text-emerald-700/70 mb-1">In stock</div>
+                        <div className="text-3xl font-semibold text-emerald-700">{stockLoading ? '—' : inStockCount}</div>
                       </div>
-                      <div className={cn("border-2 border-brand-black p-4 shadow-[4px_4px_0px_0px_rgba(30,27,24,1)]", outOfStockCount > 0 ? "bg-amber-50" : "bg-white")}>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-brand-black/50 mb-1">OUT OF STOCK</div>
-                        <div className={cn("text-3xl font-black", outOfStockCount > 0 ? "text-amber-700" : "text-brand-black")}>{stockLoading ? '—' : outOfStockCount}</div>
+                      <div className={cn("border border-lijn p-4", outOfStockCount > 0 ? "bg-amber-50" : "bg-white")}>
+                        <div className="text-[10px] font-semibold text-brand-black/50 mb-1">Out of stock</div>
+                        <div className={cn("text-3xl font-semibold", outOfStockCount > 0 ? "text-amber-700" : "text-brand-black")}>{stockLoading ? '—' : outOfStockCount}</div>
                       </div>
                       <button
-                        onClick={() => { setLowStockOrderPartIds(lowStockItems.map((i: any) => i.pk)); setCurrentPage('orders'); }}
+                        onClick={() => { setLowStockOrderPartIds(lowStockItems.map(i => i.pk)); setCurrentPage('orders'); }}
                         disabled={lowStockItems.length === 0}
                         className={cn(
-                          "border-2 border-brand-black p-4 shadow-[4px_4px_0px_0px_rgba(30,27,24,1)] text-left transition-colors",
+                          "border border-lijn p-4 text-left transition-colors",
                           lowStockItems.length > 0 ? "bg-red-50 hover:bg-red-100 cursor-pointer" : "bg-white cursor-default"
                         )}
                       >
-                        <div className="text-[10px] font-black uppercase tracking-widest text-red-600/70 mb-1">LOW STOCK</div>
-                        <div className={cn("text-3xl font-black", lowStockItems.length > 0 ? "text-red-600" : "text-brand-black")}>{lowStockItems.length}</div>
-                        {lowStockItems.length > 0 && <div className="text-[10px] font-black uppercase tracking-widest text-red-500 mt-1">TAP TO ORDER →</div>}
+                        <div className="text-[10px] font-semibold text-red-600/70 mb-1">Low stock</div>
+                        <div className={cn("text-3xl font-semibold", lowStockItems.length > 0 ? "text-red-600" : "text-brand-black")}>{lowStockItems.length}</div>
+                        {lowStockItems.length > 0 && <div className="text-[10px] font-semibold text-red-500 mt-1">Tap to order →</div>}
                       </button>
                     </div>
 
@@ -505,29 +503,29 @@ function AppContent() {
                     {lowStockItems.length > 0 && (
                       <div className="border border-red-600 bg-red-50">
                         <div className="px-4 py-2 bg-red-600 text-white flex items-center justify-between">
-                          <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                            <AlertCircle size={14} /> LOW STOCK — {lowStockItems.length} ITEM{lowStockItems.length !== 1 ? 'S' : ''}
+                          <h3 className="text-xs font-semibold flex items-center gap-2">
+                            <AlertCircle size={14} /> Low stock — {lowStockItems.length} item{lowStockItems.length !== 1 ? 's' : ''}
                           </h3>
                           <button
-                            onClick={() => { setLowStockOrderPartIds(lowStockItems.map((i: any) => i.pk)); setCurrentPage('orders'); }}
-                            className="text-[10px] font-black uppercase tracking-widest bg-white text-red-600 px-3 py-1 hover:bg-red-50 transition-colors border border-white"
+                            onClick={() => { setLowStockOrderPartIds(lowStockItems.map(i => i.pk)); setCurrentPage('orders'); }}
+                            className="text-[10px] font-semibold bg-white text-red-600 px-3 py-1 hover:bg-red-50 transition-colors border border-white"
                           >
-                            ORDER ALL →
+                            Order all →
                           </button>
                         </div>
                         <ul className="divide-y divide-red-200">
-                          {lowStockItems.map((item: any) => (
-                            <li key={item.pk} className="px-4 py-2 text-xs font-bold uppercase text-brand-black flex items-center justify-between gap-4">
+                          {lowStockItems.map(item => (
+                            <li key={item.pk} className="px-4 py-2 text-xs font-bold text-brand-black flex items-center justify-between gap-4">
                               <span className="flex-1 truncate">{item.name}</span>
                               <div className="flex items-center gap-3 flex-shrink-0">
-                                {item.total_in_stock !== undefined && (
+                                {typeof item.total_in_stock === 'number' && (
                                   <span className="font-mono text-red-600">{item.total_in_stock} left</span>
                                 )}
                                 <button
                                   onClick={() => { setLowStockOrderPartIds([item.pk]); setCurrentPage('orders'); }}
-                                  className="text-[10px] font-black uppercase tracking-widest bg-red-600 text-white px-3 py-1 hover:bg-red-700 transition-colors"
+                                  className="text-[10px] font-semibold bg-red-600 text-white px-3 py-1 hover:bg-red-700 transition-colors"
                                 >
-                                  ORDER
+                                  Order
                                 </button>
                               </div>
                             </li>
@@ -539,22 +537,22 @@ function AppContent() {
                     {/* Category breakdown + Recent activity */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div>
-                        <h3 className="text-xs font-black uppercase tracking-widest mb-3 text-brand-black">
-                          STOCK BY CATEGORY
+                        <h3 className="text-xs font-semibold mb-3 text-brand-black">
+                          Stock by category
                         </h3>
-                        <div className="border border-brand-black bg-white overflow-hidden">
+                        <div className="border border-lijn bg-white overflow-hidden">
                           {stockLoading ? (
-                            <div className="p-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-brand-black/40">
-                              <Loader2 size={14} className="animate-spin" /> LOADING...
+                            <div className="p-6 flex items-center gap-2 text-xs font-bold text-brand-black/40">
+                              <Loader2 size={14} className="animate-spin" /> Loading...
                             </div>
                           ) : categoryStats.length === 0 ? (
-                            <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">NO DATA</div>
+                            <div className="p-6 text-center text-xs font-bold text-brand-black/40">No data</div>
                           ) : (
-                            <ul className="divide-y divide-brand-black/10">
+                            <ul className="divide-y divide-lijn">
                               {categoryStats.slice(0, 10).map(([cat, count]) => (
                                 <li key={cat} className="px-4 py-2.5 hover:bg-brand-beige transition-colors">
                                   <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-black uppercase text-brand-black truncate mr-2">{cat}</span>
+                                    <span className="text-xs font-semibold text-brand-black truncate mr-2">{cat}</span>
                                     <span className="text-xs font-mono text-brand-black/60 flex-shrink-0">{count}</span>
                                   </div>
                                   <div className="h-1 bg-brand-beige-dark overflow-hidden">
@@ -571,15 +569,17 @@ function AppContent() {
                       </div>
 
                       <div>
-                        <h3 className="text-xs font-black uppercase tracking-widest mb-3 text-brand-black">
-                          RECENT ACTIVITY
+                        <h3 className="text-xs font-semibold mb-3 text-brand-black">
+                          Recent activity
                         </h3>
-                        <div className="border border-brand-black overflow-hidden">
+                        <div className="border border-lijn overflow-hidden">
                           {recentMovements.length > 0 ? (
-                            <div className="divide-y divide-brand-black/10">
+                            <div className="divide-y divide-lijn">
                               {recentMovements.map((move) => {
-                                const isAdd = (move.deltas?.added ?? 0) > 0 || move.tracking_type === 10 || move.tracking_type === 100;
-                                const isRemove = (move.deltas?.removed ?? 0) > 0 || move.tracking_type === 11;
+                                const isAdd = (move.deltas?.added ?? 0) > 0 || move.tracking_type === TRACKING.STOCK_ADD;
+                                const isRemove = (move.deltas?.removed ?? 0) > 0
+                                  || move.tracking_type === TRACKING.SHIPPED_AGAINST_SALES_ORDER
+                                  || move.tracking_type === TRACKING.SENT_TO_CUSTOMER;
                                 return (
                                   <div key={move.pk} className={cn(
                                     "p-3 flex justify-between items-center",
@@ -594,7 +594,7 @@ function AppContent() {
                                         {isAdd ? "↑" : isRemove ? "↓" : "·"}
                                       </span>
                                       <div className="min-w-0">
-                                        <span className="text-xs font-bold uppercase">{move.label}</span>
+                                        <span className="text-xs font-bold">{move.label}</span>
                                         {move.notes && <p className="text-[10px] text-brand-black/60 mt-0.5 truncate">{move.notes}</p>}
                                       </div>
                                     </div>
@@ -604,19 +604,19 @@ function AppContent() {
                               })}
                             </div>
                           ) : (
-                            <div className="p-6 text-center text-xs font-bold uppercase text-brand-black/40">
-                              NO RECENT ACTIVITY
+                            <div className="p-6 text-center text-xs font-bold text-brand-black/40">
+                              No recent activity
                             </div>
                           )}
                           {inventreePanelUrl && (
-                            <div className="p-2 bg-brand-beige-dark border-t border-brand-black/10 flex justify-center">
+                            <div className="p-2 bg-brand-beige-dark border-t border-lijn flex justify-center">
                               <a
                                 href={inventreePanelUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-[10px] font-black uppercase tracking-widest hover:underline flex items-center gap-1"
+                                className="text-[10px] font-semibold hover:underline flex items-center gap-1"
                               >
-                                VIEW ALL IN INVENTREE <ExternalLink size={10} />
+                                View all in InvenTree <ExternalLink size={10} />
                               </a>
                             </div>
                           )}
@@ -626,16 +626,16 @@ function AppContent() {
 
                     {/* Quick actions */}
                     <div>
-                      <h3 className="text-xs font-black uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <Info size={14} /> QUICK ACTIONS
+                      <h3 className="text-xs font-semibold mb-3 flex items-center gap-2">
+                        <Info size={14} /> Quick actions
                       </h3>
-                      <div className="border border-brand-black p-4">
+                      <div className="border border-lijn p-4">
                         <div className="flex gap-3 flex-wrap">
-                          <button onClick={() => setCurrentPage('inventory')} className="brutalist-button py-2 px-4 text-xs">STOCK LIST</button>
-                          <button onClick={() => setCurrentPage('scan')} className="brutalist-button py-2 px-4 bg-blue-200 text-brand-black text-xs">SCANNER</button>
-                          <button onClick={() => setAddPartFormModalOpen(true)} className="brutalist-button py-2 px-4 text-xs">+ NEW ITEM</button>
-                          <button onClick={() => setCurrentPage('orders')} className="brutalist-button py-2 px-4 bg-amber-300 text-brand-black text-xs">PURCHASE ORDERS</button>
-                          <button onClick={() => setCurrentPage('analytics')} className="brutalist-button py-2 px-4 text-xs">ANALYTICS</button>
+                          <button onClick={() => setCurrentPage('inventory')} className="brutalist-button py-2 px-4 text-xs">Stock list</button>
+                          <button onClick={() => setCurrentPage('scan')} className="brutalist-button py-2 px-4 bg-blue-200 text-brand-black text-xs">Scanner</button>
+                          <button onClick={() => setAddPartFormModalOpen(true)} className="brutalist-button py-2 px-4 text-xs">+ New item</button>
+                          <button onClick={() => setCurrentPage('orders')} className="brutalist-button py-2 px-4 bg-amber-300 text-brand-black text-xs">Purchase orders</button>
+                          <button onClick={() => setCurrentPage('analytics')} className="brutalist-button py-2 px-4 text-xs">Analytics</button>
                         </div>
                       </div>
                     </div>
@@ -658,7 +658,7 @@ function AppContent() {
                   </div>
 
                   {/* Right Sidebar: Shopping Cart in volunteer mode */}
-                  <aside className="w-full lg:w-[40%] border-l-0 lg:border-l border-t lg:border-t-0 border-brand-black bg-brand-beige flex flex-col min-h-[50vh] lg:min-h-0">
+                  <aside className="w-full lg:w-[40%] border-l-0 lg:border-l border-t lg:border-t-0 border-lijn bg-brand-beige flex flex-col min-h-[50vh] lg:min-h-0">
                     <ShoppingWindow
                       scanEvent={scanEvent}
                       onCheckoutResultChange={() => { }}
@@ -723,11 +723,11 @@ function AppContent() {
       {/* Add Part Modal */}
       {addPartFormModalOpen && (
         <div
-          className="fixed inset-0 bg-brand-black/80 z-50 flex items-start sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+          className="fixed inset-0 bg-brand-black/50 z-50 flex items-start sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
           onClick={() => setAddPartFormModalOpen(false)}
         >
           <div
-            className="border border-brand-black bg-white w-full max-w-3xl my-0 sm:my-8 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] max-h-screen overflow-y-auto"
+            className="border border-lijn bg-white w-full max-w-3xl my-0 sm:my-8 max-h-screen overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
@@ -746,11 +746,11 @@ function AppContent() {
       {/* Add Category Modal */}
       {addCategoryModalOpen && (
         <div
-          className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-brand-black/50 z-50 flex items-center justify-center p-4"
           onClick={() => setAddCategoryModalOpen(false)}
         >
           <div
-            className="border border-brand-black bg-white w-full max-w-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)]"
+            className="border border-lijn bg-white w-full max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
@@ -768,11 +768,11 @@ function AppContent() {
       {/* Add Location Modal */}
       {addLocationModalOpen && (
         <div
-          className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-brand-black/50 z-50 flex items-center justify-center p-4"
           onClick={() => setAddLocationModalOpen(false)}
         >
           <div
-            className="border border-brand-black bg-white w-full max-w-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)]"
+            className="border border-lijn bg-white w-full max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
@@ -788,11 +788,11 @@ function AppContent() {
       {/* Add Supplier Modal */}
       {addSupplierModalOpen && (
         <div
-          className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-brand-black/50 z-50 flex items-center justify-center p-4"
           onClick={() => setAddSupplierModalOpen(false)}
         >
           <div
-            className="border border-brand-black bg-white w-full max-w-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)]"
+            className="border border-lijn bg-white w-full max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">

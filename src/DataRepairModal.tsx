@@ -47,7 +47,7 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
         if (open && tab === 'suppliers' && !suppliersLoaded) {
             loadPartsWithoutSuppliers();
         }
-    }, [open, tab]);
+    }, [open, tab, suppliersLoaded]);
 
     const loadPartsWithoutSuppliers = async () => {
         setLoadingParts(true);
@@ -91,44 +91,18 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
             for (const part of partsWithIPN) {
                 const barcode = part.IPN!.trim();
                 try {
-                    const stockResp = await inventreeClient.getAllStockItems({ part: part.pk });
-                    const stockItems = stockResp.results;
-
-                    if (stockItems.length === 0) {
-                        setBarcodeResults(prev => [...prev, {
-                            partName: part.name,
-                            barcode,
-                            status: 'error',
-                            message: 'No stock item found',
-                        }]);
-                        continue;
-                    }
-
-                    // Assign to first stock item
-                    const stockItem = stockItems[0];
-                    try {
-                        await inventreeClient.assignBarcode(barcode, stockItem.pk);
-                        setBarcodeResults(prev => [...prev, {
-                            partName: part.name,
-                            barcode,
-                            status: 'fixed',
-                        }]);
-                    } catch (assignErr: unknown) {
-                        const msg = assignErr instanceof Error ? assignErr.message : String(assignErr);
-                        const alreadyLinked = msg.toLowerCase().includes('already') || msg.includes('400');
-                        setBarcodeResults(prev => [...prev, {
-                            partName: part.name,
-                            barcode,
-                            status: alreadyLinked ? 'already_ok' : 'error',
-                            message: alreadyLinked ? undefined : msg,
-                        }]);
-                    }
+                    const result = await inventreeClient.linkBarcodeToPart(barcode, part.pk);
+                    setBarcodeResults(prev => [...prev, {
+                        partName: part.name,
+                        barcode,
+                        status: result === 'already' ? 'already_ok' : 'fixed',
+                    }]);
                 } catch (err) {
                     setBarcodeResults(prev => [...prev, {
                         partName: part.name,
                         barcode,
                         status: 'error',
-                        message: 'Failed to fetch stock items',
+                        message: err instanceof Error ? err.message : String(err),
                     }]);
                 }
             }
@@ -183,13 +157,13 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 bg-brand-black/80 z-50 flex items-start justify-center p-4 overflow-y-auto">
-            <div className="bg-white border border-brand-black w-full max-w-2xl my-4">
+        <div className="fixed inset-0 bg-brand-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto">
+            <div className="bg-white border border-lijn w-full max-w-2xl my-4">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-brand-black bg-brand-black">
+                <div className="flex items-center justify-between p-4 border-b border-lijn bg-brand-black">
                     <div className="flex items-center gap-2">
                         <Wrench className="w-4 h-4 text-amber-300" />
-                        <h2 className="text-sm font-black uppercase tracking-widest text-white">DATA REPAIR</h2>
+                        <h2 className="text-sm font-semibold text-white">Data repair</h2>
                     </div>
                     <button onClick={onClose} className="p-1 hover:bg-zinc-800 transition-colors">
                         <X className="w-5 h-5 text-white" />
@@ -197,19 +171,19 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b border-brand-black">
+                <div className="flex border-b border-lijn">
                     {(['barcodes', 'suppliers'] as Tab[]).map(t => (
                         <button
                             key={t}
                             onClick={() => setTab(t)}
                             className={cn(
-                                "flex-1 py-3 text-[10px] font-black uppercase tracking-widest border-b-4 transition-all",
+                                "flex-1 py-3 text-[10px] font-semibold border-b-4 transition-all",
                                 tab === t
-                                    ? "border-brand-black text-brand-black"
+                                    ? "border-lijn text-brand-black"
                                     : "border-transparent text-brand-black/50 hover:text-brand-black"
                             )}
                         >
-                            {t === 'barcodes' ? 'FIX BARCODES' : `LINK SUPPLIERS ${suppliersLoaded ? `(${unsavedParts.length})` : ''}`}
+                            {t === 'barcodes' ? 'Fix barcodes' : `Link suppliers ${suppliersLoaded ? `(${unsavedParts.length})` : ''}`}
                         </button>
                     ))}
                 </div>
@@ -217,8 +191,8 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
                 {/* Barcodes Tab */}
                 {tab === 'barcodes' && (
                     <div className="p-6 space-y-4">
-                        <p className="text-xs font-bold uppercase tracking-widest text-brand-black/60">
-                            Scans all parts with a barcode (IPN) and links them to their stock item. Safe to run multiple times — already-linked barcodes are skipped.
+                        <p className="text-xs font-bold text-brand-black/60">
+                            Links the barcode (IPN) of every part to the part itself, and takes it off the stock item it used to point at. Safe to run more than once: barcodes already on their part are skipped.
                         </p>
 
                         {!barcodeRunning && !barcodesDone && (
@@ -227,38 +201,38 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
                                 className="brutalist-button px-6 py-3 bg-amber-300 text-brand-black text-xs flex items-center gap-2"
                             >
                                 <Wrench size={14} />
-                                RUN BARCODE FIX
+                                Run barcode fix
                             </button>
                         )}
 
                         {barcodeRunning && (
-                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-brand-black/60">
+                            <div className="flex items-center gap-2 text-xs font-bold text-brand-black/60">
                                 <Loader2 size={14} className="animate-spin" />
-                                FIXING BARCODES...
+                                Fixing barcodes...
                             </div>
                         )}
 
                         {barcodeResults.length > 0 && (
-                            <div className="border border-brand-black">
+                            <div className="border border-lijn">
                                 {barcodesDone && (
-                                    <div className="flex gap-4 px-4 py-2 bg-brand-beige border-b border-brand-black text-[10px] font-black uppercase tracking-widest">
-                                        <span className="text-emerald-700">{fixed} FIXED</span>
-                                        <span className="text-brand-black/50">{alreadyOk} ALREADY OK</span>
-                                        {errors > 0 && <span className="text-red-600">{errors} ERRORS</span>}
+                                    <div className="flex gap-4 px-4 py-2 bg-brand-beige border-b border-lijn text-[10px] font-semibold">
+                                        <span className="text-emerald-700">{fixed} fixed</span>
+                                        <span className="text-brand-black/50">{alreadyOk} already OK</span>
+                                        {errors > 0 && <span className="text-red-600">{errors} errors</span>}
                                     </div>
                                 )}
-                                <div className="max-h-64 overflow-y-auto divide-y divide-brand-black/10">
+                                <div className="max-h-64 overflow-y-auto divide-y divide-lijn">
                                     {barcodeResults.map((r, i) => (
                                         <div key={i} className="flex items-center gap-3 px-4 py-2">
                                             {r.status === 'fixed' && <CheckCircle size={14} className="text-emerald-600 flex-shrink-0" />}
                                             {r.status === 'already_ok' && <CheckCircle size={14} className="text-brand-black/30 flex-shrink-0" />}
                                             {r.status === 'error' && <XCircle size={14} className="text-red-500 flex-shrink-0" />}
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-[10px] font-black uppercase truncate">{r.partName}</p>
+                                                <p className="text-[10px] font-semibold truncate">{r.partName}</p>
                                                 <p className="text-[10px] font-mono text-brand-black/50">{r.barcode}</p>
                                             </div>
                                             {r.message && (
-                                                <p className="text-[10px] text-red-500 font-bold uppercase">{r.message}</p>
+                                                <p className="text-[10px] text-red-500 font-bold">{r.message}</p>
                                             )}
                                         </div>
                                     ))}
@@ -269,9 +243,9 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
                         {barcodesDone && (
                             <button
                                 onClick={() => { setBarcodeResults([]); setBarcodesDone(false); }}
-                                className="text-[10px] font-black uppercase tracking-widest text-brand-black/50 hover:text-brand-black"
+                                className="text-[10px] font-semibold text-brand-black/50 hover:text-brand-black"
                             >
-                                RUN AGAIN
+                                Run again
                             </button>
                         )}
                     </div>
@@ -280,31 +254,31 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
                 {/* Suppliers Tab */}
                 {tab === 'suppliers' && (
                     <div className="p-6 space-y-4">
-                        <p className="text-xs font-bold uppercase tracking-widest text-brand-black/60">
+                        <p className="text-xs font-bold text-brand-black/60">
                             Parts without a linked supplier. Select a supplier for each and save.
                         </p>
 
                         {loadingParts && (
-                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-brand-black/60">
+                            <div className="flex items-center gap-2 text-xs font-bold text-brand-black/60">
                                 <Loader2 size={14} className="animate-spin" />
-                                LOADING PARTS...
+                                Loading parts...
                             </div>
                         )}
 
                         {suppliersLoaded && unsavedParts.length === 0 && (
-                            <div className="flex items-center gap-2 py-6 justify-center text-xs font-black uppercase tracking-widest text-emerald-600">
+                            <div className="flex items-center gap-2 py-6 justify-center text-xs font-semibold text-emerald-600">
                                 <CheckCircle size={16} />
-                                ALL PARTS HAVE A SUPPLIER LINKED
+                                All parts have a supplier linked
                             </div>
                         )}
 
                         {suppliersLoaded && unsavedParts.length > 0 && (
-                            <div className="border border-brand-black divide-y divide-brand-black/10 max-h-[60vh] overflow-y-auto">
+                            <div className="border border-lijn divide-y divide-lijn max-h-[60vh] overflow-y-auto">
                                 {unsavedParts.map(part => (
                                     <div key={part.pk} className="p-3 space-y-2">
                                         <div className="flex items-center gap-2">
                                             <Tag size={12} className="text-brand-black/40 flex-shrink-0" />
-                                            <p className="text-xs font-black uppercase tracking-widest">{part.name}</p>
+                                            <p className="text-xs font-semibold">{part.name}</p>
                                             {part.IPN && (
                                                 <span className="text-[10px] font-mono text-brand-black/40">{part.IPN}</span>
                                             )}
@@ -315,7 +289,7 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
                                                 onChange={e => updatePart(part.pk, 'selectedSupplier', e.target.value)}
                                                 className="brutalist-input text-xs px-2 py-1.5"
                                             >
-                                                <option value="">SELECT SUPPLIER...</option>
+                                                <option value="">Select supplier...</option>
                                                 {suppliers.map(s => (
                                                     <option key={s.id} value={String(s.id)}>{s.name.toUpperCase()}</option>
                                                 ))}
@@ -329,7 +303,7 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
                                             />
                                         </div>
                                         {part.error && (
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">{part.error}</p>
+                                            <p className="text-[10px] font-bold text-red-500">{part.error}</p>
                                         )}
                                         <button
                                             onClick={() => saveSupplierForPart(part.pk)}
@@ -340,7 +314,7 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
                                             )}
                                         >
                                             {part.saving ? <Loader2 size={10} className="animate-spin" /> : null}
-                                            SAVE
+                                            Save
                                         </button>
                                     </div>
                                 ))}

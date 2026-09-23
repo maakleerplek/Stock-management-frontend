@@ -7,8 +7,6 @@ services:
         VITE_ORGANIZATION_URL: ${VITE_ORGANIZATION_URL}
         VITE_INVENTREE_URL: ${VITE_INVENTREE_URL}
         VITE_INVENTREE_PANEL_URL: ${VITE_INVENTREE_PANEL_URL}
-        VITE_INVENTREE_TOKEN: ${VITE_INVENTREE_TOKEN}
-        VITE_VOLUNTEER_PASSWORD: ${VITE_VOLUNTEER_PASSWORD}
         VITE_AZURE_CLIENT_ID: ${VITE_AZURE_CLIENT_ID}
         VITE_AZURE_TENANT_ID: ${VITE_AZURE_TENANT_ID}
         VITE_AZURE_REDIRECT_URI: ${VITE_AZURE_REDIRECT_URI}
@@ -27,6 +25,10 @@ services:
     environment:
       # Runtime environment variable for Caddy to proxy to InvenTree backend
       - INVENTREE_BACKEND_URL=${INVENTREE_BACKEND_URL}
+      # Secrets stay on the server: nginx adds the token to API calls and checks
+      # the volunteer password. The VITE_ names still work for older .env files.
+      - INVENTREE_TOKEN=${INVENTREE_TOKEN:-${VITE_INVENTREE_TOKEN}}
+      - VOLUNTEER_PASSWORD=${VOLUNTEER_PASSWORD:-${VITE_VOLUNTEER_PASSWORD}}
       # Host IP for SSL certificate generation
       - HOST_IP=${HOST_IP}
     ports:

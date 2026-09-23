@@ -46,17 +46,17 @@ function InvenTreePage({ onBack }: InvenTreePageProps) {
 
   return (
     <div ref={containerRef} className="flex-1 flex flex-col h-full bg-brand-beige overflow-hidden">
-      <div className="flex items-center justify-between p-4 border-b border-brand-black bg-brand-beige">
+      <div className="flex items-center justify-between p-4 border-b border-lijn bg-brand-beige">
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-2 border border-brand-black bg-brand-beige-dark hover:brightness-95 transition-colors"
+            className="p-2 border border-lijn bg-brand-beige-dark hover:brightness-95 transition-colors"
             title="Back to Overview"
           >
             <ArrowLeft size={20} className="text-brand-black" />
           </button>
-          <h2 className="text-lg font-black uppercase tracking-widest text-brand-black">
-            INVENTREE PANEL
+          <h2 className="text-lg font-semibold text-brand-black">
+            InvenTree panel
           </h2>
         </div>
 
@@ -67,14 +67,14 @@ function InvenTreePage({ onBack }: InvenTreePageProps) {
             title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
           >
             {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            {isFullscreen ? 'EXIT FULLSCREEN' : 'FULLSCREEN'}
+            {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
           </button>
           <button
             onClick={handleOpenInNewTab}
             className="brutalist-button py-2 px-4 flex items-center gap-2 text-xs"
           >
             <ExternalLink size={14} />
-            OPEN IN NEW TAB
+            Open in new tab
           </button>
         </div>
       </div>
@@ -83,8 +83,8 @@ function InvenTreePage({ onBack }: InvenTreePageProps) {
         {!targetUrl ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8 text-brand-black">
             <AlertTriangle size={48} className="mb-4 text-amber-500" />
-            <h3 className="text-xl font-black uppercase tracking-widest">NO URL CONFIGURED</h3>
-            <p className="mt-2 font-bold uppercase text-sm">SET VITE_INVENTREE_PANEL_URL IN YOUR .ENV FILE.</p>
+            <h3 className="text-xl font-semibold">No URL configured</h3>
+            <p className="mt-2 font-bold text-sm">Set VITE_INVENTREE_PANEL_URL in your .env file.</p>
           </div>
         ) : (
           <iframe

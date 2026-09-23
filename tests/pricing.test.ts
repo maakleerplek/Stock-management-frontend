@@ -42,7 +42,7 @@ function mockApi(routes: Record<string, Route>) {
 }
 
 function client() {
-    return new InvenTreeClient({ baseUrl: '', token: 't' });
+    return new InvenTreeClient({ baseUrl: '' });
 }
 
 afterEach(() => vi.unstubAllEnvs());
@@ -128,28 +128,21 @@ describe('a part with no sale price', () => {
             '/part/sale-price/': { results: [] },
             '/company/price-break/': { results: [{ part: 1, quantity: 1, price: '25.07' }] },
             '/company/part/': { results: [{ pk: 1, part: 8, pack_quantity: '24' }] },
-            '/stock/99/': {
-                pk: 99,
-                part: 8,
-                quantity: 5,
-                part_detail: {
-                    pk: 8,
-                    name: 'Coca Cola',
-                    // these are cost figures post-migration; using either as a
-                    // selling price would undercharge by half
-                    pricing_min: 1.044583,
-                    pricing_max: 1.044583,
-                },
+            '/stock/?part=8': {
+                count: 1,
+                results: [{ pk: 99, part: 8, quantity: 5, status_text: 'OK' }],
+            },
+            '/part/8/': {
+                pk: 8,
+                name: 'Coca Cola',
+                // these are cost figures post-migration; using either as a
+                // selling price would undercharge by half
+                pricing_min: 1.044583,
+                pricing_max: 1.044583,
             },
         });
-        const c = client();
-        // reach the private formatter the way the barcode path does
-        const item = (c as unknown as {
-            formatStockItemData: (s: unknown) => { price: number; cost: number };
-        }).formatStockItemData({
-            pk: 99, part: 8, quantity: 5,
-            part_detail: { pk: 8, name: 'Coca Cola', pricing_min: 1.044583, pricing_max: 1.044583 },
-        });
+        // the path a scan takes to build what the till shows
+        const item = await client().getPartItemData(8);
         expect(item.price).toBe(0);
         expect(item.price).not.toBeCloseTo(1.0446, 3);
     });

@@ -225,9 +225,9 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
         compact ? "" : "brutalist-card p-6 sm:p-8"
       )}>
         {!compact && (
-          <div className="flex items-center gap-2 pb-2 border-b border-brand-black">
+          <div className="flex items-center gap-2 pb-2 border-b border-lijn">
             <QrCode size={24} className="text-brand-black" />
-            <h3 className="text-base sm:text-lg font-black uppercase tracking-tight">Barcode Scanner</h3>
+            <h3 className="text-base sm:text-lg font-semibold tracking-tight">Barcode Scanner</h3>
           </div>
         )}
 
@@ -254,7 +254,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
               <button
                 onClick={startScan}
                 disabled={isLoading}
-                className="brutalist-button bg-blue-500 text-white flex items-center gap-2"
+                className="brutalist-button btn-primary flex items-center gap-2"
               >
                 <QrCode size={18} />
                 <span className="text-sm sm:text-base">{isLoading ? 'Starting...' : 'Use Camera'}</span>
@@ -282,7 +282,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
           {/* Camera selector — shown when multiple cameras are available */}
           {cameras.length > 1 && (
             <div className="w-full">
-              <label className="flex items-center gap-1 text-xs font-bold uppercase mb-1">
+              <label className="flex items-center gap-1 text-xs font-bold mb-1">
                 <Camera size={14} />
                 Camera
               </label>
@@ -303,11 +303,11 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
           {isScanning && (
             <div className={cn(
               "w-full aspect-video overflow-hidden relative bg-black brutalist-border",
-              cameraError ? "border-yellow-600" : "border-brand-black"
+              cameraError ? "border-yellow-600" : "border-lijn"
             )}>
               {isLoading ? (
                 <div className="flex flex-col justify-center items-center h-full gap-2">
-                  <div className="w-8 h-8 border border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-8 h-8 border border-white border-t-transparent animate-spin" />
                   <p className="text-xs text-gray-400 font-mono">Initializing camera...</p>
                 </div>
               ) : (
@@ -372,7 +372,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
           <div className="w-full brutalist-border bg-gray-100 p-3 text-center">
             <p className="text-xs sm:text-sm text-gray-600 font-bold">
               Last Scanned:
-              <span className="ml-2 text-brand-black font-black">{barcode}</span>
+              <span className="ml-2 text-brand-black font-semibold">{barcode}</span>
             </p>
           </div>
         </div>
@@ -381,13 +381,13 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
       {/* Debug Info for Mobile troubleshooting */}
       {(cameraError || !isScanning) && (
         <div className="w-full max-w-[360px] brutalist-border bg-gray-50 p-3">
-          <p className="text-[10px] sm:text-xs font-black uppercase mb-2 text-gray-600">
+          <p className="text-[10px] sm:text-xs font-semibold mb-2 text-gray-600">
             Browser Diagnostics:
           </p>
           <div className="grid grid-cols-2 gap-2">
             <div className="flex items-center gap-1.5">
               <div className={cn(
-                "w-1.5 h-1.5 rounded-full",
+                "w-1.5 h-1.5",
                 isSecure ? "bg-green-500" : "bg-red-500"
               )} />
               <p className={cn(
@@ -399,7 +399,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
             </div>
             <div className="flex items-center gap-1.5">
               <div className={cn(
-                "w-1.5 h-1.5 rounded-full",
+                "w-1.5 h-1.5",
                 hasMediaDevices ? "bg-green-500" : "bg-red-500"
               )} />
               <p className={cn(

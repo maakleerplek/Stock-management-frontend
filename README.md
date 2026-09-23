@@ -82,22 +82,27 @@ docker-compose up --build
 
 ## Environment Variables
 
-Create a `.env` file:
+Copy `.env.example` to `.env`. Two settings are secrets and only live on the
+server; the proxy (nginx in Docker, Vite in development) uses them and the
+browser never receives them:
 
 ```env
-VITE_INVENTREE_URL=https://your-inventree-server:8443
+INVENTREE_TOKEN=...        # added by the proxy to every InvenTree API call
+VOLUNTEER_PASSWORD=...     # checked by the proxy at volunteer login
 ```
+
+Without a volunteer login the app can read the catalogue and run a checkout,
+nothing else. The rules are in `src/lib/apiAccess.ts` and
+`nginx.conf.template`. Use an InvenTree user with only the roles the app
+needs for the token, not a superuser.
+
+Checkout books every sale as an InvenTree sales order on the customer
+"Walk-in customer". A volunteer login creates that customer the first time.
 
 ## Design System
 
-This application uses a brutalist design aesthetic. See [STYLING_GUIDE.md](./STYLING_GUIDE.md) for detailed design principles and CSS conventions.
-
-Key principles:
-- 3px solid black borders
-- Drop shadows only on clickable buttons
-- Bold uppercase typography
-- White/gray backgrounds in volunteer mode (no beige)
-- Color-coded feedback (green=add, red=remove, blue=set)
+The look follows [maakleerplek.be](https://maakleerplek.be/nl). See
+[STYLING_GUIDE.md](./STYLING_GUIDE.md) for colours, type and components.
 
 ## Project Structure
 
@@ -105,7 +110,7 @@ Key principles:
 src/
   App.tsx              # Main app component with routing
   ShoppingCart.tsx     # Cart with stock change preview
-  ShoppingWindow.tsx   # Cart wrapper with checkout logic
+  ShoppingWindow.tsx   # Cart wrapper; checkout as a sales order
   ItemList.tsx         # Stock list with inline editing
   BarcodeScanner.tsx   # Camera scanner component
   DataRepairModal.tsx  # Bulk barcode and supplier data repair tool
@@ -115,6 +120,9 @@ src/
     Footer.tsx         # App footer
   api/
     inventreeClient.ts # API client for InvenTree
+  lib/
+    apiAccess.ts       # Which calls need a volunteer (mirrored in nginx)
+    stockHistory.ts    # Stock levels and sales from the tracking log
   index.css            # Global styles and Tailwind config
 ```
 

@@ -3,7 +3,7 @@
 # Stage 2: Serve with nginx
 
 # ==================== BUILD STAGE ====================
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -16,13 +16,14 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build arguments for environment variables (passed at build time)
+# Build arguments for environment variables (passed at build time).
+# Secrets are NOT build arguments: everything here ends up in the public
+# JavaScript. The InvenTree token and volunteer password are runtime settings
+# of the nginx stage (see entrypoint.sh).
 ARG VITE_ORGANIZATION_NAME
 ARG VITE_ORGANIZATION_URL
 ARG VITE_INVENTREE_URL
 ARG VITE_INVENTREE_PANEL_URL
-ARG VITE_INVENTREE_TOKEN
-ARG VITE_VOLUNTEER_PASSWORD
 ARG VITE_AZURE_CLIENT_ID
 ARG VITE_AZURE_TENANT_ID
 ARG VITE_AZURE_REDIRECT_URI
@@ -43,8 +44,6 @@ ENV VITE_ORGANIZATION_NAME=${VITE_ORGANIZATION_NAME}
 ENV VITE_ORGANIZATION_URL=${VITE_ORGANIZATION_URL}
 ENV VITE_INVENTREE_URL=${VITE_INVENTREE_URL}
 ENV VITE_INVENTREE_PANEL_URL=${VITE_INVENTREE_PANEL_URL}
-ENV VITE_INVENTREE_TOKEN=${VITE_INVENTREE_TOKEN}
-ENV VITE_VOLUNTEER_PASSWORD=${VITE_VOLUNTEER_PASSWORD}
 ENV VITE_AZURE_CLIENT_ID=${VITE_AZURE_CLIENT_ID}
 ENV VITE_AZURE_TENANT_ID=${VITE_AZURE_TENANT_ID}
 ENV VITE_AZURE_REDIRECT_URI=${VITE_AZURE_REDIRECT_URI}

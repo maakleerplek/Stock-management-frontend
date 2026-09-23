@@ -53,13 +53,13 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
 
     return (
         <div className="w-full">
-            <div className="flex items-center justify-between p-4 border-b border-brand-black bg-white">
-                <h2 className="text-lg font-black uppercase tracking-widest text-brand-black">
-                    ADD SUPPLIER
+            <div className="flex items-center justify-between p-4 border-b border-lijn bg-white">
+                <h2 className="text-lg font-semibold text-brand-black">
+                    Add supplier
                 </h2>
                 <button
                     onClick={onCancel}
-                    className="p-1 border border-brand-black bg-white hover:bg-brand-beige transition-colors"
+                    className="p-1 border border-lijn bg-white hover:bg-brand-beige transition-colors"
                 >
                     <X size={18} className="text-brand-black" />
                 </button>
@@ -74,7 +74,7 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
 
                 <div className="grid grid-cols-1 gap-4">
                     <div>
-                        <label className="block text-sm font-bold mb-2 uppercase">
+                        <label className="block text-sm font-bold mb-2">
                             Supplier Name <span className="text-red-600">*</span>
                         </label>
                         <input
@@ -89,7 +89,7 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold mb-2 uppercase">Description</label>
+                        <label className="block text-sm font-bold mb-2">Description</label>
                         <textarea
                             name="description"
                             value={formData.description}
@@ -101,7 +101,7 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-bold mb-2 uppercase">Email</label>
+                            <label className="block text-sm font-bold mb-2">Email</label>
                             <input
                                 type="email"
                                 name="email"
@@ -112,7 +112,7 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-bold mb-2 uppercase">Phone</label>
+                            <label className="block text-sm font-bold mb-2">Phone</label>
                             <input
                                 type="tel"
                                 name="phone"
@@ -125,7 +125,7 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold mb-2 uppercase">Website</label>
+                        <label className="block text-sm font-bold mb-2">Website</label>
                         <input
                             type="url"
                             name="website"
@@ -137,7 +137,7 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold mb-2 uppercase">Address</label>
+                        <label className="block text-sm font-bold mb-2">Address</label>
                         <textarea
                             name="address"
                             value={formData.address}
@@ -160,7 +160,7 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
                             )}
                         >
                             <X className="w-4 h-4" />
-                            <span>CANCEL</span>
+                            <span>Cancel</span>
                         </button>
                         <button
                             type="submit"
@@ -173,12 +173,12 @@ const AddSupplierForm: React.FC<AddSupplierFormProps> = ({ onSubmit, onCancel })
                             {loading ? (
                                 <>
                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                    <span>CREATING...</span>
+                                    <span>Creating...</span>
                                 </>
                             ) : (
                                 <>
                                     <Save className="w-4 h-4" />
-                                    <span>ADD SUPPLIER</span>
+                                    <span>Add supplier</span>
                                 </>
                             )}
                         </button>

@@ -7,9 +7,10 @@
 //   - VITE_AZURE_TENANT_ID     Directory (tenant) ID  -> single-tenant
 //   - VITE_AZURE_REDIRECT_URI  (optional) defaults to the current origin
 //
-// NOTE: This gates UI access only (same trust level as the volunteer password).
-// It does NOT secure the InvenTree API, which is still reached through the
-// proxy with a static token. Backend token validation would be a separate step.
+// The proxy does not check Microsoft logins yet, so a sign-in here cannot
+// unlock volunteer-only API calls. The button stays hidden until
+// VITE_MICROSOFT_SIGNIN=true, which should only be set once a server validates
+// the Microsoft token.
 
 import { LogLevel, type Configuration, type PopupRequest } from '@azure/msal-browser';
 
@@ -21,7 +22,9 @@ const tenantId = import.meta.env.VITE_AZURE_TENANT_ID as string | undefined;
  * Microsoft sign-in button until the app registration has been configured,
  * so the app keeps working (password fallback) before Azure is wired up.
  */
-export const isMsalConfigured = Boolean(clientId && tenantId);
+export const isMsalConfigured = Boolean(
+  clientId && tenantId && import.meta.env.VITE_MICROSOFT_SIGNIN === 'true'
+);
 
 export const msalConfig: Configuration = {
   auth: {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { LogOut, Settings, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVolunteer } from '../VolunteerContext';
-import htlLogo from '../assets/HTL.png';
+import htlCube from '../assets/htl-cube-white.png';
 import Clock from './Clock';
 
 interface HeaderProps {
@@ -31,10 +31,7 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
 
   return (
     <>
-      <header className={cn(
-        "border-b border-brand-black px-4 sm:px-6 py-3 flex justify-between items-center relative",
-        isVolunteerMode ? "bg-amber-200" : "bg-brand-beige"
-      )}>
+      <header className="border-b border-brand-black/80 bg-brand-beige px-4 sm:px-8 h-16 flex justify-between items-center relative shrink-0">
         {/* Centered Clock */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:block">
           <Clock />
@@ -44,45 +41,50 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
           href="https://maakleerplek.be/"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-3 sm:gap-4 hover:opacity-80 transition-opacity cursor-pointer group"
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
         >
-          <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center border border-brand-black">
-            <img src={htlLogo} alt="HTL Logo" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
+          <div className="w-9 h-9 flex items-center justify-center bg-brand-black">
+            <img src={htlCube} alt="HTL" className="w-6 h-6 object-contain" />
           </div>
-          <div className="flex flex-col justify-center">
-            <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight leading-none text-brand-black">
-              Inventree
+          <div className="flex flex-col justify-center leading-none">
+            <h1 className="text-xl font-semibold tracking-tight text-brand-black">
+              maakleerplek
             </h1>
-            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-brand-black/60 mt-1">
-              Maakleerplek vzw
+            <p className="text-xs font-medium text-grafiet mt-1">
+              Stock management
             </p>
           </div>
         </a>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          {isVolunteerMode && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-amber-300 border-l-4 border-amber-700 text-amber-800">
+              Volunteer mode
+            </span>
+          )}
           {isVolunteerMode && (
             <button
               onClick={() => onViewChange(currentView === 'volunteer' ? 'inventory' : 'volunteer')}
-              className="brutalist-button flex items-center gap-2 px-4 py-2 text-sm"
+              className="brutalist-button hidden sm:flex items-center gap-2 px-4 py-2 text-sm"
             >
-              <span>{currentView === 'volunteer' ? 'STOCK LIST' : 'DASHBOARD'}</span>
+              <span>{currentView === 'volunteer' ? 'Stock list' : 'Dashboard'}</span>
             </button>
           )}
           <button
             onClick={handleVolunteerToggle}
             className={cn(
               "brutalist-button flex items-center gap-2 px-4 py-2 text-sm",
-              isVolunteerMode ? "bg-amber-400 border-brand-black" : ""
+              !isVolunteerMode && "btn-primary"
             )}
           >
             {isVolunteerMode ? (
               <>
                 <LogOut size={16} />
-                <span>LOGOUT</span>
+                <span>Log out</span>
               </>
             ) : (
               <>
                 <Settings size={16} />
-                <span>ADMIN PANEL</span>
+                <span>Admin panel</span>
               </>
             )}
           </button>
@@ -92,17 +94,17 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
       {/* Exit Volunteer Confirmation Modal */}
       {exitConfirmOpen && (
         <div
-          className="fixed inset-0 bg-brand-black/80 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-brand-black/50 z-50 flex items-center justify-center p-4"
           onClick={() => setExitConfirmOpen(false)}
         >
           <div
-            className="border border-brand-black bg-white w-full max-w-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)]"
+            className="border border-lijn bg-white w-full max-w-sm"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 border-b border-brand-black bg-red-500">
+            <div className="flex items-center justify-between p-4 border-b border-lijn bg-red-500">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-white" />
-                <h2 className="text-sm font-black uppercase tracking-widest text-white">EXIT VOLUNTEER MODE</h2>
+                <h2 className="text-sm font-semibold text-white">Exit volunteer mode</h2>
               </div>
               <button
                 onClick={() => setExitConfirmOpen(false)}
@@ -112,25 +114,25 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
               </button>
             </div>
             <div className="p-6 bg-white">
-              <p className="text-sm font-bold uppercase text-brand-black/80">
+              <p className="text-sm font-bold text-brand-black/80">
                 Are you sure you want to exit volunteer mode?
               </p>
-              <p className="text-xs text-brand-black/60 mt-2 uppercase">
+              <p className="text-xs text-brand-black/60 mt-2">
                 You will return to the checkout view.
               </p>
             </div>
-            <div className="flex gap-4 p-4 border-t border-brand-black bg-gray-50">
+            <div className="flex gap-4 p-4 border-t border-lijn bg-gray-50">
               <button
                 onClick={() => setExitConfirmOpen(false)}
-                className="flex-1 brutalist-button bg-white text-brand-black py-3 text-xs uppercase"
+                className="flex-1 brutalist-button bg-white text-brand-black py-3 text-xs"
               >
-                CANCEL
+                Cancel
               </button>
               <button
                 onClick={handleConfirmExit}
-                className="flex-1 brutalist-button bg-red-500 text-white py-3 text-xs uppercase hover:bg-red-600 border-brand-black"
+                className="flex-1 brutalist-button bg-red-500 text-white py-3 text-xs hover:bg-red-600 border-lijn"
               >
-                EXIT
+                Exit
               </button>
             </div>
           </div>

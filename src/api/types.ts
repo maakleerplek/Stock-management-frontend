@@ -44,6 +44,12 @@ export interface InvenTreeStockItem {
     };
     status_text: string;
     part: number;
+    /** Set once the item has left stock: sold, installed or consumed. */
+    customer?: number | null;
+    sales_order?: number | null;
+    belongs_to?: number | null;
+    consumed_by?: number | null;
+    is_building?: boolean;
     part_detail?: {
         name: string;
         description: string;
@@ -76,6 +82,7 @@ export interface InvenTreePartListResponse {
         name: string;
         IPN?: string;
         category?: number;
+        total_in_stock?: number;
         [key: string]: unknown;
     }>;
 }

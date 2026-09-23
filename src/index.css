@@ -1,82 +1,159 @@
 @import "tailwindcss";
 
+/* Visual language of maakleerplek.be: white and "beton" surfaces, ink text,
+   thin grey rules, flat ink buttons, muted category colours. */
 @theme {
-  --color-brand-beige: #FFFFFF;
-  --color-brand-beige-dark: #F5F5F4;
-  --color-brand-accent: #C8A98B;
-  --color-brand-black: #1C1917;
-  
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-brand-beige: #FFFFFF;       /* wit — page and card background */
+  --color-brand-beige-dark: #F1F0EC;  /* beton — section bands, table heads, hover */
+  --color-brand-accent: #E3E1DB;      /* beton-donker — pressed / selected surfaces */
+  --color-brand-black: #171717;       /* inkt — text, primary buttons */
+  --color-grafiet: #5B5C55;           /* secondary text */
+  --color-lijn: #D8D7D1;              /* rules and borders */
+  --color-lijn-zacht: #E9E8E3;
+  --color-rood: #B3261E;
+
+  --font-sans: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Literata", Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+  /* Tailwind hues remapped onto the maakleerplek agenda categories, so the
+     semantic colours already used in components (emerald = add, red = remove,
+     blue = set, amber = volunteer) pick up the site palette. */
+  --color-emerald-50: #F3F6E8;
+  --color-emerald-100: #E8EFD2;
+  --color-emerald-200: #DCE6BA;
+  --color-emerald-300: #CCDC9C;
+  --color-emerald-400: #CCDC9C;       /* openlab */
+  --color-emerald-500: #6B8233;
+  --color-emerald-600: #4A5C22;       /* openlab-diep */
+  --color-emerald-700: #3B4A1B;
+  --color-green-500: #6B8233;
+  --color-green-600: #4A5C22;
+  --color-green-800: #2F3A15;
+
+  --color-red-50: #FBEAE8;
+  --color-red-100: #F6D5D1;
+  --color-red-200: #EEB3AD;
+  --color-red-400: #D2665D;
+  --color-red-500: #B3261E;           /* rood */
+  --color-red-600: #951F18;
+  --color-red-700: #7A1913;
+  --color-red-800: #5E130F;
+  --color-rose-50: #FBEAE8;
+  --color-rose-400: #D2665D;
+  --color-rose-600: #951F18;
+
+  --color-amber-50: #FBF1E6;
+  --color-amber-100: #F7E3CC;
+  --color-amber-200: #F3CFA6;
+  --color-amber-300: #ECB47C;         /* herstel */
+  --color-amber-400: #E29E5A;
+  --color-amber-500: #B06A22;
+  --color-amber-600: #95591A;
+  --color-amber-700: #7F4A12;         /* herstel-diep */
+  --color-amber-800: #633A0E;
+  --color-yellow-100: #FBF1E6;
+  --color-yellow-200: #F3CFA6;
+  --color-yellow-500: #B06A22;
+  --color-yellow-600: #95591A;
+  --color-yellow-800: #633A0E;
+  --color-yellow-900: #4A2B0A;
+  --color-orange-600: #7F4A12;
+
+  --color-blue-100: #E6EEFA;
+  --color-blue-200: #CCDCF4;          /* workshop */
+  --color-blue-300: #B3C9EC;
+  --color-blue-400: #4F6FA5;
+  --color-blue-500: #2F4F85;
+  --color-blue-600: #2F4F85;          /* workshop-diep */
+  --color-blue-800: #1F365D;
+  --color-sky-50: #E6EEFA;
+  --color-sky-500: #2F4F85;
+  --color-sky-600: #2F4F85;
+
+  --color-purple-200: #D8CCEE;
+  --color-purple-300: #C4B4E4;        /* jongeren */
+
+  --color-gray-50: #F7F6F3;
+  --color-gray-100: #F1F0EC;
+  --color-gray-400: #9A9A93;
+  --color-gray-600: #5B5C55;
+  --color-slate-50: #F7F6F3;
+  --color-slate-900: #171717;
+  --color-zinc-800: #2E2E2C;
 }
 
 @layer base {
   html, body, #root {
     @apply h-full;
   }
-  
+
   body {
     @apply bg-brand-beige text-brand-black font-sans antialiased;
+  }
+
+  ::selection {
+    @apply bg-brand-black text-white;
   }
 }
 
 @utility brutalist-border {
-  border-width: 1px;
-  border-color: var(--color-brand-black);
-  border-style: solid;
+  border: 1px solid var(--color-lijn);
 }
 
 @utility brutalist-card {
   background-color: var(--color-brand-beige);
-  border-width: 1px;
-  border-color: var(--color-brand-black);
-  border-style: solid;
-  border-radius: 0px;
+  border: 1px solid var(--color-lijn);
+  border-radius: 0;
 }
 
+/* Secondary button on maakleerplek.be: white, 1px ink outline, no shadow. */
 @utility brutalist-button {
-  border-width: 1px;
-  border-color: var(--color-brand-black);
-  border-style: solid;
+  border: 1px solid var(--color-brand-black);
   background-color: var(--color-brand-beige);
-  padding-left: 1rem;
-  padding-right: 1rem;
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
-  font-weight: 800;
-  border-radius: 0px;
-  transition-property: all;
-  transition-duration: 150ms;
+  color: var(--color-brand-black);
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  border-radius: 0;
   cursor: pointer;
-  text-transform: uppercase;
-  box-shadow: 2px 2px 0px 0px var(--color-brand-black);
+  transition: background-color 150ms, color 150ms, filter 150ms;
 
   &:hover {
-    transform: translate(-1px, -1px);
-    box-shadow: 3px 3px 0px 0px var(--color-brand-black);
-    filter: brightness(0.97);
+    filter: brightness(0.96);
   }
 
-  &:active {
-    box-shadow: 0px 0px 0px 0px var(--color-brand-black);
-    transform: translate(2px, 2px);
+  &:focus-visible {
+    outline: 2px solid var(--color-brand-black);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+/* Primary button: solid ink, white text ("Bekijk de agenda"). */
+@utility btn-primary {
+  background-color: var(--color-brand-black);
+  border-color: var(--color-brand-black);
+  color: #fff;
+
+  &:hover {
+    filter: none;
+    background-color: #2e2e2c;
   }
 }
 
 @utility brutalist-input {
-  border-width: 1px;
-  border-color: var(--color-brand-black);
-  border-style: solid;
+  border: 1px solid var(--color-lijn);
   background-color: var(--color-brand-beige);
-  padding-left: 0.75rem;
-  padding-right: 0.75rem;
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
-  border-radius: 0px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0;
   outline: none;
+  transition: border-color 150ms;
 
   &:focus {
-    background-color: var(--color-brand-beige-dark);
-    box-shadow: inset 0 0 0 1px var(--color-brand-black);
+    border-color: var(--color-brand-black);
   }
 }
