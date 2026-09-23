@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { cn } from '../lib/utils';
 import {
@@ -52,26 +52,62 @@ function niceMax(v: number): { max: number; step: number } {
   return { max: Math.ceil(v / step) * step, step };
 }
 
-function timeTicks(from: number, to: number): { t: number; label: string }[] {
-  const span = (to - from) / DAY;
-  const out: { t: number; label: string }[] = [];
+const HOUR = 3_600_000;
+const MIN_SPAN = HOUR;
+
+/**
+ * Ticks for any zoom level: the smallest calendar-aligned step that keeps
+ * roughly `maxTicks` labels on screen.
+ */
+function timeTicks(from: number, to: number, maxTicks: number): { t: number; label: string }[] {
+  const span = to - from;
+  const steps: { ms: number; unit: 'h' | 'd' | 'mo'; n: number }[] = [
+    { ms: HOUR, unit: 'h', n: 1 }, { ms: 3 * HOUR, unit: 'h', n: 3 }, { ms: 6 * HOUR, unit: 'h', n: 6 },
+    { ms: 12 * HOUR, unit: 'h', n: 12 }, { ms: DAY, unit: 'd', n: 1 }, { ms: 2 * DAY, unit: 'd', n: 2 },
+    { ms: 7 * DAY, unit: 'd', n: 7 }, { ms: 14 * DAY, unit: 'd', n: 14 }, { ms: 30 * DAY, unit: 'mo', n: 1 },
+    { ms: 91 * DAY, unit: 'mo', n: 3 }, { ms: 182 * DAY, unit: 'mo', n: 6 }, { ms: 365 * DAY, unit: 'mo', n: 12 },
+  ];
+  const step = steps.find(st => span / st.ms <= maxTicks) ?? steps[steps.length - 1];
+
   const d = new Date(from);
-  d.setHours(0, 0, 0, 0);
-  if (span <= 10) {
-    for (; d.getTime() <= to; d.setDate(d.getDate() + 1))
-      out.push({ t: d.getTime(), label: d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' }) });
-  } else if (span <= 62) {
-    d.setDate(d.getDate() + ((8 - d.getDay()) % 7));
-    for (; d.getTime() <= to; d.setDate(d.getDate() + 7))
-      out.push({ t: d.getTime(), label: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) });
-  } else {
+  d.setMinutes(0, 0, 0);
+  if (step.unit === 'h') d.setHours(Math.ceil(d.getHours() / step.n) * step.n);
+  if (step.unit === 'd') {
+    d.setHours(0);
+    if (d.getTime() < from) d.setDate(d.getDate() + 1);
+    if (step.n === 7 || step.n === 14) d.setDate(d.getDate() + ((8 - d.getDay()) % 7)); // Mondays
+  }
+  if (step.unit === 'mo') {
+    d.setHours(0);
     d.setDate(1);
-    d.setMonth(d.getMonth() + 1);
-    for (; d.getTime() <= to; d.setMonth(d.getMonth() + 1))
-      out.push({ t: d.getTime(), label: d.toLocaleDateString('en-GB', { month: 'short' }) });
+    d.setMonth(Math.ceil((d.getMonth() + (d.getTime() < from ? 1 : 0)) / step.n) * step.n);
+  }
+
+  const out: { t: number; label: string }[] = [];
+  for (let guard = 0; d.getTime() <= to && guard < 200; guard++) {
+    const t = d.getTime();
+    let label: string;
+    if (step.unit === 'h' && (d.getHours() !== 0 || step.n < 6))
+      label = d.getHours() === 0
+        ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+        : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    else if (step.unit === 'mo')
+      label = d.getMonth() === 0
+        ? String(d.getFullYear())
+        : d.toLocaleDateString('en-GB', { month: 'short', year: step.n >= 6 ? 'numeric' : undefined });
+    else label = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    out.push({ t, label });
+    if (step.unit === 'h') d.setHours(d.getHours() + step.n);
+    else if (step.unit === 'd') d.setDate(d.getDate() + step.n);
+    else d.setMonth(d.getMonth() + step.n);
   }
   return out;
 }
+
+const fmtMoment = (t: number, span: number) =>
+  new Date(t).toLocaleString('en-GB', span < 3 * DAY
+    ? { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
+    : { day: 'numeric', month: 'short', year: 'numeric' });
 
 const bucketLabel = (t: number, bucket: Bucket) =>
   bucket === 'month'
@@ -116,14 +152,26 @@ export default function StockHistoryChart({ entries, parts, days }: Props) {
   const colors = useMemo(() => assignColors(entries, partIds), [entries, partIds]);
   const levels = useMemo(() => stockLevels(entries), [entries]);
 
-  const now = Date.now();
-  const from = useMemo(() => {
-    if (days) return now - days * DAY;
+  // The whole history is the zoom limit; the page's 7D/30D/90D/ALL sets the start view.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const now = useMemo(() => Date.now(), [entries]);
+  const histStart = useMemo(() => {
     const first = Math.min(...entries.map(e => Date.parse(e.date)));
-    return Number.isFinite(first) ? first : now - 30 * DAY;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [days, entries]);
-  const to = now;
+    return Number.isFinite(first) ? first - DAY : now - 30 * DAY;
+  }, [entries, now]);
+  const [view, setView] = useState<{ from: number; to: number } | null>(null);
+  useEffect(() => { setView(null); }, [days]);
+  const from = view?.from ?? (days ? Math.max(histStart, now - days * DAY) : histStart);
+  const to = view?.to ?? now;
+
+  /** Keep a window inside the history, at least MIN_SPAN wide. */
+  const clampView = useCallback((f: number, t: number) => {
+    const span = Math.min(Math.max(t - f, MIN_SPAN), now - histStart);
+    let nf = f;
+    if (nf < histStart) nf = histStart;
+    if (nf + span > now) nf = now - span;
+    return { from: nf, to: nf + span };
+  }, [histStart, now]);
 
   const inCategory = partIds.filter(p => !offCategories.has(parts.get(p)!.category));
   const visible = inCategory.filter(p => !hidden.has(p));
@@ -198,6 +246,36 @@ export default function StockHistoryChart({ entries, parts, days }: Props) {
   for (let i = 1; i < endLabels.length; i++)
     if (endLabels[i].y - endLabels[i - 1].y < 13) endLabels[i].y = endLabels[i - 1].y + 13;
 
+  // Wheel zooms around the pointer; React's onWheel is passive, so bind natively.
+  const svgRef = useRef<SVGSVGElement>(null);
+  const viewRef = useRef({ from, to, pw });
+  viewRef.current = { from, to, pw };
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const { from: f, to: t, pw: w } = viewRef.current;
+      const px = e.clientX - el.getBoundingClientRect().left - M.left;
+      const span = t - f;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
+        const shift = ((e.shiftKey ? e.deltaY : e.deltaX) / w) * span;
+        setView(clampView(f + shift, t + shift));
+        return;
+      }
+      const anchor = f + (Math.min(Math.max(px, 0), w) / w) * span;
+      const factor = Math.exp(e.deltaY * 0.0015);
+      const next = Math.min(Math.max(span * factor, MIN_SPAN), now - histStart);
+      const nf = anchor - (anchor - f) * (next / span);
+      setView(clampView(nf, nf + next));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [clampView, histStart, now, visible.length]);
+
+  const drag = useRef<{ x: number; from: number; to: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
   const toggleSet = <T,>(set: Set<T>, v: T) => {
     const next = new Set(set);
     if (next.has(v)) next.delete(v); else next.add(v);
@@ -271,17 +349,37 @@ export default function StockHistoryChart({ entries, parts, days }: Props) {
           <div className="h-[200px] flex items-center justify-center text-xs text-grafiet">Nothing selected</div>
         ) : (
           <svg
+            ref={svgRef}
             width={width}
             height={H}
-            className="block"
-            onMouseMove={e => {
+            className={cn('block select-none touch-none', dragging ? 'cursor-grabbing' : 'cursor-crosshair')}
+            onPointerDown={e => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              drag.current = { x: e.clientX, from, to };
+              setDragging(true);
+            }}
+            onPointerMove={e => {
               const r = e.currentTarget.getBoundingClientRect();
+              if (drag.current) {
+                const d = drag.current;
+                const shift = -((e.clientX - d.x) / pw) * (d.to - d.from);
+                if (Math.abs(e.clientX - d.x) > 2) setView(clampView(d.from + shift, d.to + shift));
+                setHoverX(null);
+                return;
+              }
               const px = e.clientX - r.left;
               setHoverX(px >= M.left && px <= M.left + pw ? px : null);
             }}
-            onMouseLeave={() => setHoverX(null)}
+            onPointerUp={() => { drag.current = null; setDragging(false); }}
+            onPointerLeave={() => { if (!drag.current) setHoverX(null); }}
+            onDoubleClick={() => setView(null)}
           >
-            {timeTicks(from, to).map(tk => (
+            <defs>
+              <clipPath id="plot-clip">
+                <rect x={M.left} y={0} width={pw} height={H} />
+              </clipPath>
+            </defs>
+            {timeTicks(from, to, Math.max(3, Math.floor(pw / 90))).map(tk => (
               <g key={tk.t}>
                 <line x1={x(tk.t)} x2={x(tk.t)} y1={M.top} y2={M.top + ph} stroke="#f1f0ec" />
                 <text x={x(tk.t)} y={H - 10} textAnchor="middle" className="fill-grafiet text-[11px]">{tk.label}</text>
@@ -298,6 +396,7 @@ export default function StockHistoryChart({ entries, parts, days }: Props) {
               <line x1={x(hoverT)} x2={x(hoverT)} y1={M.top} y2={M.top + ph} stroke="#171717" strokeDasharray="3 3" />
             )}
 
+            <g clipPath="url(#plot-clip)">
             {[...series].reverse().map(s => {
               const dim = focus !== null && focus !== s.p;
               const c = colors.get(s.p);
@@ -310,6 +409,8 @@ export default function StockHistoryChart({ entries, parts, days }: Props) {
                 </g>
               );
             })}
+
+            </g>
 
             {endLabels.map(l => (
               <text key={l.p} x={M.left + pw - 4} y={l.y - 6} textAnchor="end" className="fill-brand-black text-[11px] font-semibold">
@@ -336,6 +437,29 @@ export default function StockHistoryChart({ entries, parts, days }: Props) {
         )}
       </div>
 
+      {visible.length > 0 && (
+        <Overview
+          histStart={histStart}
+          now={now}
+          from={from}
+          to={to}
+          width={width}
+          series={visible.map(p => ({ color: colors.get(p)!, points: levels.get(p) ?? [] }))}
+          onMove={(f, t) => setView(clampView(f, t))}
+        />
+      )}
+      <div className="px-4 sm:px-5 pb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-grafiet">
+        <span className="font-medium text-brand-black tabular-nums">
+          {fmtMoment(from, to - from)} – {fmtMoment(to, to - from)}
+        </span>
+        <span>Scroll on the chart to zoom, drag to move, double-click to reset</span>
+        {view && (
+          <button onClick={() => setView(null)} className="underline underline-offset-4 hover:text-brand-black">
+            Reset zoom
+          </button>
+        )}
+      </div>
+
       <PopularityTable
         buckets={buckets}
         bucket={bucket}
@@ -345,5 +469,62 @@ export default function StockHistoryChart({ entries, parts, days }: Props) {
         name={name}
       />
     </section>
+  );
+}
+
+/**
+ * The whole history in a thin strip, with the visible window marked.
+ * Click or drag to move the window; its width stays the same.
+ */
+function Overview({ histStart, now, from, to, width, series, onMove }: {
+  histStart: number;
+  now: number;
+  from: number;
+  to: number;
+  width: number;
+  series: { color: string; points: { t: number; level: number }[] }[];
+  onMove: (from: number, to: number) => void;
+}) {
+  const h = 40;
+  const pw = width - M.left - M.right;
+  const x = (t: number) => M.left + ((t - histStart) / (now - histStart)) * pw;
+  const max = Math.max(1, ...series.flatMap(s => s.points.map(p => p.level)));
+  const y = (v: number) => 4 + (h - 8) * (1 - v / max);
+  const moveTo = (clientX: number, el: Element) => {
+    const t = histStart + ((clientX - el.getBoundingClientRect().left - M.left) / pw) * (now - histStart);
+    const span = to - from;
+    onMove(t - span / 2, t + span / 2);
+  };
+  const dragging = useRef(false);
+
+  return (
+    <div className="px-2 sm:px-3 pb-2">
+      <svg
+        width={width}
+        height={h}
+        className="block cursor-pointer select-none touch-none"
+        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; moveTo(e.clientX, e.currentTarget); }}
+        onPointerMove={e => { if (dragging.current) moveTo(e.clientX, e.currentTarget); }}
+        onPointerUp={() => { dragging.current = false; }}
+      >
+        <rect x={M.left} y={0} width={pw} height={h} fill="#f7f6f3" stroke="#e9e8e3" />
+        {series.map((s, i) => {
+          if (!s.points.length) return null;
+          let d = `M${x(s.points[0].t).toFixed(1)},${y(s.points[0].level).toFixed(1)}`;
+          for (const p of s.points.slice(1)) d += `H${x(p.t).toFixed(1)}V${y(p.level).toFixed(1)}`;
+          d += `H${x(now).toFixed(1)}`;
+          return <path key={i} d={d} fill="none" stroke={s.color} strokeWidth={1} opacity={0.6} />;
+        })}
+        <rect
+          x={x(from)}
+          y={0.5}
+          width={Math.max(3, x(to) - x(from))}
+          height={h - 1}
+          fill="#171717"
+          fillOpacity={0.08}
+          stroke="#171717"
+        />
+      </svg>
+    </div>
   );
 }
