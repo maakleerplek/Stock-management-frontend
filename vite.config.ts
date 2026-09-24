@@ -72,6 +72,13 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.png', 'favicon.ico', 'apple-touch-icon.png'],
+        workbox: {
+          // The service worker answers page navigations with the app shell.
+          // These must reach the server: the sign-in (oauth2-proxy sets its
+          // CSRF cookie on /oauth/start and checks it on /oauth/callback),
+          // sign-out, and anything proxied to InvenTree.
+          navigateFallbackDenylist: [/^\/oauth\//, /^\/logout$/, /^\/api\//, /^\/media\//],
+        },
         manifest: {
           name: 'Inventree Assistant',
           short_name: 'Stock Manager',
