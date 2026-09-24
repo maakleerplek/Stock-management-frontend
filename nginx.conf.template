@@ -17,8 +17,10 @@ server {
         return 200 "healthy\n";
     }
 
+    # $host has no port, so name the published HTTPS port; without it the
+    # redirect lands on port 443 of the host, which is another service.
     location / {
-        return 301 https://$host$request_uri;
+        return 301 https://$host:${PUBLIC_HTTPS_PORT}$request_uri;
     }
 }
 

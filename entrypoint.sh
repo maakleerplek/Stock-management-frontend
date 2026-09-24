@@ -10,6 +10,8 @@ export INVENTREE_TOKEN=${INVENTREE_TOKEN:-$VITE_INVENTREE_TOKEN}
 # Where the browser goes after signing out here, so Authentik ends its session
 # too. Empty means back to the app, where the Authentik session may still be live.
 export OIDC_LOGOUT_URL=${OIDC_LOGOUT_URL:-}
+# The host port the HTTPS side is published on, for the http -> https redirect.
+export PUBLIC_HTTPS_PORT=${PUBLIC_HTTPS_PORT:-443}
 
 if [ -z "$INVENTREE_TOKEN" ]; then
     echo "WARNING: INVENTREE_TOKEN is not set - every API call will fail." >&2
@@ -31,7 +33,7 @@ else
     echo "Reusing existing SSL certificate."
 fi
 
-envsubst '${INVENTREE_BACKEND_URL} ${INVENTREE_TOKEN} ${OIDC_LOGOUT_URL}' \
+envsubst '${INVENTREE_BACKEND_URL} ${INVENTREE_TOKEN} ${OIDC_LOGOUT_URL} ${PUBLIC_HTTPS_PORT}' \
     < /etc/nginx/templates/nginx.conf.template > /etc/nginx/conf.d/default.conf
 
 exec "$@"

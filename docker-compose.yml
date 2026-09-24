@@ -27,6 +27,8 @@ services:
       - INVENTREE_TOKEN=${INVENTREE_TOKEN:-${VITE_INVENTREE_TOKEN}}
       # Authentik's end-session URL; see oauth2-proxy below.
       - OIDC_LOGOUT_URL=${OIDC_LOGOUT_URL:-}
+      # Same as the published 443 port below, for the http -> https redirect.
+      - PUBLIC_HTTPS_PORT=${FRONTEND_HTTPS_PORT:-8444}
       # Host IP for SSL certificate generation
       - HOST_IP=${HOST_IP}
     ports:
