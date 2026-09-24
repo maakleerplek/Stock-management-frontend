@@ -66,7 +66,7 @@ server {
 
     # Sign-in, callback, sign-out and user info, served by oauth2-proxy.
     # Its own headers only: the InvenTree token must never reach it.
-    location /oauth2/ {
+    location /oauth/ {
         proxy_pass $oauth2_proxy;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -81,7 +81,7 @@ server {
     }
 
     # The auth_request target: 202 when signed in, 401 otherwise.
-    location = /oauth2/auth {
+    location = /oauth/auth {
         internal;
         proxy_pass $oauth2_proxy;
         proxy_pass_request_body off;
@@ -97,13 +97,13 @@ server {
     # Ends the session here and at Authentik, so the next person on a shared
     # device has to sign in again.
     location = /logout {
-        return 302 /oauth2/sign_out?rd=${OIDC_LOGOUT_URL};
+        return 302 /oauth/sign_out?rd=${OIDC_LOGOUT_URL};
     }
 
     # The app asks here whether this browser has a volunteer session.
     # try_files runs after the access check; a plain return would run before it.
     location = /api/auth/check/ {
-        auth_request /oauth2/auth;
+        auth_request /oauth/auth;
         try_files /__never__ @volunteer_ok;
     }
     location @volunteer_ok {
@@ -126,14 +126,14 @@ server {
 
     location ^~ /__volunteer/ {
         internal;
-        auth_request /oauth2/auth;
+        auth_request /oauth/auth;
         rewrite ^/__volunteer(/.*)$ $1 break;
         proxy_pass ${INVENTREE_BACKEND_URL};
     }
 
     # Everything else (users, settings, admin, ...) is volunteers only.
     location /api/ {
-        auth_request /oauth2/auth;
+        auth_request /oauth/auth;
         proxy_pass ${INVENTREE_BACKEND_URL};
     }
 

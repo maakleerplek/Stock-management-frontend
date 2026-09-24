@@ -42,7 +42,7 @@ export async function checkVolunteerSession(): Promise<'ok' | 'no' | 'unreachabl
 /** Leaves the app for the Authentik sign-in and comes back to the same page. */
 export function startSignIn(): void {
   const back = window.location.pathname + window.location.search;
-  window.location.assign(`/oauth2/start?rd=${encodeURIComponent(back)}`);
+  window.location.assign(`/oauth/start?rd=${encodeURIComponent(back)}`);
 }
 
 /** Ends the session here and at Authentik (see /logout in nginx.conf.template). */

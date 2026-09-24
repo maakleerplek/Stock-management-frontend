@@ -65,7 +65,9 @@ services:
       OAUTH2_PROXY_OIDC_EMAIL_CLAIM: ${OIDC_EMAIL_CLAIM:-email}
       OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL: "true"   # Authentik decides who gets in
       OAUTH2_PROXY_EMAIL_DOMAINS: "*"            # who may sign in is decided in Authentik
-      OAUTH2_PROXY_REDIRECT_URL: ${PUBLIC_URL}/oauth2/callback
+      # Paths live under /oauth/ (the callback registered in Authentik is /oauth/callback).
+      OAUTH2_PROXY_PROXY_PREFIX: /oauth
+      OAUTH2_PROXY_REDIRECT_URL: ${PUBLIC_URL}/oauth/callback
       OAUTH2_PROXY_WHITELIST_DOMAINS: ${OIDC_LOGOUT_HOST:-}
       OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_COOKIE_SECRET}
       OAUTH2_PROXY_COOKIE_NAME: _stock_session

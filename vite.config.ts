@@ -23,7 +23,7 @@ function apiAccess(allowSignIn: boolean): Plugin {
       server.middlewares.use((req, res, next) => {
         const url = req.url ?? ''
         const pathOnly = url.split('?')[0]
-        if (pathOnly === '/oauth2/start') {
+        if (pathOnly === '/oauth/start') {
           const rd = new URL(url, 'https://dev').searchParams.get('rd') || '/'
           res.statusCode = 302
           if (allowSignIn) res.setHeader('Set-Cookie', `${DEV_SESSION}; Path=/; SameSite=Lax`)
