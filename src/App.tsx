@@ -293,7 +293,7 @@ function AppContent() {
   const inventreePanelUrl = import.meta.env.VITE_INVENTREE_PANEL_URL || '';
 
   const VolunteerNavigation = () => (
-    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto">
+    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto overflow-y-hidden">
       {[
         { id: 'volunteer', label: 'Overview', icon: LayoutDashboard },
         { id: 'scan', label: 'Scan', icon: ScanBarcode },
@@ -332,7 +332,7 @@ function AppContent() {
   );
 
   const PublicNavigation = () => (
-    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto shrink-0">
+    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto overflow-y-hidden shrink-0">
       {[
         { id: 'checkout', label: 'Checkout', icon: ScanBarcode },
         { id: 'browse', label: 'Stock list', icon: Package },
