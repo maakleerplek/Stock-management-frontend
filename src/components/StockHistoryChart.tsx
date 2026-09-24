@@ -3,7 +3,7 @@ import type { InvenTreeTrackingEntry } from '../api/types';
 import { cn } from '../lib/utils';
 import {
   assignColors, bucketRange, levelAt, nextBucket, salesPerBucket, stockLevels,
-  type Bucket, type PartInfo,
+  type Bucket, type PartInfo, type SaleKind,
 } from '../lib/stockHistory';
 import PopularityTable from './PopularityTable';
 
@@ -14,6 +14,8 @@ interface Props {
   parts: Map<number, PartInfo>;
   /** Days to show, or null for the whole history. */
   days: number | null;
+  /** Which removals the "Sold" view counts. */
+  kind?: SaleKind;
 }
 
 const H = 320;
@@ -114,7 +116,7 @@ const bucketLabel = (t: number, bucket: Bucket) =>
     ? new Date(t).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
     : `${bucket === 'week' ? 'Week of ' : ''}${new Date(t).toLocaleDateString('en-GB', { weekday: bucket === 'day' ? 'short' : undefined, day: 'numeric', month: 'short' })}`;
 
-export default function StockHistoryChart({ entries, parts, days }: Props) {
+export default function StockHistoryChart({ entries, parts, days, kind = 'paid' }: Props) {
   const [measure, setMeasure] = useState<Measure>('stock');
   const [bucket, setBucket] = useState<Bucket>('week');
   const [offCategories, setOffCategories] = useState<Set<string>>(new Set());
@@ -182,7 +184,7 @@ export default function StockHistoryChart({ entries, parts, days }: Props) {
   visible.sort(byColorOrder);
 
   const buckets = useMemo(() => bucketRange(from, to, bucket), [from, to, bucket]);
-  const sold = useMemo(() => salesPerBucket(entries, buckets, bucket), [entries, buckets, bucket]);
+  const sold = useMemo(() => salesPerBucket(entries, buckets, bucket, kind), [entries, buckets, bucket, kind]);
 
   const pw = width - M.left - M.right;
   const ph = H - M.top - M.bottom;

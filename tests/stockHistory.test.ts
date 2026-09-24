@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 import {
-  isSale, stockLevels, levelAt, bucketStart, bucketRange, salesPerBucket, assignColors, SERIES_COLORS,
+  isSale, isVolunteerDrink, unitsGiven, stockLevels, levelAt, bucketStart, bucketRange, salesPerBucket, assignColors, SERIES_COLORS,
 } from '../src/lib/stockHistory';
 
 let pk = 0;
@@ -16,6 +16,33 @@ describe('isSale', () => {
   it('skips stocktakes and volunteer set-stock corrections', () => {
     expect(isSale(entry(1, 1, '2026-09-21T12:00', 10, { quantity: 15 }, 'Stocktake'))).toBe(false);
     expect(isSale(entry(1, 1, '2026-09-21T12:00', 12, { removed: 5, quantity: 3 }, 'Stock set via App - Volunteer Mode'))).toBe(false);
+  });
+});
+
+describe('volunteer drinks', () => {
+  const kiosk = 'Purchased via Interface-stock (HTL Makerspace)';
+  const free = 'Volunteer drink via Interface-stock (HTL Makerspace)';
+  const week = bucketRange(Date.parse('2026-09-21'), Date.parse('2026-09-27'), 'week');
+  const log = [
+    entry(1, 1, '2026-09-22T10:00', 12, { removed: 2, quantity: 20 }, kiosk),
+    entry(1, 1, '2026-09-23T10:00', 12, { removed: 3, quantity: 17 }, free),
+  ];
+
+  it('are not sales', () => {
+    expect(isSale(log[1])).toBe(false);
+    expect(isVolunteerDrink(log[1])).toBe(true);
+    expect(unitsGiven(log[1])).toBe(3);
+  });
+
+  it('are not mistaken for paid kiosk sales or volunteer-mode corrections', () => {
+    expect(isVolunteerDrink(log[0])).toBe(false);
+    expect(isVolunteerDrink(entry(1, 1, '2026-09-23T10:00', 12, { removed: 1, quantity: 4 }, 'Removed via Stock App - Volunteer Mode'))).toBe(false);
+  });
+
+  it('are counted per kind', () => {
+    expect(salesPerBucket(log, week, 'week').get(1)).toEqual([2]);
+    expect(salesPerBucket(log, week, 'week', 'volunteer').get(1)).toEqual([3]);
+    expect(salesPerBucket(log, week, 'week', 'all').get(1)).toEqual([5]);
   });
 });
 

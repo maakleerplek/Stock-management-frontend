@@ -10,6 +10,9 @@ import type { InvenTreeTrackingEntry } from '../api/types';
 
 export type Bucket = 'day' | 'week' | 'month';
 
+/** Which removals count as "sold": paid sales, free volunteer drinks, or both. */
+export type SaleKind = 'all' | 'paid' | 'volunteer';
+
 export interface PartInfo {
   name: string;
   category: string;
@@ -44,8 +47,30 @@ export function isSale(e: InvenTreeTrackingEntry): boolean {
   return (
     e.tracking_type === TRACKING.STOCK_REMOVE &&
     (e.deltas?.removed ?? 0) > 0 &&
-    !/^stock set|volunteer mode/i.test(e.notes ?? '')
+    !/^stock set|volunteer mode|volunteer drink/i.test(e.notes ?? '')
   );
+}
+
+/**
+ * A free drink a volunteer took after a shift: the kiosk removes the whole cart
+ * with the note "Volunteer drink via Interface-stock (...)" instead of charging.
+ */
+export function isVolunteerDrink(e: InvenTreeTrackingEntry): boolean {
+  return (
+    e.tracking_type === TRACKING.STOCK_REMOVE &&
+    (e.deltas?.removed ?? 0) > 0 &&
+    /volunteer drink/i.test(e.notes ?? '')
+  );
+}
+
+/** Units given away as volunteer drinks by an entry, 0 for anything else. */
+export function unitsGiven(e: InvenTreeTrackingEntry): number {
+  return isVolunteerDrink(e) ? e.deltas.removed ?? 0 : 0;
+}
+
+/** Units that left stock through the kiosk, restricted to one kind. */
+export function unitsOut(e: InvenTreeTrackingEntry, kind: SaleKind): number {
+  return (kind === 'volunteer' ? 0 : unitsSold(e)) + (kind === 'paid' ? 0 : unitsGiven(e));
 }
 
 /** Units sold by a sale entry, 0 for anything else. */
@@ -114,16 +139,17 @@ export function bucketRange(from: number, to: number, bucket: Bucket): number[] 
   return out;
 }
 
-/** Units sold per part per bucket, zero-filled. */
+/** Units sold per part per bucket, zero-filled. Paid sales only unless `kind` says otherwise. */
 export function salesPerBucket(
   entries: InvenTreeTrackingEntry[],
   buckets: number[],
   bucket: Bucket,
+  kind: SaleKind = 'paid',
 ): Map<number, number[]> {
   const index = new Map(buckets.map((b, i) => [b, i]));
   const out = new Map<number, number[]>();
   for (const e of entries) {
-    const sold = unitsSold(e);
+    const sold = unitsOut(e, kind);
     if (!sold) continue;
     const i = index.get(bucketStart(Date.parse(e.date), bucket));
     if (i === undefined) continue;
