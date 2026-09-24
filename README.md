@@ -4,6 +4,17 @@ A brutalist-styled inventory management frontend for InvenTree backend, featurin
 
 > ℹ️ **For more general information, guides, and internal documentation, visit the [HighTechLab SharePoint Stock Management Info Page](https://maakleerplek.sharepoint.com/sites/HighTechLab/SitePages/Stock-management-info-page.aspx).**
 
+## Where it runs
+
+The live app for the High Tech Lab runs on `htl-server`, a Rocky Linux VM on the maakleerplek server.
+
+| Address | Use |
+|---|---|
+| **https://stock.int.maakleerplek.be/** | Main address, with a valid certificate. Resolves inside the maakleerplek network only. |
+| https://10.72.1.246:8086/ | The server directly (self-signed certificate). Used by the lab kiosk. |
+
+`htl-tempserver` (10.72.3.68) is a test server with an old copy of the data. Don't use it for real sales.
+
 ## Screenshots
 
 | Checkout / Visitor Mode | Volunteer / Admin Dashboard |
