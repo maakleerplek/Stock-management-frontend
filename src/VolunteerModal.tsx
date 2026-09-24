@@ -15,7 +15,7 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
     const handleSignIn = () => {
         if (leaving) return;
         setLeaving(true);
-        startSignIn();
+        void startSignIn();
     };
 
     const handleClose = () => {

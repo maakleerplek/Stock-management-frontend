@@ -33,7 +33,7 @@ export function VolunteerProvider({ children }: { children: ReactNode }) {
             setIsVolunteerModeState(true);
         } else {
             setIsVolunteerModeState(false);
-            signOut();
+            void signOut();
         }
     };
 

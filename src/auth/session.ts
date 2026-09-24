@@ -39,14 +39,33 @@ export async function checkVolunteerSession(): Promise<'ok' | 'no' | 'unreachabl
   }
 }
 
+/**
+ * The sign-in round trip has to reach the server: oauth2-proxy sets a CSRF
+ * cookie on /oauth/start and checks it on /oauth/callback. A service worker
+ * from an older build answers every navigation with the app shell, and some
+ * browsers (Firefox) keep such a worker even after the cache is cleared.
+ * Dropping it first makes the next navigations go to the network; the app
+ * registers the current worker again when it loads.
+ */
+async function leaveServiceWorker(): Promise<void> {
+  try {
+    const regs = await navigator.serviceWorker?.getRegistrations() ?? [];
+    await Promise.all(regs.map(r => r.unregister()));
+  } catch {
+    // No service worker support, or it is blocked: nothing to get out of the way.
+  }
+}
+
 /** Leaves the app for the Authentik sign-in and comes back to the same page. */
-export function startSignIn(): void {
+export async function startSignIn(): Promise<void> {
   const back = window.location.pathname + window.location.search;
+  await leaveServiceWorker();
   window.location.assign(`/oauth/start?rd=${encodeURIComponent(back)}`);
 }
 
 /** Ends the session here and at Authentik (see /logout in nginx.conf.template). */
-export function signOut(): void {
+export async function signOut(): Promise<void> {
   signedIn = false;
+  await leaveServiceWorker();
   window.location.assign('/logout');
 }
