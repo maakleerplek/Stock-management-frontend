@@ -13,8 +13,6 @@ import Header from './components/Header';
 import { ToastProvider, useToast } from './ToastContext';
 import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
-import MicrosoftAuthSync from './auth/MicrosoftAuthSync';
-import { isMsalConfigured } from './auth/msalConfig';
 import AdminToolsBar from './components/AdminToolsBar';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import StockAnalytics from './StockAnalytics';
@@ -710,9 +708,6 @@ function AppContent() {
       </main>
 
       <Footer />
-
-      {/* Bridges Microsoft auth <-> volunteer mode (only when Azure is configured) */}
-      {isMsalConfigured && <MicrosoftAuthSync />}
 
       {/* Modals */}
       <VolunteerModal
