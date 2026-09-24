@@ -452,21 +452,15 @@ export default function StockAnalytics() {
                   </span>
                 </div>
               ) : mostProfit.map(item => (
-                <div key={item.partId}>
-                  <BrutalistBar
-                    label={item.name}
-                    value={item.profit}
-                    maxValue={mostProfit[0].profit}
-                    prefix="€"
-                    decimals={2}
-                    color="bg-emerald-400"
-                  />
-                  {item.sellingPrice > 0 && item.costPrice > 0 && (
-                    <div className="text-[9px] font-mono text-brand-black/40 pl-[calc(7rem+0.5rem)] sm:pl-[calc(9rem+0.75rem)] -mt-1.5 mb-1">
-                      Sell €{item.sellingPrice.toFixed(2)} — cost €{item.costPrice.toFixed(2)} = €{(item.sellingPrice - item.costPrice).toFixed(2)}/unit
-                    </div>
-                  )}
-                </div>
+                <BrutalistBar
+                  key={item.partId}
+                  label={item.name}
+                  value={item.profit}
+                  maxValue={mostProfit[0].profit}
+                  prefix="€"
+                  decimals={2}
+                  color="bg-emerald-400"
+                />
               ))}
             </Section>
 
