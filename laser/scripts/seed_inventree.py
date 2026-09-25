@@ -23,7 +23,7 @@ CSV = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
 # CSV column -> row field
 COLUMNS = {
     'group': 'group', 'material_en': 'material', 'material_nl': 'materialNl', 'thickness_mm': 'thickness',
-    'cut_speed': 'cutSpeed', 'cut_power': 'cutPower', 'cut_power_min': 'cutPowerMin',
+    'cut_speed': 'cutSpeed', 'cut_power': 'cutPower', 'cut_power_min': 'cutPowerMin', 'cut_passes': 'cutPasses',
     'line_speed': 'lineSpeed', 'line_power_max': 'linePower', 'line_power_min': 'linePowerMin',
     'fill_speed': 'fillSpeed', 'fill_power': 'fillPower', 'comment': 'comment',
 }
