@@ -19,7 +19,7 @@ import AdminToolsBar from './components/AdminToolsBar';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import StockAnalytics from './StockAnalytics';
 import LaserCutterPage from './LaserCutterPage';
-import { laserApi } from './lib/laserApi';
+import { laserApi, useLaserSocket } from './lib/laserApi';
 import {
   type InvenTreeTrackingEntry,
   type InvenTreePartListResponse
@@ -62,9 +62,10 @@ function AppContent() {
   const [recentMovements, setRecentMovements] = useState<InvenTreeTrackingEntry[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
   const [mobileCheckoutTab, setMobileCheckoutTab] = useState<'scan' | 'cart'>('scan');
-  const [lasertimeMinutes, setLasertimeMinutes] = useState(0);
-  // The laser session being paid; deleted once the checkout goes through.
-  const [payingLaserSession, setPayingLaserSession] = useState<string | null>(null);
+  // One connection to the laser service for the whole app: the Lasercutter
+  // tab shows it, the checkout bills the sessions someone pressed Pay on.
+  const laser = useLaserSocket();
+  const laserInCheckout = laser.sessions.filter(s => s.checkout_at);
   const { addToast } = useToast();
   const { isVolunteerMode } = useVolunteer();
   const { items: stockItems, loading: stockLoading, lastFetched: stockLastFetched } = useStock();
@@ -277,21 +278,14 @@ function AppContent() {
     []
   );
 
-  const handleCheckoutResult = useCallback((result: { total: number; description: string } | null) => {
-    setCheckoutResult(result);
-    if (result === null) return;
-    setLasertimeMinutes(0);
-    if (payingLaserSession) {
-      laserApi.deleteSession(payingLaserSession).catch(err => console.warn('[App] Laser session not removed:', err));
-      setPayingLaserSession(null);
+  const handleLaserCheckout = async (sessionId: string) => {
+    try {
+      await laserApi.setCheckout(sessionId, true);
+      setMobileCheckoutTab('cart');
+      setCurrentPage('checkout');
+    } catch (error) {
+      handleApiError(error, 'putting the laser time in the checkout');
     }
-  }, [payingLaserSession]);
-
-  const handleLaserCheckout = (sessionId: string, minutes: number) => {
-    setLasertimeMinutes(minutes);
-    setPayingLaserSession(sessionId);
-    setMobileCheckoutTab('cart');
-    setCurrentPage('checkout');
   };
 
   const handleViewChange = (view: AppView) => {
@@ -407,7 +401,7 @@ function AppContent() {
           </div>
         )}
 
-        {currentPage === 'laser' && <LaserCutterPage onCheckout={handleLaserCheckout} />}
+        {currentPage === 'laser' && <LaserCutterPage live={laser} onCheckout={handleLaserCheckout} />}
 
         {currentPage === 'checkout' && (
           <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
@@ -452,9 +446,8 @@ function AppContent() {
             )}>
               <ShoppingWindow
                 scanEvent={scanEvent}
-                onCheckoutResultChange={handleCheckoutResult}
-                lasertimeMinutes={lasertimeMinutes}
-                onLasertimeChange={setLasertimeMinutes}
+                onCheckoutResultChange={setCheckoutResult}
+                laserSessions={laserInCheckout}
               />
             </div>
 
@@ -466,9 +459,8 @@ function AppContent() {
               <aside className="w-[40%] border-l border-lijn bg-brand-beige flex flex-col">
                 <ShoppingWindow
                   scanEvent={scanEvent}
-                  onCheckoutResultChange={handleCheckoutResult}
-                lasertimeMinutes={lasertimeMinutes}
-                onLasertimeChange={setLasertimeMinutes}
+                  onCheckoutResultChange={setCheckoutResult}
+                  laserSessions={laserInCheckout}
                 />
               </aside>
             </div>
@@ -702,8 +694,7 @@ function AppContent() {
                     <ShoppingWindow
                       scanEvent={scanEvent}
                       onCheckoutResultChange={() => { }}
-                      lasertimeMinutes={lasertimeMinutes}
-                      onLasertimeChange={setLasertimeMinutes}
+                      laserSessions={[]}
                     />
                   </aside>
                 </motion.div>

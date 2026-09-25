@@ -53,6 +53,12 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     ''')
+    # Added later: a session is 'in checkout' once someone pressed Pay, and
+    # 'paid' with the InvenTree order once the checkout went through.
+    have = {r[1] for r in _conn.execute('PRAGMA table_info(sessions)')}
+    for column in ('checkout_at', 'paid_at', 'order_ref'):
+        if column not in have:
+            _conn.execute(f'ALTER TABLE sessions ADD COLUMN {column} TEXT')
     _conn.commit()
     return _conn
 

@@ -64,6 +64,8 @@ export interface ExtraLine {
     quantity: number;
     unit: string;
     unitPrice: number;
+    /** Laser time from a session on the laser service, marked paid after the sale. */
+    laserSessionId?: string;
 }
 
 export const extraTotal = (extras: ExtraLine[]) => extras.reduce((sum, e) => sum + e.quantity * e.unitPrice, 0);

@@ -12,6 +12,10 @@ export interface LaserSession {
   created: string;
   total_time: number;
   total_cost: number;
+  /** What the till charges: total_time rounded up to whole minutes. */
+  minutes: number;
+  /** Set when someone pressed Pay: the time is waiting in the checkout. */
+  checkout_at: string | null;
 }
 
 export interface LaserTime {
@@ -57,6 +61,8 @@ export const laserApi = {
   config: () => call<{ costPerMin: number; maxPower: number; simulate: boolean }>('/config'),
   createSession: (name: string) => call<{ id: string }>('/sessions', 'POST', { name }),
   deleteSession: (id: string) => call('/sessions/' + encodeURIComponent(id), 'DELETE'),
+  setCheckout: (id: string, on: boolean) => call(`/sessions/${encodeURIComponent(id)}/checkout`, 'POST', { on }),
+  markPaid: (id: string, order: string) => call(`/sessions/${encodeURIComponent(id)}/paid`, 'POST', { order }),
   flush: (sessionId: string) => call<{ flushed_time: number }>('/flush', 'POST', { session_id: sessionId }),
   reset: () => call('/reset', 'POST'),
   simulate: (on: boolean) => call('/simulate', 'POST', { state: on ? 'ON' : 'OFF' }),

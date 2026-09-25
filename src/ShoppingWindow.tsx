@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ShoppingCart, { type CartItem } from './ShoppingCart';
-import Extras from './Extras';
+import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
+import { laserApi, type LaserSession } from './lib/laserApi';
+import { PRICING } from './constants';
 import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
@@ -9,14 +11,14 @@ import { AlertCircle, Check, X, Settings } from 'lucide-react';
 interface ShoppingWindowProps {
     scanEvent: ScanEvent | null;
     onCheckoutResultChange?: (result: { total: number; description: string } | null) => void;
-    lasertimeMinutes: number;
-    onLasertimeChange: (minutes: number) => void;
+    /** Laser sessions put in the checkout on the laser service (survives a refresh). */
+    laserSessions: LaserSession[];
 }
 
 // v2: cart entries are keyed by part ID. Carts from before hold stock item IDs.
 const CART_STORAGE_KEY = 'stockManagerCartItems.v2';
 
-export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lasertimeMinutes, onLasertimeChange }: ShoppingWindowProps) {
+export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, laserSessions }: ShoppingWindowProps) {
     const [cartItems, setCartItems] = useState<CartItem[]>(() => {
         try {
             const stored = localStorage.getItem(CART_STORAGE_KEY);
@@ -33,7 +35,14 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     // in the useEffect dependency array (which would re-fire on every QR dismiss).
     const checkedOutResultRef = useRef(checkedOutResult);
     checkedOutResultRef.current = checkedOutResult;
-    const [extras, setExtras] = useState<ExtraLine[]>([]);
+    const [typedExtras, setTypedExtras] = useState<ExtraLine[]>([]);
+    const extras: ExtraLine[] = [
+        ...laserSessions.map(s => ({
+            name: `Lasertime – ${s.name}`, quantity: s.minutes, unit: 'min',
+            unitPrice: PRICING.LASER_PER_MINUTE, laserSessionId: s.id,
+        })),
+        ...typedExtras,
+    ];
     const extraCosts = extraTotal(extras);
     const [isSetMode, setIsSetMode] = useState<boolean>(false);
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
@@ -138,10 +147,17 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
 
             // A sale: one sales order for the whole cart.
             const checkoutTotal = cartItems.reduce((total, item) => total + item.price * item.cartQuantity, 0) + extraCosts;
-            await bookSale(
+            const reference = await bookSale(
                 cartItems.map(item => ({ partId: item.id, name: item.name, quantity: item.cartQuantity, unitPrice: item.price })),
                 extras,
             );
+            // The sale stands; a laser session that cannot be marked paid is a warning, not a failure.
+            for (const extra of extras) {
+                if (!extra.laserSessionId) continue;
+                laserApi.markPaid(extra.laserSessionId, reference).catch(() =>
+                    addToast(`Sold, but laser session "${extra.name}" is still open. Delete it in the Lasercutter tab.`, 'warning'));
+            }
+            localStorage.removeItem(EXTRAS_STORAGE_KEY);
             setCartItems([]);
             let desc = cartItems.map(item => `${item.name} x${item.cartQuantity}`).join(', ');
             if (extras.length) desc += (desc ? ', ' : '') + extras.map(describeExtra).join(', ');
@@ -182,7 +198,11 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                             </h2>
                         </div>
                         <div className="p-4">
-                            <Extras onExtrasChange={setExtras} lasertimeMinutes={lasertimeMinutes} onLasertimeChange={onLasertimeChange} />
+                            <Extras
+                                onExtrasChange={setTypedExtras}
+                                laserSessions={laserSessions}
+                                onRemoveLaserSession={(id) => laserApi.setCheckout(id, false).catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'))}
+                            />
                         </div>
                     </div>
                 )}

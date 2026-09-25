@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Zap, Plus, RotateCcw, ArrowRightLeft, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff } from 'lucide-react';
+import { Zap, X, Plus, RotateCcw, ArrowRightLeft, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff } from 'lucide-react';
 import LaserAnimation from './components/LaserAnimation';
 import { useToast } from './ToastContext';
 import { cn } from './lib/utils';
@@ -11,7 +11,9 @@ import {
 
 interface LaserCutterPageProps {
   /** Put the session's minutes in the checkout and go there. */
-  onCheckout: (sessionId: string, minutes: number) => void;
+  /** Put the session in the checkout (on the laser service) and go there. */
+  onCheckout: (sessionId: string) => void;
+  live: ReturnType<typeof useLaserSocket>;
 }
 
 const OUTCOMES: { id: LaserOutcome; label: string }[] = [
@@ -28,8 +30,7 @@ const CONFIDENCE: Record<LaserSetting['confidence'], string> = {
   good: 'Based on reports',
 };
 
-export default function LaserCutterPage({ onCheckout }: LaserCutterPageProps) {
-  const live = useLaserSocket();
+export default function LaserCutterPage({ onCheckout, live }: LaserCutterPageProps) {
   return (
     <div className="flex-1 overflow-auto bg-brand-beige">
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-lijn min-h-full">
@@ -40,7 +41,7 @@ export default function LaserCutterPage({ onCheckout }: LaserCutterPageProps) {
   );
 }
 
-function TimePanel({ onCheckout, live }: LaserCutterPageProps & { live: ReturnType<typeof useLaserSocket> }) {
+function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
   const { connected, time, sessions } = live;
   const { addToast } = useToast();
   const [selected, setSelected] = useState('');
@@ -151,17 +152,27 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps & { live: ReturnTy
             <div className="min-w-0">
               <div className="font-semibold text-sm truncate">{s.name}</div>
               <div className="text-xs text-grafiet font-mono">
-                {formatDuration(s.total_time)} · {Math.ceil(s.total_time / 60)} min · €{(Math.ceil(s.total_time / 60) * PRICING.LASER_PER_MINUTE).toFixed(2)}
+                {formatDuration(s.total_time)} · {s.minutes} min · €{(s.minutes * PRICING.LASER_PER_MINUTE).toFixed(2)}
               </div>
+              {s.checkout_at && <div className="text-[10px] font-semibold text-emerald-600 mt-0.5">In checkout</div>}
             </div>
             <div className="flex gap-2 shrink-0">
-              <button
-                className="brutalist-button px-3 py-2 bg-emerald-400 text-brand-black text-xs font-semibold flex items-center gap-1.5 disabled:opacity-40"
-                disabled={s.total_time <= 0}
-                onClick={() => onCheckout(s.id, Math.ceil(s.total_time / 60))}
-              >
-                <ShoppingCart size={14} /> Pay
-              </button>
+              {s.checkout_at ? (
+                <button
+                  className="brutalist-button px-3 py-2 bg-white text-xs font-semibold flex items-center gap-1.5"
+                  onClick={() => run(() => laserApi.setCheckout(s.id, false))}
+                >
+                  <X size={14} /> Take out of checkout
+                </button>
+              ) : (
+                <button
+                  className="brutalist-button px-3 py-2 bg-emerald-400 text-brand-black text-xs font-semibold flex items-center gap-1.5 disabled:opacity-40"
+                  disabled={s.minutes <= 0}
+                  onClick={() => onCheckout(s.id)}
+                >
+                  <ShoppingCart size={14} /> Pay
+                </button>
+              )}
               <button
                 className="brutalist-button px-2 py-2 bg-white text-xs"
                 title="Delete session"

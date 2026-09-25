@@ -9,6 +9,7 @@ session. Settings advice comes from LaserLog (see recommend.py).
 Everything is under /laser/ because nginx proxies that path here.
 """
 import json
+import math
 import os
 import socket
 import threading
@@ -117,7 +118,11 @@ def ticker():
 
 
 def all_sessions() -> list[dict]:
-    return db.query('SELECT * FROM sessions ORDER BY created DESC')
+    """Open sessions: not paid yet. Paid ones stay in the table as history."""
+    rows = db.query('SELECT * FROM sessions WHERE paid_at IS NULL ORDER BY created DESC')
+    for r in rows:
+        r['minutes'] = math.ceil(round(r['total_time'], 3) / 60)   # what the till charges
+    return rows
 
 
 def broadcast_sessions():
@@ -168,6 +173,28 @@ def delete_session(sid):
     db.execute('DELETE FROM sessions WHERE id = ?', (sid,))
     broadcast_sessions()
     return {'deleted': rows[0]}
+
+
+@app.post('/laser/api/sessions/<sid>/checkout')
+def checkout_session(sid):
+    """Put the session in the checkout (Pay), or take it back out."""
+    on = bool((request.json or {}).get('on', True))
+    if not db.query('SELECT id FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,)):
+        return {'error': 'Session not found'}, 404
+    db.execute('UPDATE sessions SET checkout_at = ? WHERE id = ?', (datetime.now().isoformat() if on else None, sid))
+    broadcast_sessions()
+    return {'ok': True}
+
+
+@app.post('/laser/api/sessions/<sid>/paid')
+def paid_session(sid):
+    """The checkout went through: keep the session as history with its order."""
+    order = ((request.json or {}).get('order') or '')[:40] or None
+    if not db.query('SELECT id FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,)):
+        return {'error': 'Session not found'}, 404
+    db.execute('UPDATE sessions SET paid_at = ?, order_ref = ? WHERE id = ?', (datetime.now().isoformat(), order, sid))
+    broadcast_sessions()
+    return {'ok': True}
 
 
 @app.post('/laser/api/flush')
