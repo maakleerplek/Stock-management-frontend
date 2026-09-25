@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ShoppingCart, { type CartItem } from './ShoppingCart';
-import Extras from './Extras';
-import { type ItemData, type ScanEvent, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem } from './sendCodeHandler';
+import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
+import { laserApi, type LaserSession } from './lib/laserApi';
+import { PRICING } from './constants';
+import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import { AlertCircle, Check, X, Settings } from 'lucide-react';
@@ -9,12 +11,14 @@ import { AlertCircle, Check, X, Settings } from 'lucide-react';
 interface ShoppingWindowProps {
     scanEvent: ScanEvent | null;
     onCheckoutResultChange?: (result: { total: number; description: string } | null) => void;
+    /** Open laser sessions; the ones with checkout_at set are in this checkout. */
+    laserSessions: LaserSession[];
 }
 
 // v2: cart entries are keyed by part ID. Carts from before hold stock item IDs.
 const CART_STORAGE_KEY = 'stockManagerCartItems.v2';
 
-export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: ShoppingWindowProps) {
+export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, laserSessions }: ShoppingWindowProps) {
     const [cartItems, setCartItems] = useState<CartItem[]>(() => {
         try {
             const stored = localStorage.getItem(CART_STORAGE_KEY);
@@ -31,7 +35,16 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
     // in the useEffect dependency array (which would re-fire on every QR dismiss).
     const checkedOutResultRef = useRef(checkedOutResult);
     checkedOutResultRef.current = checkedOutResult;
-    const [extraCosts, setExtraCosts] = useState<number>(0);
+    const [typedExtras, setTypedExtras] = useState<ExtraLine[]>([]);
+    const laserInCheckout = laserSessions.filter(s => s.checkout_at);
+    const extras: ExtraLine[] = [
+        ...laserInCheckout.map(s => ({
+            name: 'Lasertime', person: s.name, quantity: s.minutes, unit: 'min',
+            unitPrice: PRICING.LASER_PER_MINUTE, laserSessionId: s.id,
+        })),
+        ...typedExtras,
+    ];
+    const extraCosts = extraTotal(extras);
     const [isSetMode, setIsSetMode] = useState<boolean>(false);
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -135,13 +148,20 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
 
             // A sale: one sales order for the whole cart.
             const checkoutTotal = cartItems.reduce((total, item) => total + item.price * item.cartQuantity, 0) + extraCosts;
-            await bookSale(
+            const reference = await bookSale(
                 cartItems.map(item => ({ partId: item.id, name: item.name, quantity: item.cartQuantity, unitPrice: item.price })),
-                extraCosts,
+                extras,
             );
+            // The sale stands; a laser session that cannot be marked paid is a warning, not a failure.
+            for (const extra of extras) {
+                if (!extra.laserSessionId) continue;
+                laserApi.markPaid(extra.laserSessionId, reference).catch(() =>
+                    addToast(`Sold, but laser session "${extra.person}" is still open. Delete it in the Lasercutter tab.`, 'warning'));
+            }
+            localStorage.removeItem(EXTRAS_STORAGE_KEY);
             setCartItems([]);
             let desc = cartItems.map(item => `${item.name} x${item.cartQuantity}`).join(', ');
-            if (extraCosts > 0) desc += `, Extra services (€${extraCosts.toFixed(2)})`;
+            if (extras.length) desc += (desc ? ', ' : '') + extras.map(describeExtra).join(', ');
             if (desc.length > 135) desc = desc.substring(0, 132) + '...';
             setCheckedOut({ total: checkoutTotal, description: desc });
         } catch (error) {
@@ -179,7 +199,13 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
                             </h2>
                         </div>
                         <div className="p-4">
-                            <Extras onExtraCostChange={setExtraCosts} />
+                            <Extras
+                                onExtrasChange={setTypedExtras}
+                                laserSessions={laserInCheckout}
+                                openLaserSessions={laserSessions.filter(s => !s.checkout_at)}
+                                onAddLaserSession={(id) => laserApi.setCheckout(id, true).catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'))}
+                                onRemoveLaserSession={(id) => laserApi.setCheckout(id, false).catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'))}
+                            />
                         </div>
                     </div>
                 )}
@@ -200,7 +226,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
                         </div>
                         <div className="p-4 sm:p-8 bg-white overflow-y-auto max-h-[60vh] space-y-6">
                             <p className="text-xs font-semibold text-brand-black/50 border-b border-lijn pb-2">
-                                Items in cart
+                                In this transaction
                             </p>
 
                             <div className="space-y-3">
@@ -214,12 +240,15 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
                                     </div>
                                 ))}
 
-                                {extraCosts > 0 && (
-                                    <div className="flex justify-between items-center p-3 border border-lijn bg-slate-50">
-                                        <span className="font-semibold text-sm text-slate-900 leading-none">Extra services</span>
-                                        <div className="font-semibold text-sm text-slate-900">€{extraCosts.toFixed(2)}</div>
+                                {extras.map((extra) => (
+                                    <div key={extra.laserSessionId ?? extra.name} className="flex justify-between items-center p-3 border border-lijn bg-brand-beige-dark">
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-sm">{extraLabel(extra)}</span>
+                                            <span className="text-[10px] font-bold text-brand-black/60">{extra.quantity} {extra.unit} × €{extra.unitPrice.toFixed(2)}</span>
+                                        </div>
+                                        <div className="font-semibold text-sm">€{(extra.quantity * extra.unitPrice).toFixed(2)}</div>
                                     </div>
-                                )}
+                                ))}
                             </div>
 
                             <div className="border-t-[3px] border-lijn pt-6 flex flex-col items-end">

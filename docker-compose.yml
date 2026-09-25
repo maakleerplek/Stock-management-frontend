@@ -85,5 +85,24 @@ services:
       OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
       OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
 
+  # Laser time tracking (ESP32 on the laser, UDP 5005) and laser settings.
+  # nginx proxies /laser/ here; see laser/app.py.
+  laser:
+    build: ./laser
+    container_name: stock-laser
+    environment:
+      # Reads the material list from InvenTree (category Lasermaterialen).
+      - INVENTREE_BACKEND_URL=${INVENTREE_BACKEND_URL}
+      - INVENTREE_TOKEN=${INVENTREE_TOKEN:-${VITE_INVENTREE_TOKEN}}
+      - COST_PER_MIN=${VITE_LASER_PRICE_PER_MIN:-0.50}
+      # 1 = test buttons that switch the laser on/off without the ESP32.
+      - LASER_SIMULATE=${LASER_SIMULATE:-0}
+    ports:
+      - "${LASER_UDP_PORT:-5005}:5005/udp"
+    volumes:
+      - laser-data:/data
+    restart: unless-stopped
+
 volumes:
   ssl-certs:
+  laser-data:

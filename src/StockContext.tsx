@@ -69,7 +69,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
       // If forcing refresh, clear API cache for stock items
       if (force) {
         inventreeClient.invalidateCache('/stock/');
-        inventreeClient.invalidateCache('/part/?active=true&limit=500');
+        inventreeClient.invalidateCache('/part/?active=true&virtual=false&limit=500');
         inventreeClient.invalidateCache('/part/category/');
         inventreeClient.invalidateCache('/stock/location/');
       }

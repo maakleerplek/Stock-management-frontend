@@ -35,6 +35,7 @@ import { ApiCache, CACHE_TTL } from '../lib/cache';
 import { hasVolunteerSession, markSignedOut, VOLUNTEER_AUTH_FAILED } from '../auth/session';
 
 import { DEFAULTS } from '../constants';
+import type { ServiceLine } from '../lib/services';
 
 const CURRENCY = DEFAULTS.CURRENCY;
 
@@ -400,7 +401,7 @@ export class InvenTreeClient {
      */
     async sellParts(
         lines: { partId: number; quantity: number; unitPrice: number }[],
-        extras: number,
+        extras: { reference: string; description?: string; quantity: number; unitPrice: number }[],
         description: string,
     ): Promise<{ reference: string; unshipped: { partId: number; quantity: number }[] }> {
         const customer = await this.getTillCustomer();
@@ -424,12 +425,15 @@ export class InvenTreeClient {
                 }, false, false);
                 lineItems.push({ pk: created.pk, partId: line.partId, quantity: line.quantity });
             }
-            if (extras > 0) {
+            // One extra line per service, so the order shows what was used.
+            for (const extra of extras) {
+                if (extra.quantity <= 0) continue;
                 await this.request('/order/so-extra-line/', 'POST', {
                     order: order.pk,
-                    reference: 'Extra services',
-                    quantity: 1,
-                    price: extras.toFixed(2),
+                    reference: extra.reference,
+                    description: extra.description ?? '',
+                    quantity: extra.quantity,
+                    price: extra.unitPrice.toFixed(2),
                     price_currency: CURRENCY,
                 }, false, false);
             }
@@ -590,7 +594,7 @@ export class InvenTreeClient {
 
     async getAllParts(): Promise<InvenTreePartListResponse> {
         return this.request(
-            '/part/?active=true&limit=500',
+            '/part/?active=true&virtual=false&limit=500',
             'GET',
             undefined,
             false,
@@ -1105,6 +1109,34 @@ export class InvenTreeClient {
             const path = `/stock/track/?limit=${pageSize}&offset=${offset}&ordering=-date`;
             const page = await this.request<InvenTreeTrackingListResponse>(path, 'GET', undefined, false, false);
             all.push(...page.results);
+            if (page.results.length < pageSize || all.length >= page.count) return all;
+        }
+    }
+
+    /**
+     * Every extra line on sales orders (Lasertime, CNC time, 3D printing), with
+     * its order's status and dates. Pages through the API like the tracking log.
+     */
+    async getAllServiceLines(pageSize: number = 500): Promise<ServiceLine[]> {
+        type Row = {
+            reference: string; description: string; quantity: number | string; price: number | string | null;
+            order_detail?: { status: number; creation_date?: string | null; issue_date?: string | null; shipment_date?: string | null };
+        };
+        const all: ServiceLine[] = [];
+        for (let offset = 0; ; offset += pageSize) {
+            const path = `/order/so-extra-line/?limit=${pageSize}&offset=${offset}&order_detail=true`;
+            const page = await this.request<{ count: number; results: Row[] }>(path, 'GET', undefined, false, false);
+            for (const r of page.results) {
+                const o = r.order_detail;
+                all.push({
+                    reference: r.reference,
+                    description: r.description ?? '',
+                    quantity: Number(r.quantity) || 0,
+                    price: Number(r.price) || 0,
+                    date: o?.shipment_date || o?.issue_date || o?.creation_date || '',
+                    orderStatus: o?.status ?? 0,
+                });
+            }
             if (page.results.length < pageSize || all.length >= page.count) return all;
         }
     }

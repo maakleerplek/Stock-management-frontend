@@ -1,0 +1,69 @@
+group,material_en,material_nl,thickness_mm,cut_speed,cut_power,cut_power_min,cut_passes,line_speed,line_power_max,line_power_min,fill_speed,fill_power,comment
+Hout,bamboo,bamboe,,,,,,400,10,,400,50,
+Hout,concrete plywood,betonplex,,,,,,,,,,,
+Hout,cork,kurk,,,,,,150,85,,400,10,fill 0.2 interval
+Hout,cork,kurk,3,100,50,,,,,,,,
+Hout,Hardboard,Hardboard,,,,,,,,,,,
+Hout,HDF,HDF,2,25,50,,,,,,,,handwritten
+Hout,MDF,MDF,2,25,50,,,100,40,,200,20,engrave line also 200/10; fill also 400/20
+Hout,MDF,MDF,3,25,50,,,,,,,,
+Hout,MDF,MDF,4,25,80,,,,,,,,
+Hout,MDF,MDF,6,15,80,,,,,,,,
+Hout,MDF,MDF,7,10,80,,,,,,,,
+Hout,MDF,MDF,9,5,80,,,,,,,,8/80 crossed out -> 5/80
+Hout,MDF,MDF,12,5,85,,,,,,,,
+Hout,poplar,populier,,,,,,20,10,8,,,"engrave line ""too high"""
+Hout,poplar,populier,4,20,80,,,,,,,,
+Hout,plywood hard,multiplex hard,3,30,80,,,,,,200,20,fill 200/50 = deep
+Hout,plywood hard,multiplex hard,3.5,20,50,,,,,,,,also 30/80
+Hout,plywood hard,multiplex hard,4,20,80,,,,,,,,
+Hout,plywood hard,multiplex hard,5,30,80,,,,,,,,
+Hout,plywood hard,multiplex hard,8,10,80,,,,,,,,
+Hout,plywood poplar,multiplex populier,3,20,50,,,150,10,7,200,20,engrave line also 200/10 and 250/10; fill photo 150/15
+Hout,plywood poplar,multiplex populier,4,20,50,,,,,,,,
+Hout,plywood poplar,multiplex populier,8,25,80,,,,,,,,"comment ""cut 10/90"""
+Hout,plywood poplar,multiplex populier,12,10,80,,,,,,,,
+Hout,veneer,fineer,,,,,,,,,,,
+Hout,wooden blinds,houten jaloezieen,,50,40,,,,,,400,10,thickness ?
+Papier,brown masking paper,bruin afplakpapier,,40,6,,,,,,,,thickness ?; not always cut
+Papier,cardboard,karton,1,90,50,,,,,,,,small pieces move
+Papier,wood cardboard,houtkarton,3,30,75,,,,,,,,handwritten
+Papier,wallpaper,behangpapier,,100,15,,,,,,,,handwritten
+Plastiek,acrylic (PMMA / plexi),acrylaat / plexiglas,,,,,,250,60,40,,,engrave line also 400/10
+Plastiek,acrylic (PMMA / plexi),acrylaat / plexiglas,2,15,90,,,,,,,,from cave: 5/88
+Plastiek,acrylic (PMMA / plexi),acrylaat / plexiglas,6,10,90,,,,,,,,
+Plastiek,acrylic (PMMA / plexi),acrylaat / plexiglas,7,10,85,,,,,,200,80,offset fill until 50% depth
+Plastiek,craft foam,knutselschuim,2,65,35,,,,,,,,
+Plastiek,HDPE,HDPE,9,3,90,,,,,,,,
+Plastiek,r-HDPE,r-HDPE,2,10,90,,,,,,,,
+Plastiek,MAF (Museum Art Foam),MAF,3,,,,,,,,400,40,image
+Plastiek,nylon,nylon,0.4,200,20,,,,,,,,2 x 0.2 mm
+Plastiek,PETG,PETG,1,30,30,,,,,,,,
+Plastiek,PolyEther foam,PolyEther schuim,70,100,65,,10,,,,,,
+Plastiek,PP (polypropylene),polypropyleen,,100,70,,,,,,,,455 g/m2
+Plastiek,PSPLA,PSPLA,,,,,,20,80,,,,
+Plastiek,troLase plastic,troLase plastiek,1,100,25,,,350,18,,,,
+Rubber,EPDM (rubber plate),EPDM,1,50,50,,,,,,,,
+Rubber,EPDM (rubber plate),EPDM,2,25,85,,,,,,,,reinforced
+Rubber,EPDM foam,EPDM schuim,3,100,50,10,,,,,,,min power for corners
+Rubber,red stamping rubber,rood stempelrubber,,15,70,,,,,,,,thickness ?
+Rubber,stamp foam (double sided),stempelschuim dubbelzijdig,2,70,50,,,,,,,,
+Rubber,stamp foam (double sided),stempelschuim dubbelzijdig,2.4,15,70,,,,,,100,80,fill 100/80-30 RAMP=1 (handwritten)
+Rubber,stencil (Pronty Crafts),sjabloon,,30,10,,,,,,,,thickness ?
+Stof,fabric,stof,,,,,,,,,,,
+Stof,felt (wool),vilt (wol),1,50,10,,,,,,,,
+Stof,leather,leer,,80,60,,,400,10,,,,2 layers; also 25/40+
+Metaal,metal keychain tag,metalen sleutelhanger,,,,,,,,,300,20,
+Metaal,painted metal,gelakt metaal,,,,,,,,,300,20,
+Metaal,sandblasted stainless steel,gezandstraald inox,,,,,,,,,35,80,
+Metaal,stainless steel,RVS / inox,,,,,,,,,300,50,double on some steels (?)
+Steen,ceramics,keramiek,,,,,,,,,,,
+Steen,granite,graniet,,,,,,,,,,,harder than marble
+Steen,marble,marmer,,,,,,100,20,,,,
+Steen,slate,leisteen,,,,,,,,,,,
+Steen,stone,steen,,,,,,,,,,,
+Andere,glass,glas,,,,,,100,20,,,,
+Andere,mirror,spiegel,,,,,,120,20,,,,image (back side); handwritten
+Andere,?? (unknown),??,,30,50,,,,,,,,Som pennal cud ??
+Andere,fold line,plooilijn,,30,30,,,,,,,,
+Andere,PU leatherette,PU leerimitatie,,,,,,300,,,,,power unknown (??)

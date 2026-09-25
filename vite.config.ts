@@ -119,6 +119,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': proxyTarget,
         '/media': proxyTarget,
+        '/laser': { target: env.LASER_URL || 'http://127.0.0.1:5000', ws: true },
       }
     },
     preview: {

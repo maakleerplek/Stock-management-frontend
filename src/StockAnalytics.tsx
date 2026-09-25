@@ -1,11 +1,17 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Package, BarChart2, RefreshCw, Percent, Download, HandHeart } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Package, BarChart2, RefreshCw, Percent, Download, HandHeart, Zap } from 'lucide-react';
 import inventreeClient from './api/inventreeClient';
 import { useStock } from './StockContext';
 import type { InvenTreeTrackingEntry } from './api/types';
 import { cn } from './lib/utils';
 import { isSale, isVolunteerDrink, unitsSold, unitsGiven, TRACKING, type PartInfo, type SaleKind } from './lib/stockHistory';
 import StockHistoryChart from './components/StockHistoryChart';
+import { laserStats, type ServiceLine } from './lib/services';
+
+const fmtMinutes = (m: number) => {
+  const r = Math.round(m);
+  return r < 60 ? `${r} min` : `${Math.floor(r / 60)} h ${String(r % 60).padStart(2, '0')}`;
+};
 
 
 const DATE_RANGES = [
@@ -100,6 +106,18 @@ export default function StockAnalytics() {
   const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGES[1]);
   const [kind, setKind] = useState<SaleKind>('all');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [serviceLines, setServiceLines] = useState<ServiceLine[]>([]);
+
+  // Machine services come from sales orders, apart from the tracking log, so
+  // a failure here leaves the rest of the page working.
+  useEffect(() => {
+    let cancelled = false;
+    inventreeClient.getAllServiceLines()
+      .then(lines => { if (!cancelled) setServiceLines(lines); })
+      .catch(err => console.warn('[Analytics] Could not load service lines:', err));
+    return () => { cancelled = true; };
+  }, [refreshKey]);
+  const laser = useMemo(() => laserStats(serviceLines, dateRange.days ?? undefined), [serviceLines, dateRange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -414,6 +432,60 @@ export default function StockAnalytics() {
             </div>
           ))}
         </div>
+
+        {/* Laser use: paid laser sessions, per person */}
+        <Section title="Laser use" icon={Zap}>
+          {laser.minutes === 0 ? (
+            <div className="flex items-center justify-center py-6">
+              <span className="text-xs font-bold text-brand-black/40">No paid laser time in this period</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {[
+                  ['Sessions', `${laser.sessions}`],
+                  ['People', `${laser.people}`],
+                  ['Laser time', fmtMinutes(laser.minutes)],
+                  ['Avg per session', laser.sessions ? fmtMinutes(laser.avgPerSession) : '–'],
+                  ['Avg per person', laser.people ? fmtMinutes(laser.avgPerPerson) : '–'],
+                ].map(([label, value]) => (
+                  <div key={label} className="border border-lijn p-3 bg-brand-beige-dark">
+                    <div className="text-[10px] font-semibold text-brand-black/60">{label}</div>
+                    <div className="text-xl font-semibold tabular-nums">{value}</div>
+                  </div>
+                ))}
+              </div>
+              {laser.perPerson.length > 0 && (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-brand-black/60 border-b border-lijn">
+                      <th className="py-1.5 font-semibold">Person</th>
+                      <th className="py-1.5 font-semibold text-right">Sessions</th>
+                      <th className="py-1.5 font-semibold text-right">Time</th>
+                      <th className="py-1.5 font-semibold text-right">Avg</th>
+                      <th className="py-1.5 font-semibold text-right">Paid</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {laser.perPerson.map(p => (
+                      <tr key={p.name} className="border-b border-lijn-zacht">
+                        <td className="py-1.5 font-semibold">{p.name}</td>
+                        <td className="py-1.5 text-right tabular-nums">{p.sessions}</td>
+                        <td className="py-1.5 text-right tabular-nums">{fmtMinutes(p.minutes)}</td>
+                        <td className="py-1.5 text-right tabular-nums">{fmtMinutes(p.minutes / p.sessions)}</td>
+                        <td className="py-1.5 text-right tabular-nums">€{p.revenue.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <p className="text-[10px] text-brand-black/50">
+                €{laser.revenue.toFixed(2)} paid for laser time
+                {laser.typedMinutes > 0 && ` · ${fmtMinutes(laser.typedMinutes)} typed in at the till without a session (not per person)`}
+              </p>
+            </div>
+          )}
+        </Section>
 
         {trackingEntries.length > 0 && (
           <StockHistoryChart entries={trackingEntries} parts={chartParts} days={dateRange.days} kind={kind} />

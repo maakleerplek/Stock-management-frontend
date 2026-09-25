@@ -1,25 +1,91 @@
 import { useState, useEffect } from 'react';
+import { X, Zap } from 'lucide-react';
 import { PRICING } from './constants';
+import type { ExtraLine } from './sendCodeHandler';
+import type { LaserSession } from './lib/laserApi';
+
+/** Hand-typed services survive a refresh, like the cart. Cleared after a sale. */
+export const EXTRAS_STORAGE_KEY = 'stockManagerExtras.v1';
 
 interface ExtrasProps {
-    onExtraCostChange: (cost: number) => void;
+    /** The hand-typed services in use, one line each; unused ones are left out. */
+    onExtrasChange: (extras: ExtraLine[]) => void;
+    /** Laser sessions in this checkout; their time comes from the laser service. */
+    laserSessions: LaserSession[];
+    /** Open laser sessions not in the checkout yet, to pick from. */
+    openLaserSessions: LaserSession[];
+    onAddLaserSession: (id: string) => void;
+    onRemoveLaserSession: (id: string) => void;
 }
 
-export default function Extras({ onExtraCostChange }: ExtrasProps) {
-    const [lasertimeMinutes, setLasertimeMinutes] = useState(0);
-    const [cncMinutes, setCncMinutes] = useState(0);
-    const [printingGrams, setPrintingGrams] = useState(0);
+function stored(): { laser: number; cnc: number; print: number } {
+    try {
+        return { laser: 0, cnc: 0, print: 0, ...JSON.parse(localStorage.getItem(EXTRAS_STORAGE_KEY) || '{}') };
+    } catch {
+        return { laser: 0, cnc: 0, print: 0 };
+    }
+}
+
+export default function Extras({ onExtrasChange, laserSessions, openLaserSessions, onAddLaserSession, onRemoveLaserSession }: ExtrasProps) {
+    const [lasertimeMinutes, setLasertimeMinutes] = useState(() => stored().laser);
+    const [cncMinutes, setCncMinutes] = useState(() => stored().cnc);
+    const [printingGrams, setPrintingGrams] = useState(() => stored().print);
 
     const lasertimeCost = lasertimeMinutes * PRICING.LASER_PER_MINUTE;
     const cncCost = cncMinutes * PRICING.CNC_PER_MINUTE;
     const printingCost = printingGrams * PRICING.PRINTING_PER_GRAM;
-    const totalExtraCost = lasertimeCost + cncCost + printingCost;
 
     useEffect(() => {
-        onExtraCostChange(totalExtraCost);
-    }, [lasertimeMinutes, cncMinutes, printingGrams, onExtraCostChange, totalExtraCost]);
+        localStorage.setItem(EXTRAS_STORAGE_KEY, JSON.stringify({ laser: lasertimeMinutes, cnc: cncMinutes, print: printingGrams }));
+        const lines: ExtraLine[] = [
+            { name: 'Lasertime', quantity: lasertimeMinutes, unit: 'min', unitPrice: PRICING.LASER_PER_MINUTE },
+            { name: 'CNC time', quantity: cncMinutes, unit: 'min', unitPrice: PRICING.CNC_PER_MINUTE },
+            { name: '3D printing', quantity: printingGrams, unit: 'g', unitPrice: PRICING.PRINTING_PER_GRAM },
+        ];
+        onExtrasChange(lines.filter(l => l.quantity > 0));
+    }, [lasertimeMinutes, cncMinutes, printingGrams, onExtrasChange]);
 
     return (
+        <div className="space-y-4">
+        {openLaserSessions.length > 0 && (
+            <label className="flex items-center gap-2 border border-lijn p-3 bg-brand-beige">
+                <Zap size={14} className="shrink-0" />
+                <span className="text-xs font-semibold text-brand-black/60 shrink-0">Laser session</span>
+                <select
+                    value=""
+                    onChange={e => { if (e.target.value) onAddLaserSession(e.target.value); }}
+                    className="flex-1 min-w-0 h-9 px-2 border border-lijn bg-white text-sm"
+                >
+                    <option value="">Add a laser session to this checkout…</option>
+                    {openLaserSessions.map(s => (
+                        <option key={s.id} value={s.id} disabled={s.minutes <= 0}>
+                            {s.name} · {s.minutes} min{s.minutes > 0 ? ` · €${(s.minutes * PRICING.LASER_PER_MINUTE).toFixed(2)}` : ' (no time assigned yet)'}
+                        </option>
+                    ))}
+                </select>
+            </label>
+        )}
+        {laserSessions.length > 0 && (
+            <div className="space-y-2">
+                {laserSessions.map(s => (
+                    <div key={s.id} className="flex items-center justify-between gap-3 border border-lijn p-3 bg-brand-beige-dark">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <Zap size={14} className="shrink-0" />
+                            <div className="min-w-0">
+                                <div className="text-sm font-semibold truncate">Lasertime – {s.name}</div>
+                                <div className="text-[10px] font-mono text-brand-black/60">{s.minutes} min × €{PRICING.LASER_PER_MINUTE.toFixed(2)} · from the laser</div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-lg font-semibold tabular-nums">€{(s.minutes * PRICING.LASER_PER_MINUTE).toFixed(2)}</span>
+                            <button onClick={() => onRemoveLaserSession(s.id)} title="Take out of the checkout" className="p-1 hover:bg-brand-accent">
+                                <X size={16} />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Lasertime Input */}
             <div className="space-y-1 border border-lijn p-3 bg-brand-beige">
@@ -84,6 +150,7 @@ export default function Extras({ onExtraCostChange }: ExtrasProps) {
                     </div>
                 </div>
             </div>
+        </div>
         </div>
     );
 }

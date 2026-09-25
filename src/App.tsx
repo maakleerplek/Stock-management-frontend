@@ -16,6 +16,8 @@ import VolunteerModal from './VolunteerModal';
 import AdminToolsBar from './components/AdminToolsBar';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import StockAnalytics from './StockAnalytics';
+import LaserCutterPage from './LaserCutterPage';
+import { laserApi, useLaserSocket } from './lib/laserApi';
 import {
   type InvenTreeTrackingEntry,
   type InvenTreePartListResponse
@@ -26,16 +28,23 @@ import {
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
-import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2 } from 'lucide-react';
+import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import { TRACKING } from './lib/stockHistory';
 import './index.css';
 
-export type AppView = 'checkout' | 'browse' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
+export type AppView = 'checkout' | 'browse' | 'laser' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
+const VIEWS: AppView[] = ['checkout', 'browse', 'laser', 'volunteer', 'inventory', 'scan', 'orders', 'analytics'];
+
+// The open tab lives in the URL hash (#laser), so a refresh stays on it.
+function viewFromHash(): AppView {
+  const hash = window.location.hash.slice(1);
+  return VIEWS.find(v => v === hash) ?? 'checkout';
+}
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<AppView>('checkout');
+  const [currentPage, setCurrentPage] = useState<AppView>(viewFromHash);
   const [scanEvent, setScanEvent] = useState<ScanEvent | null>(null);
   const scanCounterRef = useRef(0);
   const [volunteerModalOpen, setVolunteerModalOpen] = useState(false);
@@ -51,6 +60,9 @@ function AppContent() {
   const [recentMovements, setRecentMovements] = useState<InvenTreeTrackingEntry[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
   const [mobileCheckoutTab, setMobileCheckoutTab] = useState<'scan' | 'cart'>('scan');
+  // One connection to the laser service for the whole app: the Lasercutter
+  // tab shows it, the checkout bills the sessions someone pressed Pay on.
+  const laser = useLaserSocket();
   const { addToast } = useToast();
   const { isVolunteerMode } = useVolunteer();
   const { items: stockItems, loading: stockLoading, lastFetched: stockLastFetched } = useStock();
@@ -263,6 +275,16 @@ function AppContent() {
     []
   );
 
+  const handleLaserCheckout = async (sessionId: string) => {
+    try {
+      await laserApi.setCheckout(sessionId, true);
+      setMobileCheckoutTab('cart');
+      setCurrentPage('checkout');
+    } catch (error) {
+      handleApiError(error, 'putting the laser time in the checkout');
+    }
+  };
+
   const handleViewChange = (view: AppView) => {
     setCurrentPage(view);
   };
@@ -278,10 +300,14 @@ function AppContent() {
     if (isVolunteerMode && currentPage === 'checkout') {
       setCurrentPage('volunteer');
     }
-    if (!isVolunteerMode && currentPage !== 'checkout' && currentPage !== 'browse') {
+    if (!isVolunteerMode && currentPage !== 'checkout' && currentPage !== 'browse' && currentPage !== 'laser') {
       setCurrentPage('checkout');
     }
   }, [isVolunteerMode, currentPage]);
+
+  useEffect(() => {
+    window.history.replaceState(null, '', `#${currentPage}`);
+  }, [currentPage]);
 
   // Clear prefill state when leaving the orders page
   useEffect(() => {
@@ -336,6 +362,7 @@ function AppContent() {
       {[
         { id: 'checkout', label: 'Checkout', icon: ScanBarcode },
         { id: 'browse', label: 'Stock list', icon: Package },
+        { id: 'laser', label: 'Lasercutter', icon: Zap },
       ].map(tab => (
         <button
           key={tab.id}
@@ -370,6 +397,8 @@ function AppContent() {
             <ItemList />
           </div>
         )}
+
+        {currentPage === 'laser' && <LaserCutterPage live={laser} onCheckout={handleLaserCheckout} />}
 
         {currentPage === 'checkout' && (
           <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
@@ -414,7 +443,8 @@ function AppContent() {
             )}>
               <ShoppingWindow
                 scanEvent={scanEvent}
-                onCheckoutResultChange={(result) => setCheckoutResult(result)}
+                onCheckoutResultChange={setCheckoutResult}
+                laserSessions={laser.sessions}
               />
             </div>
 
@@ -426,7 +456,8 @@ function AppContent() {
               <aside className="w-[40%] border-l border-lijn bg-brand-beige flex flex-col">
                 <ShoppingWindow
                   scanEvent={scanEvent}
-                  onCheckoutResultChange={(result) => setCheckoutResult(result)}
+                  onCheckoutResultChange={setCheckoutResult}
+                  laserSessions={laser.sessions}
                 />
               </aside>
             </div>
@@ -660,6 +691,7 @@ function AppContent() {
                     <ShoppingWindow
                       scanEvent={scanEvent}
                       onCheckoutResultChange={() => { }}
+                      laserSessions={[]}
                     />
                   </aside>
                 </motion.div>
