@@ -1,25 +1,31 @@
 import { useState, useEffect } from 'react';
 import { PRICING } from './constants';
+import type { ExtraLine } from './sendCodeHandler';
 
 interface ExtrasProps {
-    onExtraCostChange: (cost: number) => void;
+    /** The services in use, one line each; unused ones are left out. */
+    onExtrasChange: (extras: ExtraLine[]) => void;
     /** Laser minutes live with the parent, so the Lasercutter tab can fill them in. */
     lasertimeMinutes: number;
     onLasertimeChange: (minutes: number) => void;
 }
 
-export default function Extras({ onExtraCostChange, lasertimeMinutes, onLasertimeChange: setLasertimeMinutes }: ExtrasProps) {
+export default function Extras({ onExtrasChange, lasertimeMinutes, onLasertimeChange: setLasertimeMinutes }: ExtrasProps) {
     const [cncMinutes, setCncMinutes] = useState(0);
     const [printingGrams, setPrintingGrams] = useState(0);
 
     const lasertimeCost = lasertimeMinutes * PRICING.LASER_PER_MINUTE;
     const cncCost = cncMinutes * PRICING.CNC_PER_MINUTE;
     const printingCost = printingGrams * PRICING.PRINTING_PER_GRAM;
-    const totalExtraCost = lasertimeCost + cncCost + printingCost;
 
     useEffect(() => {
-        onExtraCostChange(totalExtraCost);
-    }, [lasertimeMinutes, cncMinutes, printingGrams, onExtraCostChange, totalExtraCost]);
+        const lines: ExtraLine[] = [
+            { name: 'Lasertime', quantity: lasertimeMinutes, unit: 'min', unitPrice: PRICING.LASER_PER_MINUTE },
+            { name: 'CNC time', quantity: cncMinutes, unit: 'min', unitPrice: PRICING.CNC_PER_MINUTE },
+            { name: '3D printing', quantity: printingGrams, unit: 'g', unitPrice: PRICING.PRINTING_PER_GRAM },
+        ];
+        onExtrasChange(lines.filter(l => l.quantity > 0));
+    }, [lasertimeMinutes, cncMinutes, printingGrams, onExtrasChange]);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

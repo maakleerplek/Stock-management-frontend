@@ -397,7 +397,7 @@ export class InvenTreeClient {
      */
     async sellParts(
         lines: { partId: number; quantity: number; unitPrice: number }[],
-        extras: number,
+        extras: { reference: string; quantity: number; unitPrice: number }[],
         description: string,
     ): Promise<{ reference: string; unshipped: { partId: number; quantity: number }[] }> {
         const customer = await this.getTillCustomer();
@@ -421,12 +421,14 @@ export class InvenTreeClient {
                 }, false, false);
                 lineItems.push({ pk: created.pk, partId: line.partId, quantity: line.quantity });
             }
-            if (extras > 0) {
+            // One extra line per service, so the order shows what was used.
+            for (const extra of extras) {
+                if (extra.quantity <= 0) continue;
                 await this.request('/order/so-extra-line/', 'POST', {
                     order: order.pk,
-                    reference: 'Extra services',
-                    quantity: 1,
-                    price: extras.toFixed(2),
+                    reference: extra.reference,
+                    quantity: extra.quantity,
+                    price: extra.unitPrice.toFixed(2),
                     price_currency: CURRENCY,
                 }, false, false);
             }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ShoppingCart, { type CartItem } from './ShoppingCart';
 import Extras from './Extras';
-import { type ItemData, type ScanEvent, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import { AlertCircle, Check, X, Settings } from 'lucide-react';
@@ -33,7 +33,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     // in the useEffect dependency array (which would re-fire on every QR dismiss).
     const checkedOutResultRef = useRef(checkedOutResult);
     checkedOutResultRef.current = checkedOutResult;
-    const [extraCosts, setExtraCosts] = useState<number>(0);
+    const [extras, setExtras] = useState<ExtraLine[]>([]);
+    const extraCosts = extraTotal(extras);
     const [isSetMode, setIsSetMode] = useState<boolean>(false);
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -139,11 +140,11 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
             const checkoutTotal = cartItems.reduce((total, item) => total + item.price * item.cartQuantity, 0) + extraCosts;
             await bookSale(
                 cartItems.map(item => ({ partId: item.id, name: item.name, quantity: item.cartQuantity, unitPrice: item.price })),
-                extraCosts,
+                extras,
             );
             setCartItems([]);
             let desc = cartItems.map(item => `${item.name} x${item.cartQuantity}`).join(', ');
-            if (extraCosts > 0) desc += `, Extra services (€${extraCosts.toFixed(2)})`;
+            if (extras.length) desc += (desc ? ', ' : '') + extras.map(describeExtra).join(', ');
             if (desc.length > 135) desc = desc.substring(0, 132) + '...';
             setCheckedOut({ total: checkoutTotal, description: desc });
         } catch (error) {
@@ -181,7 +182,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                             </h2>
                         </div>
                         <div className="p-4">
-                            <Extras onExtraCostChange={setExtraCosts} lasertimeMinutes={lasertimeMinutes} onLasertimeChange={onLasertimeChange} />
+                            <Extras onExtrasChange={setExtras} lasertimeMinutes={lasertimeMinutes} onLasertimeChange={onLasertimeChange} />
                         </div>
                     </div>
                 )}
@@ -202,7 +203,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                         </div>
                         <div className="p-4 sm:p-8 bg-white overflow-y-auto max-h-[60vh] space-y-6">
                             <p className="text-xs font-semibold text-brand-black/50 border-b border-lijn pb-2">
-                                Items in cart
+                                In this transaction
                             </p>
 
                             <div className="space-y-3">
@@ -216,12 +217,15 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                     </div>
                                 ))}
 
-                                {extraCosts > 0 && (
-                                    <div className="flex justify-between items-center p-3 border border-lijn bg-slate-50">
-                                        <span className="font-semibold text-sm text-slate-900 leading-none">Extra services</span>
-                                        <div className="font-semibold text-sm text-slate-900">€{extraCosts.toFixed(2)}</div>
+                                {extras.map((extra) => (
+                                    <div key={extra.name} className="flex justify-between items-center p-3 border border-lijn bg-brand-beige-dark">
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-sm">{extra.name}</span>
+                                            <span className="text-[10px] font-bold text-brand-black/60">{extra.quantity} {extra.unit} × €{extra.unitPrice.toFixed(2)}</span>
+                                        </div>
+                                        <div className="font-semibold text-sm">€{(extra.quantity * extra.unitPrice).toFixed(2)}</div>
                                     </div>
-                                )}
+                                ))}
                             </div>
 
                             <div className="border-t-[3px] border-lijn pt-6 flex flex-col items-end">

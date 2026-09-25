@@ -58,6 +58,17 @@ export const NOTES = {
     SET: 'Stock set via App - Volunteer Mode',
 } as const;
 
+/** A machine service on the bill: laser minutes, CNC minutes, printed grams. */
+export interface ExtraLine {
+    name: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+}
+
+export const extraTotal = (extras: ExtraLine[]) => extras.reduce((sum, e) => sum + e.quantity * e.unitPrice, 0);
+export const describeExtra = (e: ExtraLine) => `${e.name} ${e.quantity} ${e.unit}`;
+
 export interface CheckoutLine {
     partId: number;
     name: string;
@@ -69,14 +80,14 @@ export interface CheckoutLine {
  * Book a till sale as one InvenTree sales order.
  * Returns the order reference, or throws with a message for the user.
  */
-export async function handleCheckout(lines: CheckoutLine[], extras: number): Promise<string> {
+export async function handleCheckout(lines: CheckoutLine[], extras: ExtraLine[]): Promise<string> {
     const description = [
         ...lines.map(l => `${l.name} x${l.quantity}`),
-        ...(extras > 0 ? [`Extra services`] : []),
+        ...extras.map(describeExtra),
     ].join(', ');
     const result = await inventreeClient.sellParts(
         lines.map(l => ({ partId: l.partId, quantity: l.quantity, unitPrice: l.unitPrice })),
-        extras,
+        extras.map(e => ({ reference: `${e.name} (${e.unit})`, quantity: e.quantity, unitPrice: e.unitPrice })),
         description,
     );
     if (result.unshipped.length) {
