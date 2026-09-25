@@ -5,24 +5,39 @@ import svgr from 'vite-plugin-svgr'
 import { VitePWA } from 'vite-plugin-pwa'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
-import { createHash } from 'node:crypto'
 import type { Plugin } from 'vite'
-import { requiredAccess, VOLUNTEER_CHECK_PATH, VOLUNTEER_HEADER } from './src/lib/apiAccess'
+import { requiredAccess, VOLUNTEER_CHECK_PATH } from './src/lib/apiAccess'
 
 /**
  * Dev-server twin of the nginx access rules: the InvenTree token stays on the
- * server, and volunteer-only calls need the right X-Volunteer-Key.
+ * server, and volunteer-only calls need a session. There is no Authentik in
+ * development, so signing in just sets a cookie; DEV_VOLUNTEER=false in .env
+ * turns sign-in off to test the till's view.
  */
-function apiAccess(volunteerPassword: string): Plugin {
-  const key = volunteerPassword ? createHash('sha256').update(volunteerPassword).digest('hex') : null
+const DEV_SESSION = 'dev_volunteer=1'
+
+function apiAccess(allowSignIn: boolean): Plugin {
   return {
     name: 'api-access',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = req.url ?? ''
-        if (!url.startsWith('/api/')) return next()
-        const isVolunteer = key !== null && req.headers[VOLUNTEER_HEADER] === key
         const pathOnly = url.split('?')[0]
+        if (pathOnly === '/oauth/start') {
+          const rd = new URL(url, 'https://dev').searchParams.get('rd') || '/'
+          res.statusCode = 302
+          if (allowSignIn) res.setHeader('Set-Cookie', `${DEV_SESSION}; Path=/; SameSite=Lax`)
+          res.setHeader('Location', rd.startsWith('/') ? rd : '/')
+          return res.end()
+        }
+        if (pathOnly === '/logout') {
+          res.statusCode = 302
+          res.setHeader('Set-Cookie', 'dev_volunteer=; Path=/; Max-Age=0')
+          res.setHeader('Location', '/')
+          return res.end()
+        }
+        if (!url.startsWith('/api/')) return next()
+        const isVolunteer = allowSignIn && (req.headers.cookie ?? '').includes(DEV_SESSION)
         if (pathOnly === VOLUNTEER_CHECK_PATH) {
           res.statusCode = isVolunteer ? 204 : 401
           return res.end()
@@ -31,7 +46,6 @@ function apiAccess(volunteerPassword: string): Plugin {
           res.statusCode = 401
           return res.end()
         }
-        delete req.headers[VOLUNTEER_HEADER]
         next()
       })
     },
@@ -44,20 +58,27 @@ export default defineConfig(({ mode }) => {
   // Server-side only. The VITE_ names are accepted for older .env files; the
   // client code never reads them, so they do not end up in the bundle.
   const inventreeToken = env.INVENTREE_TOKEN || env.VITE_INVENTREE_TOKEN || ''
-  const volunteerPassword = env.VOLUNTEER_PASSWORD || env.VITE_VOLUNTEER_PASSWORD || ''
+  const allowSignIn = env.DEV_VOLUNTEER !== 'false'
   const backend = env.INVENTREE_BACKEND_URL || 'http://127.0.0.1:8001'
   const proxyTarget = { target: backend, changeOrigin: true, secure: false, headers: { Authorization: `Token ${inventreeToken}` } }
 
   return {
     plugins: [
       react(),
-      apiAccess(volunteerPassword),
+      apiAccess(allowSignIn),
       tailwindcss(),
       basicSsl(), 
       svgr(),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.png', 'favicon.ico', 'apple-touch-icon.png'],
+        workbox: {
+          // The service worker answers page navigations with the app shell.
+          // These must reach the server: the sign-in (oauth2-proxy sets its
+          // CSRF cookie on /oauth/start and checks it on /oauth/callback),
+          // sign-out, and anything proxied to InvenTree.
+          navigateFallbackDenylist: [/^\/oauth\//, /^\/logout$/, /^\/api\//, /^\/media\//],
+        },
         manifest: {
           name: 'Inventree Assistant',
           short_name: 'Stock Manager',

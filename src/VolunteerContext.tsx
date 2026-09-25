@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { STORAGE_KEYS } from './constants';
-import { getVolunteerKey, setVolunteerKey, VOLUNTEER_AUTH_FAILED } from './auth/volunteerKey';
+import { checkVolunteerSession, signOut, VOLUNTEER_AUTH_FAILED } from './auth/session';
+import inventreeClient from './api/inventreeClient';
 import { useToast } from './ToastContext';
 
 interface VolunteerContextType {
     isVolunteerMode: boolean;
+    /** Leaving volunteer mode signs out here and at Authentik. */
     setIsVolunteerMode: (mode: boolean) => void;
 }
 
@@ -12,29 +13,35 @@ const VolunteerContext = createContext<VolunteerContextType | undefined>(undefin
 
 export function VolunteerProvider({ children }: { children: ReactNode }) {
     const { addToast } = useToast();
-    // Volunteer mode without a key (e.g. a session from before the proxy
-    // checked passwords) cannot do anything, so it does not count.
-    const [isVolunteerMode, setIsVolunteerModeState] = useState<boolean>(
-        () => localStorage.getItem(STORAGE_KEYS.VOLUNTEER_MODE) === 'true' && getVolunteerKey() !== null
-    );
+    // Volunteer mode is whatever the proxy says about this browser's session,
+    // asked once on load (also right after coming back from the sign-in).
+    const [isVolunteerMode, setIsVolunteerModeState] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        checkVolunteerSession().then(result => {
+            if (cancelled || result !== 'ok') return;
+            setIsVolunteerModeState(true);
+            // Till sales need this customer, and only a volunteer may create it.
+            void inventreeClient.getTillCustomer().catch(err => console.warn('[Volunteer] Till customer setup failed:', err));
+        });
+        return () => { cancelled = true; };
+    }, []);
 
     const setIsVolunteerMode = (mode: boolean) => {
-        setIsVolunteerModeState(mode);
         if (mode) {
-            localStorage.setItem(STORAGE_KEYS.VOLUNTEER_MODE, 'true');
+            setIsVolunteerModeState(true);
         } else {
-            localStorage.removeItem(STORAGE_KEYS.VOLUNTEER_MODE);
-            setVolunteerKey(null);
+            setIsVolunteerModeState(false);
+            void signOut();
         }
     };
 
-    // The proxy rejected the stored key: the password changed. Log out.
+    // The proxy refused a volunteer call: the session expired.
     useEffect(() => {
         const onAuthFailed = () => {
             setIsVolunteerModeState(false);
-            localStorage.removeItem(STORAGE_KEYS.VOLUNTEER_MODE);
-            setVolunteerKey(null);
-            addToast('Volunteer login expired. Log in again.', 'warning');
+            addToast('Volunteer sign-in expired. Sign in again.', 'warning');
         };
         window.addEventListener(VOLUNTEER_AUTH_FAILED, onAuthFailed);
         return () => window.removeEventListener(VOLUNTEER_AUTH_FAILED, onAuthFailed);

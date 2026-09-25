@@ -32,7 +32,7 @@ import type {
     PurchaseOrderLine,
 } from './types';
 import { ApiCache, CACHE_TTL } from '../lib/cache';
-import { getVolunteerKey, VOLUNTEER_AUTH_FAILED } from '../auth/volunteerKey';
+import { hasVolunteerSession, markSignedOut, VOLUNTEER_AUTH_FAILED } from '../auth/session';
 
 import { DEFAULTS } from '../constants';
 import type { ServiceLine } from '../lib/services';
@@ -119,10 +119,10 @@ export class InvenTreeClient {
             }
         }
         
-        // The proxy adds the InvenTree token. Volunteer-only calls need the key.
+        // The proxy adds the InvenTree token. Volunteer-only calls are allowed
+        // by the sign-in cookie, which the browser sends on its own.
         const headers: Record<string, string> = {};
-        const volunteerKey = getVolunteerKey();
-        if (volunteerKey) headers['X-Volunteer-Key'] = volunteerKey;
+        const wasSignedIn = hasVolunteerSession();
 
         if (!isFormData) {
             headers['Content-Type'] = 'application/json';
@@ -152,10 +152,13 @@ export class InvenTreeClient {
                 }
                 
                 if (response.status === 401) {
-                    if (volunteerKey) window.dispatchEvent(new Event(VOLUNTEER_AUTH_FAILED));
-                    throw new Error(volunteerKey
-                        ? 'Volunteer login expired - log in again'
-                        : 'Only volunteers can do this - log in first');
+                    if (wasSignedIn) {
+                        markSignedOut();
+                        window.dispatchEvent(new Event(VOLUNTEER_AUTH_FAILED));
+                    }
+                    throw new Error(wasSignedIn
+                        ? 'Volunteer sign-in expired - sign in again'
+                        : 'Only volunteers can do this - sign in first');
                 }
                 throw new Error(`InvenTree API error ${response.status}: ${errorText}`);
             }
@@ -381,8 +384,8 @@ export class InvenTreeClient {
             }, false, false);
             return (this.tillCustomerPk = created.pk);
         } catch (err) {
-            if (!getVolunteerKey()) {
-                throw new Error(`InvenTree has no "${TILL_CUSTOMER}" customer yet. A volunteer has to log in once to set it up.`);
+            if (!hasVolunteerSession()) {
+                throw new Error(`InvenTree has no "${TILL_CUSTOMER}" customer yet. A volunteer has to sign in once to set it up.`);
             }
             throw err;
         }

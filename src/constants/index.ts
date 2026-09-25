@@ -42,7 +42,6 @@ export const INVENTREE_CONFIG = {
 // Local Storage Keys
 export const STORAGE_KEYS = {
   THEME_PREFERENCE: 'themePreference',
-  VOLUNTEER_MODE: 'volunteerModeActive',
 } as const;
 
 // Default Values
