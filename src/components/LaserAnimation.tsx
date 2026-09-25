@@ -10,7 +10,7 @@ import htlLogo from '../assets/HTL.png';
  * still otherwise.
  *
  * Borrowed from Omarchy's screensaver (TerminalTextEffects, LaserEtch): the
- * cut cools down a ramp of greys, sparks cool the same way, and the finished
+ * cut and the sparks cool from white through yellow and orange, and the finished
  * logo gets a sheen band at 45 degrees.
  *
  * Drawn at low resolution and scaled up with image-rendering: pixelated.
@@ -43,7 +43,9 @@ const C = {
   sideR: '#B5B3AB',
   rail: '#8E8C85',
   head: '#171717',
-  hole: '#5B5C55',
+  hole: '#F1F0EC',                       // the honeycomb bed seen through a hole
+  honeycomb: '#D8D7D1',
+  fallen: '#B5B3AB',                     // a letter on its way down
   sheen: '#FFFFFF',
   smoke: '#D8D7D1',
 };
@@ -117,8 +119,11 @@ function drawText(g: CanvasRenderingContext2D, text: string, revealed: number, t
   }
 }
 
-// Hot to cold: the cut and the sparks walk down this ramp.
-const COOL = ['#FFFFFF', '#B5B3AB', '#8E8C85', '#5B5C55', '#3A3935', '#171717'];
+// Hot to cold, after LaserEtch's spark gradient: the cut and the sparks walk
+// down these ramps. The only colour in the animation is heat.
+const COOL = ['#FFFFFF', '#FFE680', '#FF9A3C', '#E0561F', '#8E8C85', '#3A3935', '#171717'];
+const SPARK = ['#FFFFFF', '#FFE680', '#FF9A3C', '#E0561F', '#B3261E', '#8E8C85'];
+const BEAM = { core: '#FFFFFF', glow: '#FF5A3C', edge: '#B3261E' };
 const cooled = (age: number) => COOL[Math.min(COOL.length - 1, Math.floor(age / COOL_TICKS))];
 
 type Pt = [number, number];
@@ -328,14 +333,26 @@ export default function LaserAnimation({ active, className }: { active: boolean;
       g.drawImage(plate, 0, 0);
 
       if (job && finished) {
-        // The piece is loose: the letters drop out, a sheen crosses the cube.
+        // The piece is loose: the letters drop through the plate onto the
+        // honeycomb bed, then a sheen crosses the cube.
         const sheenAt = hold * 1.8 - 16;
+        const drop = Math.min(hold, 8);
         for (let y = 0; y < LOGO; y++) {
           for (let x = 0; x < LOGO; x++) {
-            if (job.holes[y][x]) g.fillStyle = C.hole;
-            else if (job.piece[y][x] && Math.abs(x + y - sheenAt) < 3) g.fillStyle = C.sheen;
-            else continue;
+            if (job.holes[y][x]) {
+              g.fillStyle = (x + y) % 4 === 0 && (x - y) % 4 === 0 ? C.honeycomb : C.hole;
+            } else if (job.piece[y][x] && Math.abs(x + y - sheenAt) < 3) {
+              g.fillStyle = C.sheen;
+            } else continue;
             cell(LU + x, LV + y);
+          }
+        }
+        if (drop < 8) {
+          g.fillStyle = C.fallen;
+          for (let y = 0; y < LOGO; y++) {
+            for (let x = 0; x < LOGO; x++) {
+              if (job.holes[y][x]) g.fillRect(sx(LU + x, LV + y) - 1, sy(LU + x, LV + y) + drop, 2, 1);
+            }
           }
         }
       }
@@ -356,17 +373,17 @@ export default function LaserAnimation({ active, className }: { active: boolean;
       g.fillRect(sx(-3, head[1]) - 2, sy(-3, head[1]) - HEAD_LIFT - 2, 3, 4);
       g.fillRect(sx(NU + 2, head[1]) - 1, sy(NU + 2, head[1]) - HEAD_LIFT - 2, 3, 4);
 
-      // Beam: a white core between dark edges, from the nozzle to the plate.
+      // Beam: a flickering white core in red, from the nozzle to the plate.
       if (beam) {
-        g.fillStyle = C.head;
+        g.fillStyle = BEAM.edge;
         g.fillRect(hx - 1, lift + 8, 3, HEAD_LIFT - 8);
-        g.fillStyle = tick % 2 ? COOL[0] : COOL[1];
+        g.fillStyle = tick % 3 ? BEAM.core : BEAM.glow;
         g.fillRect(hx, lift + 8, 1, HEAD_LIFT - 8);
         // Flare where it hits.
-        g.fillStyle = C.head;
+        g.fillStyle = BEAM.glow;
         g.fillRect(hx - 3, hy, 7, 1);
         g.fillRect(hx - 1, hy - 1, 3, 3);
-        g.fillStyle = COOL[0];
+        g.fillStyle = SPARK[tick % 2];
         g.fillRect(hx, hy, 1, 1);
       }
 
@@ -376,7 +393,7 @@ export default function LaserAnimation({ active, className }: { active: boolean;
       g.fillRect(hx - 2, lift + 2, 5, 3);
       g.fillRect(hx - 1, lift + 5, 3, 2);
       g.fillRect(hx, lift + 7, 1, 1);
-      g.fillStyle = beam && tick % 8 < 4 ? COOL[0] : C.hole;
+      g.fillStyle = beam && tick % 8 < 4 ? BEAM.glow : C.rail;
       g.fillRect(hx + 2, lift - 3, 1, 1);
 
       for (let i = particles.length - 1; i >= 0; i--) {
@@ -385,8 +402,7 @@ export default function LaserAnimation({ active, className }: { active: boolean;
         p.y += p.vy;
         if (!p.smoke) p.vy += 0.22;
         if (--p.life <= 0) { particles.splice(i, 1); continue; }
-        // Sparks cool down the ramp; start past white so they show on the plate.
-        g.fillStyle = p.smoke ? C.smoke : COOL[Math.min(COOL.length - 1, 2 + Math.floor(p.age++ / COOL_TICKS))];
+        g.fillStyle = p.smoke ? C.smoke : SPARK[Math.min(SPARK.length - 1, Math.floor(p.age++ / 2))];
         g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
       }
 
