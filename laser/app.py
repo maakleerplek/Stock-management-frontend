@@ -1,7 +1,8 @@
 """Laser cutter service for the Lasercutter tab.
 
 Time tracking comes from LC-logger (branch server-esp, server/app.py): the
-ESP32 on the laser sends UDP on port 5005, {"state": "ON"|"OFF"} on every
+ESP32 on the laser (LC-logger esp/monitorOTA, 10.72.3.81) sends UDP straight
+to this service on port 5005, {"state": "ON"|"OFF"} on every
 change and {"type": "heartbeat"} every 10 s, which we answer with an ACK.
 Laser-on time adds up in a global counter until someone assigns it to their
 session. Settings advice comes from LaserLog (see recommend.py).
@@ -17,7 +18,7 @@ import time
 from datetime import datetime
 from uuid import uuid4
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
 
 import db
@@ -140,26 +141,6 @@ def on_connect():
 @app.get('/laser/api/health')
 def health():
     return {'ok': True}
-
-
-RELAY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'relay')
-RELAY_FILES = ('esp_relay.py', 'start_relay.bat', 'README.md')
-
-
-@app.get('/laser/relay/')
-def relay_index():
-    """Download page for the relay on the laser PC (the repo is private)."""
-    links = ''.join(f'<li><a href="{f}" download>{f}</a></li>' for f in RELAY_FILES)
-    return (f'<!doctype html><meta charset="utf-8"><title>ESP32 relay</title>'
-            f'<h1>ESP32 relay for the laser PC</h1><p>Download both files into one folder, '
-            f'then double-click <code>start_relay.bat</code>. See the README.</p><ul>{links}</ul>')
-
-
-@app.get('/laser/relay/<name>')
-def relay_file(name):
-    if name not in RELAY_FILES:
-        return {'error': 'not found'}, 404
-    return send_from_directory(RELAY_DIR, name, as_attachment=True)
 
 
 @app.get('/laser/api/config')
