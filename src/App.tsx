@@ -65,7 +65,6 @@ function AppContent() {
   // One connection to the laser service for the whole app: the Lasercutter
   // tab shows it, the checkout bills the sessions someone pressed Pay on.
   const laser = useLaserSocket();
-  const laserInCheckout = laser.sessions.filter(s => s.checkout_at);
   const { addToast } = useToast();
   const { isVolunteerMode } = useVolunteer();
   const { items: stockItems, loading: stockLoading, lastFetched: stockLastFetched } = useStock();
@@ -447,7 +446,7 @@ function AppContent() {
               <ShoppingWindow
                 scanEvent={scanEvent}
                 onCheckoutResultChange={setCheckoutResult}
-                laserSessions={laserInCheckout}
+                laserSessions={laser.sessions}
               />
             </div>
 
@@ -460,7 +459,7 @@ function AppContent() {
                 <ShoppingWindow
                   scanEvent={scanEvent}
                   onCheckoutResultChange={setCheckoutResult}
-                  laserSessions={laserInCheckout}
+                  laserSessions={laser.sessions}
                 />
               </aside>
             </div>

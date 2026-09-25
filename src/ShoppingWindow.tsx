@@ -11,7 +11,7 @@ import { AlertCircle, Check, X, Settings } from 'lucide-react';
 interface ShoppingWindowProps {
     scanEvent: ScanEvent | null;
     onCheckoutResultChange?: (result: { total: number; description: string } | null) => void;
-    /** Laser sessions put in the checkout on the laser service (survives a refresh). */
+    /** Open laser sessions; the ones with checkout_at set are in this checkout. */
     laserSessions: LaserSession[];
 }
 
@@ -36,8 +36,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const checkedOutResultRef = useRef(checkedOutResult);
     checkedOutResultRef.current = checkedOutResult;
     const [typedExtras, setTypedExtras] = useState<ExtraLine[]>([]);
+    const laserInCheckout = laserSessions.filter(s => s.checkout_at);
     const extras: ExtraLine[] = [
-        ...laserSessions.map(s => ({
+        ...laserInCheckout.map(s => ({
             name: 'Lasertime', person: s.name, quantity: s.minutes, unit: 'min',
             unitPrice: PRICING.LASER_PER_MINUTE, laserSessionId: s.id,
         })),
@@ -200,7 +201,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                         <div className="p-4">
                             <Extras
                                 onExtrasChange={setTypedExtras}
-                                laserSessions={laserSessions}
+                                laserSessions={laserInCheckout}
+                                openLaserSessions={laserSessions.filter(s => !s.checkout_at)}
+                                onAddLaserSession={(id) => laserApi.setCheckout(id, true).catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'))}
                                 onRemoveLaserSession={(id) => laserApi.setCheckout(id, false).catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'))}
                             />
                         </div>
