@@ -29,18 +29,25 @@ const CONFIDENCE: Record<LaserSetting['confidence'], string> = {
 };
 
 export default function LaserCutterPage({ onCheckout }: LaserCutterPageProps) {
+  const live = useLaserSocket();
   return (
-    <div className="flex-1 overflow-auto bg-brand-beige">
-      <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-lijn min-h-full">
-        <TimePanel onCheckout={onCheckout} />
+    <div className="flex-1 overflow-auto bg-brand-beige flex flex-col">
+      <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-lijn flex-1">
+        <TimePanel onCheckout={onCheckout} live={live} />
         <SettingsPanel />
+      </div>
+      {/* A small cutter at the bottom, busy while the laser is. */}
+      <div className="border-t border-lijn py-4 flex justify-center">
+        <div className="w-full max-w-[360px]">
+          <LaserAnimation active={live.time?.laser_state ?? false} />
+        </div>
       </div>
     </div>
   );
 }
 
-function TimePanel({ onCheckout }: LaserCutterPageProps) {
-  const { connected, time, sessions } = useLaserSocket();
+function TimePanel({ onCheckout, live }: LaserCutterPageProps & { live: ReturnType<typeof useLaserSocket> }) {
+  const { connected, time, sessions } = live;
   const { addToast } = useToast();
   const [selected, setSelected] = useState('');
   const [newName, setNewName] = useState('');
@@ -77,16 +84,14 @@ function TimePanel({ onCheckout }: LaserCutterPageProps) {
         </span>
       </div>
 
-      <div className="border border-lijn bg-brand-beige-dark">
-        <LaserAnimation active={laserOn} />
-        <div className="flex items-end justify-between px-4 py-3 border-t border-lijn bg-white">
-          <span className={cn('text-xs font-semibold', laserOn ? 'text-brand-black' : 'text-grafiet')}>
-            {laserOn ? 'Laser on' : 'Laser idle'}
-          </span>
-          <div className="text-right">
-            <div className="text-3xl font-mono tabular-nums text-brand-black">{formatDuration(pending)}</div>
-            <div className="text-[10px] text-grafiet">not assigned yet · €{(pending / 60 * PRICING.LASER_PER_MINUTE).toFixed(2)}</div>
-          </div>
+      <div className="flex items-end justify-between px-4 py-3 border border-lijn bg-white">
+        <span className={cn('text-xs font-semibold flex items-center gap-1.5', laserOn ? 'text-brand-black' : 'text-grafiet')}>
+          <span className={cn('inline-block w-2 h-2', laserOn ? 'bg-[#E0561F] animate-pulse' : 'bg-lijn')} />
+          {laserOn ? 'Laser on' : 'Laser idle'}
+        </span>
+        <div className="text-right">
+          <div className="text-3xl font-mono tabular-nums text-brand-black">{formatDuration(pending)}</div>
+          <div className="text-[10px] text-grafiet">not assigned yet · €{(pending / 60 * PRICING.LASER_PER_MINUTE).toFixed(2)}</div>
         </div>
       </div>
 

@@ -37,9 +37,16 @@ import { TRACKING } from './lib/stockHistory';
 import './index.css';
 
 export type AppView = 'checkout' | 'browse' | 'laser' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
+const VIEWS: AppView[] = ['checkout', 'browse', 'laser', 'volunteer', 'inventory', 'scan', 'orders', 'analytics'];
+
+// The open tab lives in the URL hash (#laser), so a refresh stays on it.
+function viewFromHash(): AppView {
+  const hash = window.location.hash.slice(1);
+  return VIEWS.find(v => v === hash) ?? 'checkout';
+}
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<AppView>('checkout');
+  const [currentPage, setCurrentPage] = useState<AppView>(viewFromHash);
   const [scanEvent, setScanEvent] = useState<ScanEvent | null>(null);
   const scanCounterRef = useRef(0);
   const [volunteerModalOpen, setVolunteerModalOpen] = useState(false);
@@ -306,6 +313,10 @@ function AppContent() {
       setCurrentPage('checkout');
     }
   }, [isVolunteerMode, currentPage]);
+
+  useEffect(() => {
+    window.history.replaceState(null, '', `#${currentPage}`);
+  }, [currentPage]);
 
   // Clear prefill state when leaving the orders page
   useEffect(() => {

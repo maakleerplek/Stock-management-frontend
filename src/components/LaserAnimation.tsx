@@ -6,8 +6,9 @@ import htlLogo from '../assets/HTL.png';
  * a gantry cuts the HTL cube out of a plate. It follows the contours - the
  * letters first, the outline last, like a real cut job - and moves between
  * them with the beam off. When the last contour closes, the letters drop out
- * and a sheen crosses the piece. It runs while `active` (laser on) and stands
- * still otherwise.
+ * and a sheen crosses the piece. The head then drives home and the plate
+ * rides off to the left like on a conveyor, while a blank one comes in from
+ * the right. It runs while `active` (laser on) and stands still otherwise.
  *
  * Borrowed from Omarchy's screensaver (TerminalTextEffects, LaserEtch): the
  * cut and the sparks cool from white through yellow and orange, and the finished
@@ -17,6 +18,8 @@ import htlLogo from '../assets/HTL.png';
  * Plate cell (u, v) lands on screen at (OX + u - v, OY + (u + v) / 2) as a
  * 2x1 run, so neighbouring cells tile.
  */
+
+type Pt = [number, number];
 
 const W = 184;
 const H = 140;                           // plate area + a text line
@@ -34,6 +37,12 @@ const CUT_SPEED = 3;                     // contour cells per tick
 const RAPID_SPEED = 6;                   // cells per tick when moving with the beam off
 const COOL_TICKS = 4;                    // ticks per step of the cooling ramp
 const HOLD_TICKS = 110;                  // the finished piece stays this long
+const HOME_TICKS = 30;                   // then the head drives back home
+const SWAP_TICKS = 60;                   // then the plate leaves left, a new one comes in
+const HOME: Pt = [-2, 2];                // parking spot of the head, off the plate
+
+/** Slow start, slow stop. */
+const ease = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
 
 const C = {
   bed: '#FFFFFF',
@@ -126,7 +135,6 @@ const SPARK = ['#FFFFFF', '#FFE680', '#FF9A3C', '#E0561F', '#B3261E', '#8E8C85']
 const BEAM = { core: '#FFFFFF', glow: '#FF5A3C', edge: '#B3261E' };
 const cooled = (age: number) => COOL[Math.min(COOL.length - 1, Math.floor(age / COOL_TICKS))];
 
-type Pt = [number, number];
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; age: number; smoke: boolean }
 interface Job { contours: Pt[][]; holes: boolean[][]; piece: boolean[][] }
 
@@ -222,7 +230,14 @@ export default function LaserAnimation({ active, className }: { active: boolean;
 
     const sx = (u: number, v: number) => Math.round(OX + u - v);
     const sy = (u: number, v: number) => Math.round(OY + (u + v) / 2);
-    const cell = (u: number, v: number) => g.fillRect(sx(u, v) - 1, sy(u, v), 2, 1);
+
+    // The plate with its cuts is drawn here, then placed on the screen, so it
+    // can ride away on the conveyor.
+    const work = document.createElement('canvas');
+    work.width = W;
+    work.height = H;
+    const wg = work.getContext('2d')!;
+    const cell = (u: number, v: number) => wg.fillRect(sx(u, v) - 1, sy(u, v), 2, 1);
 
     // The plate never changes: draw it once.
     const plate = document.createElement('canvas');
@@ -248,9 +263,11 @@ export default function LaserAnimation({ active, className }: { active: boolean;
     let cut = new Map<string, number>();     // "x,y" -> tick it was cut
     let contour = 0;
     let index = 0;
-    let head: Pt = [4, 4];                   // plate cell under the head
+    let head: Pt = HOME;                     // plate cell under the head
+    let homeFrom: Pt = HOME;
     let cutting = false;
-    let hold = 0;
+    let phase: 'cut' | 'hold' | 'home' | 'swap' = 'cut';
+    let phaseTick = 0;
     let tick = 0;
     const particles: Particle[] = [];
 
@@ -280,14 +297,28 @@ export default function LaserAnimation({ active, className }: { active: boolean;
 
     const advance = () => {
       if (!job) return;
-      if (contour >= job.contours.length) {
-        cutting = false;
-        if (++hold > HOLD_TICKS) {
+      if (phase !== 'cut') {
+        phaseTick++;
+        if (phase === 'hold' && phaseTick > HOLD_TICKS) {
+          phase = 'home';
+          phaseTick = 0;
+          homeFrom = head;
+        } else if (phase === 'home') {
+          const e = ease(Math.min(1, phaseTick / HOME_TICKS));
+          head = [homeFrom[0] + (HOME[0] - homeFrom[0]) * e, homeFrom[1] + (HOME[1] - homeFrom[1]) * e];
+          if (phaseTick >= HOME_TICKS) { phase = 'swap'; phaseTick = 0; }
+        } else if (phase === 'swap' && phaseTick >= SWAP_TICKS) {
+          phase = 'cut';
           contour = 0;
           index = 0;
-          hold = 0;
           cut = new Map();
         }
+        return;
+      }
+      if (contour >= job.contours.length) {
+        cutting = false;
+        phase = 'hold';
+        phaseTick = 0;
         return;
       }
       const path = job.contours[contour];
@@ -319,7 +350,8 @@ export default function LaserAnimation({ active, className }: { active: boolean;
       tick++;
       const on = activeRef.current && !reduceMotion;
       if (on) advance();
-      const finished = !!job && contour >= job.contours.length;
+      const finished = phase !== 'cut';
+      const hold = phase === 'hold' ? phaseTick : HOLD_TICKS;
       const beam = on && cutting;
 
       if (on !== wasOn || tick - messageAt >= MESSAGE_TICKS) {
@@ -328,9 +360,8 @@ export default function LaserAnimation({ active, className }: { active: boolean;
         wasOn = on;
       }
 
-      g.fillStyle = C.bed;
-      g.fillRect(0, 0, W, H);
-      g.drawImage(plate, 0, 0);
+      wg.clearRect(0, 0, W, H);
+      wg.drawImage(plate, 0, 0);
 
       if (job && finished) {
         // The piece is loose: the letters drop through the plate onto the
@@ -340,18 +371,18 @@ export default function LaserAnimation({ active, className }: { active: boolean;
         for (let y = 0; y < LOGO; y++) {
           for (let x = 0; x < LOGO; x++) {
             if (job.holes[y][x]) {
-              g.fillStyle = (x + y) % 4 === 0 && (x - y) % 4 === 0 ? C.honeycomb : C.hole;
+              wg.fillStyle = (x + y) % 4 === 0 && (x - y) % 4 === 0 ? C.honeycomb : C.hole;
             } else if (job.piece[y][x] && Math.abs(x + y - sheenAt) < 3) {
-              g.fillStyle = C.sheen;
+              wg.fillStyle = C.sheen;
             } else continue;
             cell(LU + x, LV + y);
           }
         }
         if (drop < 8) {
-          g.fillStyle = C.fallen;
+          wg.fillStyle = C.fallen;
           for (let y = 0; y < LOGO; y++) {
             for (let x = 0; x < LOGO; x++) {
-              if (job.holes[y][x]) g.fillRect(sx(LU + x, LV + y) - 1, sy(LU + x, LV + y) + drop, 2, 1);
+              if (job.holes[y][x]) wg.fillRect(sx(LU + x, LV + y) - 1, sy(LU + x, LV + y) + drop, 2, 1);
             }
           }
         }
@@ -359,9 +390,16 @@ export default function LaserAnimation({ active, className }: { active: boolean;
 
       for (const [k, t] of cut) {
         const [x, y] = k.split(',').map(Number);
-        g.fillStyle = cooled(tick - t);
+        wg.fillStyle = cooled(tick - t);
         cell(LU + x, LV + y);
       }
+
+      // Conveyor: the finished plate leaves to the left, a blank one follows.
+      const shift = phase === 'swap' ? Math.round(W * ease(Math.min(1, phaseTick / SWAP_TICKS))) : 0;
+      g.fillStyle = C.bed;
+      g.fillRect(0, 0, W, H);
+      g.drawImage(work, -shift, 0);
+      if (shift) g.drawImage(plate, W - shift, 0);
 
       // Gantry: a rail along u at the head's row, lifted above the plate.
       const hx = sx(head[0], head[1]);
