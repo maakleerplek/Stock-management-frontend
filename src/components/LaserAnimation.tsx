@@ -3,8 +3,9 @@ import { useEffect, useRef } from 'react';
 /**
  * Pixel-art laser cutter from the side, flat black, as a busy indicator: the
  * head cuts through the plate, slides right and cuts again, three times. Then
- * the plate fades out to the left, a new one fades in from the right and the
- * head drives back. Only the beam and the sparks have colour. It runs while
+ * the four loose pieces drop away one by one, a new plate is laid down from
+ * left to right and the head drives back. Hard edges, no transparency; only
+ * the beam and the sparks have colour. It runs while
  * `active` (laser on) and stands still otherwise.
  *
  * Sparks cool from white through yellow and orange to red, after Omarchy's
@@ -20,14 +21,17 @@ const INK = '#171717';
 const PLATE = { x: 16, y: 38, w: 120, h: 6 };
 const CUTS = [46, 76, 106];              // x of the three cuts
 const HEAD_Y = 4;                        // top of the head
-const NOZZLE_TIP = HEAD_Y + 18;
+const NOZZLE_TIP = HEAD_Y + 19;
 const TEXT_Y = H - 7;
 
 const TICK_MS = 33;
 const CUT_TICKS = 45;                    // time to cut through the plate
 const MOVE_TICKS = 24;                   // slide to the next cut
-const SWAP_TICKS = 54;                   // plate out, new plate in, head back
-const SWAP_DIST = 36;                    // how far the plates slide while fading
+const DROP_TICKS = 36;                   // the loose pieces fall away
+const DROP_STAGGER = 5;                  // ticks between two pieces
+const FILL_TICKS = 26;                   // a new plate is laid down
+const FILL_STEP = 4;                     // ...in steps of this many px
+const GRAVITY = 0.35;
 
 const SPARK = ['#FFFFFF', '#FFE680', '#FF9A3C', '#E0561F', '#B3261E'];
 const BEAM = ['#E0361F', '#FF6A4D'];
@@ -115,21 +119,14 @@ export default function LaserAnimation({ active, className }: { active: boolean;
     const g = canvas.getContext('2d')!;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // A plate with its kerfs, drawn apart so it can fade as a whole.
-    const plateCanvas = document.createElement('canvas');
-    plateCanvas.width = W;
-    plateCanvas.height = H;
-    const pg = plateCanvas.getContext('2d')!;
-    const drawPlate = (kerfs: number[]) => {
-      pg.clearRect(0, 0, W, H);
-      pg.fillStyle = INK;
-      pg.fillRect(PLATE.x + 1, PLATE.y, PLATE.w - 2, PLATE.h);
-      pg.fillRect(PLATE.x, PLATE.y + 1, PLATE.w, PLATE.h - 2);   // rounded corners
-      kerfs.forEach((depth, i) => { if (depth > 0) pg.clearRect(CUTS[i], PLATE.y, 1, depth); });
-      return plateCanvas;
-    };
+    // The pieces between the cuts, as [x, width].
+    const pieces: [number, number][] = [];
+    [PLATE.x - 1, ...CUTS, PLATE.x + PLATE.w].reduce((from, to) => {
+      pieces.push([from + 1, to - from - 1]);
+      return to;
+    });
 
-    let phase: 'cut' | 'move' | 'swap' = 'cut';
+    let phase: 'cut' | 'move' | 'drop' | 'fill' = 'cut';
     let phaseTick = 0;
     let cutIndex = 0;
     let kerfs = [0, 0, 0];                 // depth of each cut, 0..PLATE.h
@@ -168,7 +165,7 @@ export default function LaserAnimation({ active, className }: { active: boolean;
         spray(headX, PLATE.y + depth - 1, false);
         if (depth >= PLATE.h) spray(headX, PLATE.y + PLATE.h, true);   // through: sparks out the bottom
         if (phaseTick >= CUT_TICKS) {
-          phase = cutIndex < CUTS.length - 1 ? 'move' : 'swap';
+          phase = cutIndex < CUTS.length - 1 ? 'move' : 'drop';
           phaseTick = 0;
           moveFrom = headX;
         }
@@ -176,9 +173,14 @@ export default function LaserAnimation({ active, className }: { active: boolean;
         headX = moveFrom + (CUTS[cutIndex + 1] - moveFrom) * ease(Math.min(1, phaseTick / MOVE_TICKS));
         if (phaseTick >= MOVE_TICKS) { cutIndex++; phase = 'cut'; phaseTick = 0; }
       } else {
-        headX = moveFrom + (CUTS[0] - moveFrom) * ease(Math.min(1, phaseTick / SWAP_TICKS));
-        if (phaseTick >= SWAP_TICKS) {
+        // The head drives back while the pieces drop and the new plate goes down.
+        const back = phase === 'drop' ? phaseTick : DROP_TICKS + phaseTick;
+        headX = moveFrom + (CUTS[0] - moveFrom) * ease(Math.min(1, back / (DROP_TICKS + FILL_TICKS)));
+        if (phase === 'drop' && phaseTick >= DROP_TICKS) {
+          phase = 'fill';
+          phaseTick = 0;
           kerfs = [0, 0, 0];
+        } else if (phase === 'fill' && phaseTick >= FILL_TICKS) {
           cutIndex = 0;
           phase = 'cut';
           phaseTick = 0;
@@ -200,27 +202,29 @@ export default function LaserAnimation({ active, className }: { active: boolean;
 
       g.clearRect(0, 0, W, H);
 
-      // Plate: during the swap the cut one fades out to the left, a new one in from the right.
-      if (phase === 'swap') {
-        const e = ease(Math.min(1, phaseTick / SWAP_TICKS));
-        g.globalAlpha = 1 - e;
-        g.drawImage(drawPlate(kerfs), -Math.round(SWAP_DIST * e), 0);
-        g.globalAlpha = e;
-        g.drawImage(drawPlate([0, 0, 0]), Math.round(SWAP_DIST * (1 - e)), 0);
-        g.globalAlpha = 1;
+      // Plate. Kerfs are gaps; dropping pieces fall right to left and vanish
+      // above the text; the new plate is laid down left to right.
+      g.fillStyle = INK;
+      if (phase === 'drop') {
+        pieces.forEach(([x, w], i) => {
+          const t = Math.max(0, phaseTick - (pieces.length - 1 - i) * DROP_STAGGER);
+          const y = PLATE.y + Math.round(0.5 * GRAVITY * t * t);
+          if (y < TEXT_Y - PLATE.h - 2) g.fillRect(x, y, w, PLATE.h);
+        });
+      } else if (phase === 'fill') {
+        const w = Math.round((PLATE.w * ease(Math.min(1, phaseTick / FILL_TICKS))) / FILL_STEP) * FILL_STEP;
+        g.fillRect(PLATE.x, PLATE.y, w, PLATE.h);
       } else {
-        g.drawImage(drawPlate(kerfs), 0, 0);
+        g.fillRect(PLATE.x, PLATE.y, PLATE.w, PLATE.h);
+        kerfs.forEach((depth, i) => { if (depth > 0) g.clearRect(CUTS[i], PLATE.y, 1, depth); });
       }
 
       // Head: body, then a nozzle narrowing to the tip.
       const hx = Math.round(headX);
       g.fillStyle = INK;
-      g.fillRect(hx - 4, HEAD_Y + 1, 9, 13);
-      g.fillRect(hx - 3, HEAD_Y, 7, 1);                      // rounded top
-      g.fillRect(hx - 3, HEAD_Y + 14, 7, 1);
-      g.fillRect(hx - 2, HEAD_Y + 15, 5, 1);
-      g.fillRect(hx - 1, HEAD_Y + 16, 3, 1);
-      g.fillRect(hx, HEAD_Y + 17, 1, 1);
+      g.fillRect(hx - 4, HEAD_Y, 9, 14);                     // body
+      g.fillRect(hx - 2, HEAD_Y + 14, 5, 3);                 // nozzle
+      g.fillRect(hx - 1, HEAD_Y + 17, 3, 2);                 // tip
 
       if (beam) {
         const depth = kerfs[cutIndex];
