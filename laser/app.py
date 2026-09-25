@@ -108,8 +108,26 @@ def udp_server():
             print(f'[udp] {e}')
 
 
+def stop_if_esp_silent(now: float | None = None):
+    """The ESP32 sends a heartbeat every 10 s. If it goes silent while the laser
+    is on (Wi-Fi drop, power cut, lost OFF packet on the way out), stop the
+    block at the last sign of life instead of billing the time that follows."""
+    global global_time, laser_on, on_since
+    if SIMULATE:
+        return
+    now = time.time() if now is None else now
+    with state_lock:
+        if not (laser_on and on_since) or now - esp_last_seen < ESP_TIMEOUT:
+            return
+        last = datetime.fromtimestamp(esp_last_seen)
+        global_time += max(0.0, (last - on_since).total_seconds())
+        laser_on, on_since = False, None
+    print('[udp] ESP32 silent while the laser was on: block closed at its last heartbeat')
+
+
 def ticker():
     while True:
+        stop_if_esp_silent()
         with state_lock:
             payload = time_payload()
         socketio.emit('time_update', payload)
@@ -201,7 +219,7 @@ def paid_session(sid):
 @app.post('/laser/api/flush')
 def flush():
     sid = (request.json or {}).get('session_id')
-    if not sid or not db.query('SELECT id FROM sessions WHERE id = ?', (sid,)):
+    if not sid or not db.query('SELECT id FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,)):
         return {'error': 'Invalid session'}, 400
     seconds = take_time()
     if seconds <= 0:
