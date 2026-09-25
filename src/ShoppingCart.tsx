@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { type ItemData } from './sendCodeHandler';
 import ImageDisplay from './ImageDisplay';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Plus, Minus, ShoppingCart as ShoppingCartIcon, Heart, CheckCircle, Loader2, MapPin, Tag, Package } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingCart as ShoppingCartIcon, Heart, CheckCircle, Loader2, MapPin, Tag, Package, X } from 'lucide-react';
 import { cn } from './lib/utils';
 import WeroQrCode from './QrCode';
 import { useToast } from './ToastContext';
@@ -41,6 +41,8 @@ function ShoppingCart({
 }: ShoppingCartProps) {
     const { addToast } = useToast();
     const [lastActionId, setLastActionId] = useState<number | null>(null);
+    // Leaving the payment screen needs a second click: the QR code is gone after it.
+    const [confirmClear, setConfirmClear] = useState(false);
 
     const totalPrice = (cartItems || []).reduce(
         (total, item) => total + item.price * item.cartQuantity,
@@ -130,14 +132,27 @@ function ShoppingCart({
                             />
                         </div>
 
-                        {onClearCheckout && (
+                        {onClearCheckout && (confirmClear ? (
+                            <div role="alertdialog" aria-labelledby="clear-checkout-q" className="mt-4 border border-brand-black bg-white p-4 max-w-sm space-y-3">
+                                <p id="clear-checkout-q" className="text-sm font-semibold">Are you sure you have paid?</p>
+                                <p className="text-xs text-brand-black/70">The QR code will not appear again.</p>
+                                <div className="flex gap-2 justify-center">
+                                    <button onClick={() => setConfirmClear(false)} className="brutalist-button px-4 py-2 text-xs bg-white">
+                                        Back to the QR code
+                                    </button>
+                                    <button onClick={() => { setConfirmClear(false); onClearCheckout(); }} className="brutalist-button px-4 py-2 text-xs bg-brand-black text-white">
+                                        Yes, I have paid
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
                             <button
-                                onClick={onClearCheckout}
-                                className="brutalist-button mt-4 px-6 py-3 text-xs bg-white"
+                                onClick={() => setConfirmClear(true)}
+                                className="brutalist-button mt-4 px-6 py-3 text-xs bg-white flex items-center gap-2"
                             >
-                                Start new transaction
+                                <X size={14} /> Start new transaction
                             </button>
-                        )}
+                        ))}
                     </div>
                 ) : (
                     <>

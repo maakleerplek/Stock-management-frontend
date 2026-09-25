@@ -10,8 +10,11 @@ export const EXTRAS_STORAGE_KEY = 'stockManagerExtras.v1';
 interface ExtrasProps {
     /** The hand-typed services in use, one line each; unused ones are left out. */
     onExtrasChange: (extras: ExtraLine[]) => void;
-    /** Laser sessions someone put in the checkout; their time comes from the laser service. */
+    /** Laser sessions in this checkout; their time comes from the laser service. */
     laserSessions: LaserSession[];
+    /** Open laser sessions not in the checkout yet, to pick from. */
+    openLaserSessions: LaserSession[];
+    onAddLaserSession: (id: string) => void;
     onRemoveLaserSession: (id: string) => void;
 }
 
@@ -23,7 +26,7 @@ function stored(): { laser: number; cnc: number; print: number } {
     }
 }
 
-export default function Extras({ onExtrasChange, laserSessions, onRemoveLaserSession }: ExtrasProps) {
+export default function Extras({ onExtrasChange, laserSessions, openLaserSessions, onAddLaserSession, onRemoveLaserSession }: ExtrasProps) {
     const [lasertimeMinutes, setLasertimeMinutes] = useState(() => stored().laser);
     const [cncMinutes, setCncMinutes] = useState(() => stored().cnc);
     const [printingGrams, setPrintingGrams] = useState(() => stored().print);
@@ -44,6 +47,24 @@ export default function Extras({ onExtrasChange, laserSessions, onRemoveLaserSes
 
     return (
         <div className="space-y-4">
+        {openLaserSessions.length > 0 && (
+            <label className="flex items-center gap-2 border border-lijn p-3 bg-brand-beige">
+                <Zap size={14} className="shrink-0" />
+                <span className="text-xs font-semibold text-brand-black/60 shrink-0">Laser session</span>
+                <select
+                    value=""
+                    onChange={e => { if (e.target.value) onAddLaserSession(e.target.value); }}
+                    className="flex-1 min-w-0 h-9 px-2 border border-lijn bg-white text-sm"
+                >
+                    <option value="">Add a laser session to this checkout…</option>
+                    {openLaserSessions.map(s => (
+                        <option key={s.id} value={s.id} disabled={s.minutes <= 0}>
+                            {s.name} · {s.minutes} min{s.minutes > 0 ? ` · €${(s.minutes * PRICING.LASER_PER_MINUTE).toFixed(2)}` : ' (no time assigned yet)'}
+                        </option>
+                    ))}
+                </select>
+            </label>
+        )}
         {laserSessions.length > 0 && (
             <div className="space-y-2">
                 {laserSessions.map(s => (
