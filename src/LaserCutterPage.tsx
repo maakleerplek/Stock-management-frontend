@@ -31,14 +31,14 @@ const CONFIDENCE: Record<LaserSetting['confidence'], string> = {
 export default function LaserCutterPage({ onCheckout }: LaserCutterPageProps) {
   const live = useLaserSocket();
   return (
-    <div className="flex-1 overflow-auto bg-brand-beige flex flex-col">
-      <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-lijn flex-1">
+    <div className="flex-1 min-h-0 bg-brand-beige flex flex-col">
+      <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-lijn flex-1 min-h-0 overflow-auto">
         <TimePanel onCheckout={onCheckout} live={live} />
         <SettingsPanel />
       </div>
       {/* A small cutter at the bottom, busy while the laser is. */}
-      <div className="border-t border-lijn py-4 flex justify-center">
-        <div className="w-full max-w-[360px]">
+      <div className="shrink-0 border-t border-lijn py-2 flex justify-center">
+        <div className="w-full max-w-[280px]">
           <LaserAnimation active={live.time?.laser_state ?? false} />
         </div>
       </div>
