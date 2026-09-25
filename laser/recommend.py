@@ -55,6 +55,10 @@ def recommend(points: list[Point], thickness_mm: float, operation: str,
               strength: float = DEFAULT_STRENGTH) -> dict:
     near = [normalise(p) for p in points
             if abs(p.thickness_mm - thickness_mm) <= THICKNESS_TOLERANCE_MM]
+    # The library holds a row for exactly this thickness: that row is the
+    # baseline, not a blend with the neighbouring thicknesses. Reports still count.
+    if any(p.baseline and p.thickness_mm == thickness_mm for p in near):
+        near = [p for p in near if not p.baseline or p.thickness_mm == thickness_mm]
     nearest = min((p.thickness_mm for p in points),
                   key=lambda t: abs(t - thickness_mm), default=None)
 

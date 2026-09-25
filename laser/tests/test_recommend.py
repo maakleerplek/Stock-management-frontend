@@ -41,3 +41,11 @@ def test_engrave_attempt_is_normalised():
     # logged at strength 1.0 (power x1.5, speed x0.5) = 30 % / 300 at default
     r = recommend([Point(3, 150, 45, 1, 'clean', strength=1.0)], 3, 'engrave', 0.5)
     assert (r['speed'], r['power']) == (300, 30)
+
+
+def test_exact_library_row_is_not_blended_with_neighbours():
+    pts = [Point(1, 50, 50, 1, 'clean', baseline=True), Point(2, 25, 85, 1, 'clean', baseline=True)]
+    r = recommend(pts, 1, 'cut')
+    assert (r['speed'], r['power']) == (50, 50)
+    between = recommend(pts, 1.5, 'cut')                    # no row at 1.5 mm: still a blend
+    assert 25 < between['speed'] < 50
