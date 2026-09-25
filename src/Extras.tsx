@@ -3,10 +3,12 @@ import { PRICING } from './constants';
 
 interface ExtrasProps {
     onExtraCostChange: (cost: number) => void;
+    /** Laser minutes live with the parent, so the Lasercutter tab can fill them in. */
+    lasertimeMinutes: number;
+    onLasertimeChange: (minutes: number) => void;
 }
 
-export default function Extras({ onExtraCostChange }: ExtrasProps) {
-    const [lasertimeMinutes, setLasertimeMinutes] = useState(0);
+export default function Extras({ onExtraCostChange, lasertimeMinutes, onLasertimeChange: setLasertimeMinutes }: ExtrasProps) {
     const [cncMinutes, setCncMinutes] = useState(0);
     const [printingGrams, setPrintingGrams] = useState(0);
 

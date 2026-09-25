@@ -9,12 +9,14 @@ import { AlertCircle, Check, X, Settings } from 'lucide-react';
 interface ShoppingWindowProps {
     scanEvent: ScanEvent | null;
     onCheckoutResultChange?: (result: { total: number; description: string } | null) => void;
+    lasertimeMinutes: number;
+    onLasertimeChange: (minutes: number) => void;
 }
 
 // v2: cart entries are keyed by part ID. Carts from before hold stock item IDs.
 const CART_STORAGE_KEY = 'stockManagerCartItems.v2';
 
-export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: ShoppingWindowProps) {
+export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lasertimeMinutes, onLasertimeChange }: ShoppingWindowProps) {
     const [cartItems, setCartItems] = useState<CartItem[]>(() => {
         try {
             const stored = localStorage.getItem(CART_STORAGE_KEY);
@@ -179,7 +181,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange }: Sh
                             </h2>
                         </div>
                         <div className="p-4">
-                            <Extras onExtraCostChange={setExtraCosts} />
+                            <Extras onExtraCostChange={setExtraCosts} lasertimeMinutes={lasertimeMinutes} onLasertimeChange={onLasertimeChange} />
                         </div>
                     </div>
                 )}

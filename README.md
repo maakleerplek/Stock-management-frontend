@@ -22,6 +22,12 @@ Designed as a self-service terminal for makerspace members and visitors:
   - **3D Printing**: Charge by filament weight consumed (grams).
 - **EPC QR & Payconiq Payment**: Instantly generate EPC QR / Wero and Payconiq checkout QR codes for fast, scan-to-pay bank transfers.
 
+### ⚡ Lasercutter tab
+- **Laser time**: an ESP32 on the laser sends ON/OFF over UDP (port 5005) to the laser service. The tab shows the running time live. Visitors make a session with their name, assign the time to it and press **Pay**: the minutes go into *Lasertime* in the checkout. The session is removed once the checkout goes through.
+- **Laser settings**: pick a material and thickness, then cut and/or engrave. You get speed, power and passes, never above 90 % power. The engraving strength slider (default 50 %) scales power up and speed down. "How did it go?" reports feed the advice.
+- **Material list in InvenTree**: one virtual part per material + thickness in the category *Lasermaterialen*, with parameters `Laser materiaal`, `Dikte`, `Laser snij-speed`, `Laser snij-power`, `Laser snij-passes`, `Laser graveer-speed`, `Laser graveer-power`. That makes it part of the InvenTree backup. `laser/scripts/seed_inventree.py` creates the category, templates and test values. The reports and sessions are in `laser.db` on the `laser-data` volume.
+- The service is `laser/` (Flask + Socket.IO, port of maakleerplek/LC-logger `server-esp` and LaserLog's recommendation). nginx proxies `/laser/` to it. Set `LASER_SIMULATE=1` to test without the ESP32: the tab then shows a button that switches the laser on and off. For the ESP32, set `serverIP` in `esp/monitor.ino` of LC-logger to the server's address.
+
 ### 🛡️ Volunteer & Administrator Mode
 Access back-office tools (protected by volunteer authentication) to manage the makerspace inventory:
 - **Register New Inventory**: Add parts, define categories, and map storage locations or suppliers.

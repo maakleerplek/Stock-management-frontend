@@ -587,7 +587,7 @@ export class InvenTreeClient {
 
     async getAllParts(): Promise<InvenTreePartListResponse> {
         return this.request(
-            '/part/?active=true&limit=500',
+            '/part/?active=true&virtual=false&limit=500',
             'GET',
             undefined,
             false,

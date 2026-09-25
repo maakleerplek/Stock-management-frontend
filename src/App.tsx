@@ -18,6 +18,8 @@ import { isMsalConfigured } from './auth/msalConfig';
 import AdminToolsBar from './components/AdminToolsBar';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import StockAnalytics from './StockAnalytics';
+import LaserCutterPage from './LaserCutterPage';
+import { laserApi } from './lib/laserApi';
 import {
   type InvenTreeTrackingEntry,
   type InvenTreePartListResponse
@@ -28,13 +30,13 @@ import {
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
-import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2 } from 'lucide-react';
+import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import { TRACKING } from './lib/stockHistory';
 import './index.css';
 
-export type AppView = 'checkout' | 'browse' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
+export type AppView = 'checkout' | 'browse' | 'laser' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<AppView>('checkout');
@@ -53,6 +55,9 @@ function AppContent() {
   const [recentMovements, setRecentMovements] = useState<InvenTreeTrackingEntry[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
   const [mobileCheckoutTab, setMobileCheckoutTab] = useState<'scan' | 'cart'>('scan');
+  const [lasertimeMinutes, setLasertimeMinutes] = useState(0);
+  // The laser session being paid; deleted once the checkout goes through.
+  const [payingLaserSession, setPayingLaserSession] = useState<string | null>(null);
   const { addToast } = useToast();
   const { isVolunteerMode } = useVolunteer();
   const { items: stockItems, loading: stockLoading, lastFetched: stockLastFetched } = useStock();
@@ -265,6 +270,23 @@ function AppContent() {
     []
   );
 
+  const handleCheckoutResult = useCallback((result: { total: number; description: string } | null) => {
+    setCheckoutResult(result);
+    if (result === null) return;
+    setLasertimeMinutes(0);
+    if (payingLaserSession) {
+      laserApi.deleteSession(payingLaserSession).catch(err => console.warn('[App] Laser session not removed:', err));
+      setPayingLaserSession(null);
+    }
+  }, [payingLaserSession]);
+
+  const handleLaserCheckout = (sessionId: string, minutes: number) => {
+    setLasertimeMinutes(minutes);
+    setPayingLaserSession(sessionId);
+    setMobileCheckoutTab('cart');
+    setCurrentPage('checkout');
+  };
+
   const handleViewChange = (view: AppView) => {
     setCurrentPage(view);
   };
@@ -280,7 +302,7 @@ function AppContent() {
     if (isVolunteerMode && currentPage === 'checkout') {
       setCurrentPage('volunteer');
     }
-    if (!isVolunteerMode && currentPage !== 'checkout' && currentPage !== 'browse') {
+    if (!isVolunteerMode && currentPage !== 'checkout' && currentPage !== 'browse' && currentPage !== 'laser') {
       setCurrentPage('checkout');
     }
   }, [isVolunteerMode, currentPage]);
@@ -338,6 +360,7 @@ function AppContent() {
       {[
         { id: 'checkout', label: 'Checkout', icon: ScanBarcode },
         { id: 'browse', label: 'Stock list', icon: Package },
+        { id: 'laser', label: 'Lasercutter', icon: Zap },
       ].map(tab => (
         <button
           key={tab.id}
@@ -372,6 +395,8 @@ function AppContent() {
             <ItemList />
           </div>
         )}
+
+        {currentPage === 'laser' && <LaserCutterPage onCheckout={handleLaserCheckout} />}
 
         {currentPage === 'checkout' && (
           <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
@@ -416,7 +441,9 @@ function AppContent() {
             )}>
               <ShoppingWindow
                 scanEvent={scanEvent}
-                onCheckoutResultChange={(result) => setCheckoutResult(result)}
+                onCheckoutResultChange={handleCheckoutResult}
+                lasertimeMinutes={lasertimeMinutes}
+                onLasertimeChange={setLasertimeMinutes}
               />
             </div>
 
@@ -428,7 +455,9 @@ function AppContent() {
               <aside className="w-[40%] border-l border-lijn bg-brand-beige flex flex-col">
                 <ShoppingWindow
                   scanEvent={scanEvent}
-                  onCheckoutResultChange={(result) => setCheckoutResult(result)}
+                  onCheckoutResultChange={handleCheckoutResult}
+                lasertimeMinutes={lasertimeMinutes}
+                onLasertimeChange={setLasertimeMinutes}
                 />
               </aside>
             </div>
@@ -662,6 +691,8 @@ function AppContent() {
                     <ShoppingWindow
                       scanEvent={scanEvent}
                       onCheckoutResultChange={() => { }}
+                      lasertimeMinutes={lasertimeMinutes}
+                      onLasertimeChange={setLasertimeMinutes}
                     />
                   </aside>
                 </motion.div>
