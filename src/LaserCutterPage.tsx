@@ -31,16 +31,10 @@ const CONFIDENCE: Record<LaserSetting['confidence'], string> = {
 export default function LaserCutterPage({ onCheckout }: LaserCutterPageProps) {
   const live = useLaserSocket();
   return (
-    <div className="flex-1 min-h-0 bg-brand-beige flex flex-col">
-      <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-lijn flex-1 min-h-0 overflow-auto">
+    <div className="flex-1 overflow-auto bg-brand-beige">
+      <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-lijn min-h-full">
         <TimePanel onCheckout={onCheckout} live={live} />
         <SettingsPanel />
-      </div>
-      {/* A small cutter at the bottom, busy while the laser is. */}
-      <div className="shrink-0 border-t border-lijn py-2 flex justify-center">
-        <div className="w-full max-w-[280px]">
-          <LaserAnimation active={live.time?.laser_state ?? false} />
-        </div>
       </div>
     </div>
   );
@@ -84,12 +78,15 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps & { live: ReturnTy
         </span>
       </div>
 
-      <div className="flex items-end justify-between px-4 py-3 border border-lijn bg-white">
-        <span className={cn('text-xs font-semibold flex items-center gap-1.5', laserOn ? 'text-brand-black' : 'text-grafiet')}>
-          <span className={cn('inline-block w-2 h-2', laserOn ? 'bg-[#E0561F] animate-pulse' : 'bg-lijn')} />
-          {laserOn ? 'Laser on' : 'Laser idle'}
-        </span>
-        <div className="text-right">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 px-4 py-3 border border-lijn bg-white">
+        <div className="w-full max-w-[304px]">
+          <LaserAnimation active={laserOn} />
+        </div>
+        <div className="text-right shrink-0">
+          <div className={cn('text-xs font-semibold flex items-center justify-end gap-1.5 mb-1', laserOn ? 'text-brand-black' : 'text-grafiet')}>
+            <span className={cn('inline-block w-2 h-2', laserOn ? 'bg-[#E0561F]' : 'bg-lijn')} />
+            {laserOn ? 'Laser on' : 'Laser idle'}
+          </div>
           <div className="text-3xl font-mono tabular-nums text-brand-black">{formatDuration(pending)}</div>
           <div className="text-[10px] text-grafiet">not assigned yet · €{(pending / 60 * PRICING.LASER_PER_MINUTE).toFixed(2)}</div>
         </div>
