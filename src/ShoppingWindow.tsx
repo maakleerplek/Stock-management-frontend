@@ -3,7 +3,7 @@ import ShoppingCart, { type CartItem } from './ShoppingCart';
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
 import { laserApi, type LaserSession } from './lib/laserApi';
 import { PRICING } from './constants';
-import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import { AlertCircle, Check, X, Settings } from 'lucide-react';
@@ -38,7 +38,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const [typedExtras, setTypedExtras] = useState<ExtraLine[]>([]);
     const extras: ExtraLine[] = [
         ...laserSessions.map(s => ({
-            name: `Lasertime – ${s.name}`, quantity: s.minutes, unit: 'min',
+            name: 'Lasertime', person: s.name, quantity: s.minutes, unit: 'min',
             unitPrice: PRICING.LASER_PER_MINUTE, laserSessionId: s.id,
         })),
         ...typedExtras,
@@ -155,7 +155,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
             for (const extra of extras) {
                 if (!extra.laserSessionId) continue;
                 laserApi.markPaid(extra.laserSessionId, reference).catch(() =>
-                    addToast(`Sold, but laser session "${extra.name}" is still open. Delete it in the Lasercutter tab.`, 'warning'));
+                    addToast(`Sold, but laser session "${extra.person}" is still open. Delete it in the Lasercutter tab.`, 'warning'));
             }
             localStorage.removeItem(EXTRAS_STORAGE_KEY);
             setCartItems([]);
@@ -238,9 +238,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                 ))}
 
                                 {extras.map((extra) => (
-                                    <div key={extra.name} className="flex justify-between items-center p-3 border border-lijn bg-brand-beige-dark">
+                                    <div key={extra.laserSessionId ?? extra.name} className="flex justify-between items-center p-3 border border-lijn bg-brand-beige-dark">
                                         <div className="flex flex-col">
-                                            <span className="font-semibold text-sm">{extra.name}</span>
+                                            <span className="font-semibold text-sm">{extraLabel(extra)}</span>
                                             <span className="text-[10px] font-bold text-brand-black/60">{extra.quantity} {extra.unit} × €{extra.unitPrice.toFixed(2)}</span>
                                         </div>
                                         <div className="font-semibold text-sm">€{(extra.quantity * extra.unitPrice).toFixed(2)}</div>

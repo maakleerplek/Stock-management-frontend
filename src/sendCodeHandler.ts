@@ -64,12 +64,15 @@ export interface ExtraLine {
     quantity: number;
     unit: string;
     unitPrice: number;
+    /** Who used it (the laser session's name). Booked as the line's description. */
+    person?: string;
     /** Laser time from a session on the laser service, marked paid after the sale. */
     laserSessionId?: string;
 }
 
 export const extraTotal = (extras: ExtraLine[]) => extras.reduce((sum, e) => sum + e.quantity * e.unitPrice, 0);
-export const describeExtra = (e: ExtraLine) => `${e.name} ${e.quantity} ${e.unit}`;
+export const extraLabel = (e: ExtraLine) => (e.person ? `${e.name} – ${e.person}` : e.name);
+export const describeExtra = (e: ExtraLine) => `${extraLabel(e)} ${e.quantity} ${e.unit}`;
 
 export interface CheckoutLine {
     partId: number;
@@ -89,7 +92,8 @@ export async function handleCheckout(lines: CheckoutLine[], extras: ExtraLine[])
     ].join(', ');
     const result = await inventreeClient.sellParts(
         lines.map(l => ({ partId: l.partId, quantity: l.quantity, unitPrice: l.unitPrice })),
-        extras.map(e => ({ reference: `${e.name} (${e.unit})`, quantity: e.quantity, unitPrice: e.unitPrice })),
+        // Reference = the service, description = who: analytics groups on both.
+        extras.map(e => ({ reference: e.name, description: e.person ?? '', quantity: e.quantity, unitPrice: e.unitPrice })),
         description,
     );
     if (result.unshipped.length) {

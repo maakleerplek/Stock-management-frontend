@@ -35,6 +35,7 @@ import { ApiCache, CACHE_TTL } from '../lib/cache';
 import { getVolunteerKey, VOLUNTEER_AUTH_FAILED } from '../auth/volunteerKey';
 
 import { DEFAULTS } from '../constants';
+import type { ServiceLine } from '../lib/services';
 
 const CURRENCY = DEFAULTS.CURRENCY;
 
@@ -397,7 +398,7 @@ export class InvenTreeClient {
      */
     async sellParts(
         lines: { partId: number; quantity: number; unitPrice: number }[],
-        extras: { reference: string; quantity: number; unitPrice: number }[],
+        extras: { reference: string; description?: string; quantity: number; unitPrice: number }[],
         description: string,
     ): Promise<{ reference: string; unshipped: { partId: number; quantity: number }[] }> {
         const customer = await this.getTillCustomer();
@@ -427,6 +428,7 @@ export class InvenTreeClient {
                 await this.request('/order/so-extra-line/', 'POST', {
                     order: order.pk,
                     reference: extra.reference,
+                    description: extra.description ?? '',
                     quantity: extra.quantity,
                     price: extra.unitPrice.toFixed(2),
                     price_currency: CURRENCY,
@@ -1104,6 +1106,34 @@ export class InvenTreeClient {
             const path = `/stock/track/?limit=${pageSize}&offset=${offset}&ordering=-date`;
             const page = await this.request<InvenTreeTrackingListResponse>(path, 'GET', undefined, false, false);
             all.push(...page.results);
+            if (page.results.length < pageSize || all.length >= page.count) return all;
+        }
+    }
+
+    /**
+     * Every extra line on sales orders (Lasertime, CNC time, 3D printing), with
+     * its order's status and dates. Pages through the API like the tracking log.
+     */
+    async getAllServiceLines(pageSize: number = 500): Promise<ServiceLine[]> {
+        type Row = {
+            reference: string; description: string; quantity: number | string; price: number | string | null;
+            order_detail?: { status: number; creation_date?: string | null; issue_date?: string | null; shipment_date?: string | null };
+        };
+        const all: ServiceLine[] = [];
+        for (let offset = 0; ; offset += pageSize) {
+            const path = `/order/so-extra-line/?limit=${pageSize}&offset=${offset}&order_detail=true`;
+            const page = await this.request<{ count: number; results: Row[] }>(path, 'GET', undefined, false, false);
+            for (const r of page.results) {
+                const o = r.order_detail;
+                all.push({
+                    reference: r.reference,
+                    description: r.description ?? '',
+                    quantity: Number(r.quantity) || 0,
+                    price: Number(r.price) || 0,
+                    date: o?.shipment_date || o?.issue_date || o?.creation_date || '',
+                    orderStatus: o?.status ?? 0,
+                });
+            }
             if (page.results.length < pageSize || all.length >= page.count) return all;
         }
     }
