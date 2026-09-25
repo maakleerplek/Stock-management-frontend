@@ -3,6 +3,8 @@
  */
 import { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { getVolunteerKey } from '../auth/volunteerKey';
+import { VOLUNTEER_HEADER } from './apiAccess';
 
 const BASE = '/laser/api';
 
@@ -31,6 +33,27 @@ export interface LaserMaterial {
   thicknesses: number[];
 }
 
+/** One row of the material cutting library (the binder next to the laser). */
+export interface LibraryRow {
+  partId: number;
+  group: string;
+  material: string;
+  materialNl: string;
+  thickness: number | null;
+  cutSpeed: number | null;
+  cutPower: number | null;
+  cutPowerMin: number | null;
+  cutPasses: number | null;
+  lineSpeed: number | null;
+  linePower: number | null;
+  linePowerMin: number | null;
+  fillSpeed: number | null;
+  fillPower: number | null;
+  comment: string;
+}
+
+export type LibraryDraft = Omit<LibraryRow, 'partId'>;
+
 export type LaserOperation = 'cut' | 'engrave';
 export type LaserOutcome = 'clean' | 'partial' | 'failed' | 'risky';
 
@@ -46,13 +69,19 @@ export interface LaserSetting {
   capped: boolean;
 }
 
-async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+async function call<T>(path: string, method = 'GET', body?: unknown, volunteer = false): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  // Library writes: nginx only lets them through with the volunteer key.
+  const key = volunteer ? getVolunteerKey() : null;
+  if (key) headers[VOLUNTEER_HEADER] = key;
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401) throw new Error('Only volunteers can change the library. Log in as volunteer.');
   if (!res.ok) throw new Error(data.error || `Laser service: ${res.status}`);
   return data as T;
 }
@@ -67,6 +96,12 @@ export const laserApi = {
   reset: () => call('/reset', 'POST'),
   simulate: (on: boolean) => call('/simulate', 'POST', { state: on ? 'ON' : 'OFF' }),
   materials: () => call<{ materials: LaserMaterial[] }>('/materials'),
+  library: () => call<{ rows: LibraryRow[]; minPower: number; maxPower: number }>('/library'),
+  saveLibraryRow: (partId: number | null, row: LibraryDraft) =>
+    partId === null
+      ? call<{ partId: number }>('/library', 'POST', row, true)
+      : call<{ partId: number }>(`/library/${partId}`, 'PUT', row, true),
+  deleteLibraryRow: (partId: number) => call(`/library/${partId}`, 'DELETE', undefined, true),
   recommend: (material: string, thickness: number, ops: LaserOperation[], strength: number) =>
     call<{ results: LaserSetting[] }>(
       `/recommend?material=${encodeURIComponent(material)}&thickness=${thickness}&ops=${ops.join(',')}&strength=${strength}`,

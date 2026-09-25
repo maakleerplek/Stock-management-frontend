@@ -266,7 +266,8 @@ def get_materials():
         return {'error': f'InvenTree: {e}'}, 502
     grouped: dict[str, list[float]] = {}
     for r in rows:
-        grouped.setdefault(r['material'], []).append(r['thickness'])
+        if r['thickness'] is not None:
+            grouped.setdefault(r['material'], []).append(r['thickness'])
     return {'materials': [{'name': k, 'thicknesses': sorted(set(v))} for k, v in sorted(grouped.items())]}
 
 
@@ -274,7 +275,7 @@ def points_for(material: str, operation: str) -> list[Point]:
     points = []
     for r in inventree.materials(_inventree):
         s = r[operation]
-        if r['material'].lower() == material.lower() and s:
+        if r['material'].lower() == material.lower() and s and r['thickness'] is not None:
             points.append(Point(r['thickness'], s['speed'], s['power'], s['passes'], 'clean', baseline=True))
     for a in db.query(
             "SELECT *, julianday('now') - julianday(created_at) AS days_old FROM attempts "
@@ -283,6 +284,83 @@ def points_for(material: str, operation: str) -> list[Point]:
                             days_old=a['days_old'] or 0,
                             strength=a['strength'] if operation == 'engrave' else None))
     return points
+
+
+MIN_POWER = 10  # the tube needs at least this; note on page 1 of the binder
+POWER_FIELDS = ('cutPower', 'cutPowerMin', 'linePower', 'linePowerMin', 'fillPower')
+NUMBER_FIELDS = ('thickness', 'cutSpeed', 'cutPasses', 'lineSpeed', 'fillSpeed') + POWER_FIELDS
+
+
+def clean_row(b: dict) -> tuple[dict | None, str | None]:
+    """Validate a library row from the form. Returns (row, error)."""
+    row = {f: str(b.get(f) or '').strip()[:200] for f in inventree.TEXT_FIELDS}
+    if not row['material']:
+        return None, 'Material name is required'
+    for f in NUMBER_FIELDS:
+        v = b.get(f)
+        if v in (None, ''):
+            row[f] = None
+            continue
+        try:
+            row[f] = float(str(v).replace(',', '.'))
+        except ValueError:
+            return None, f'{f} must be a number'
+        if row[f] <= 0:
+            return None, f'{f} must be above 0'
+        if f in POWER_FIELDS and not (MIN_POWER <= row[f] <= MAX_POWER):
+            return None, f'Power must be {MIN_POWER}-{MAX_POWER} %'
+    for hi, lo in (('cutPower', 'cutPowerMin'), ('linePower', 'linePowerMin')):
+        if row[hi] is not None and row[lo] is not None and row[lo] > row[hi]:
+            return None, 'Min power cannot be above max power'
+    if row['cutPasses'] is not None:
+        row['cutPasses'] = int(row['cutPasses'])
+    return row, None
+
+
+@app.get('/laser/api/library')
+def get_library():
+    """The whole material library. nginx lets anyone read it and only
+    volunteers write it (POST/PUT/DELETE below)."""
+    try:
+        rows = inventree.materials(_inventree)
+    except Exception as e:
+        return {'error': f'InvenTree: {e}'}, 502
+    rows = sorted(rows, key=lambda r: (r['group'].lower(), r['material'].lower(), r['thickness'] or 0))
+    return {'rows': rows, 'minPower': MIN_POWER, 'maxPower': MAX_POWER}
+
+
+def _save(part_id: int | None):
+    if _inventree is None:
+        return {'error': 'InvenTree is not configured'}, 503
+    row, err = clean_row(request.json or {})
+    if err:
+        return {'error': err}, 400
+    try:
+        pk = _inventree.save_row(part_id, row)
+    except Exception as e:
+        return {'error': f'InvenTree: {e}'}, 502
+    return {'partId': pk}
+
+
+@app.post('/laser/api/library')
+def add_library_row():
+    return _save(None)
+
+
+@app.put('/laser/api/library/<int:part_id>')
+def update_library_row(part_id):
+    return _save(part_id)
+
+
+@app.delete('/laser/api/library/<int:part_id>')
+def delete_library_row(part_id):
+    if _inventree is None:
+        return {'error': 'InvenTree is not configured'}, 503
+    try:
+        _inventree.delete_row(part_id)
+    except Exception as e:
+        return {'error': f'InvenTree: {e}'}, 502
+    return {'deleted': part_id}
 
 
 @app.get('/laser/api/recommend')

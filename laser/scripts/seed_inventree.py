@@ -1,81 +1,59 @@
-"""Put test laser settings in InvenTree: category, parameter templates, one
-virtual part per material + thickness, with random but plausible values.
+"""Load the material cutting library (laser/data/material_library.csv) into InvenTree.
 
     INVENTREE_BACKEND_URL=http://10.72.3.68 INVENTREE_TOKEN=... python scripts/seed_inventree.py
 
-Safe to run twice: it finds what exists and only fills in what is missing.
-With --overwrite it also replaces existing values. The real settings go in
-through the InvenTree panel later.
+The CSV is the binder next to the laser, typed over. Every row becomes a
+virtual part in "Lasermaterialen" (see inventree.py for the parameters).
+Rows are matched on material + thickness: a rerun updates them from the CSV.
+With --prune it also removes parts that are not in the CSV (the old test data).
+
+After the first load the library lives in InvenTree and volunteers edit it in
+the Lasercutter tab. Running this again overwrites their changes to the rows
+that are in the CSV, so only do that on purpose.
 """
+import csv
 import os
-import random
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import inventree as it  # noqa: E402
 
-# material: {thickness: ((cut speed range), (cut power range))}, (engrave speed range), (engrave power range)
-MATERIALS = {
-    'Plexi':     ({3: ((12, 18), (65, 80)), 5: ((7, 10), (80, 90))},                         (250, 350), (20, 35)),
-    'MDF':       ({3: ((15, 20), (65, 75)), 6: ((6, 9), (85, 90))},                          (300, 400), (18, 28)),
-    'Multiplex': ({3: ((14, 20), (60, 72)), 4: ((10, 14), (70, 80)), 6: ((6, 9), (82, 90))}, (300, 400), (18, 28)),
-    'Populier':  ({3: ((18, 25), (55, 65)), 4: ((14, 18), (60, 72))},                        (350, 450), (15, 25)),
+CSV = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'material_library.csv')
+
+# CSV column -> row field
+COLUMNS = {
+    'group': 'group', 'material_en': 'material', 'material_nl': 'materialNl', 'thickness_mm': 'thickness',
+    'cut_speed': 'cutSpeed', 'cut_power': 'cutPower', 'cut_power_min': 'cutPowerMin',
+    'line_speed': 'lineSpeed', 'line_power_max': 'linePower', 'line_power_min': 'linePowerMin',
+    'fill_speed': 'fillSpeed', 'fill_power': 'fillPower', 'comment': 'comment',
 }
 
-TEMPLATES = [
-    (it.P_MATERIAL, ''), (it.P_THICKNESS, 'mm'),
-    (it.P_CUT_SPEED, 'mm/s'), (it.P_CUT_POWER, '%'), (it.P_CUT_PASSES, ''),
-    (it.P_ENGRAVE_SPEED, 'mm/s'), (it.P_ENGRAVE_POWER, '%'),
-]
+
+def key(material, thickness) -> tuple[str, float | None]:
+    return material.strip().lower(), it._num(thickness)
 
 
 def main():
-    overwrite = '--overwrite' in sys.argv
+    prune = '--prune' in sys.argv
     api = it.InvenTree(os.environ['INVENTREE_BACKEND_URL'], os.environ['INVENTREE_TOKEN'])
+    with open(CSV, newline='', encoding='utf-8') as f:
+        rows = [{field: (r.get(col) or '').strip() for col, field in COLUMNS.items()} for r in csv.DictReader(f)]
 
-    cat = api.category_pk()
-    if cat is None:
-        cat = api.post('part/category/', {'name': it.CATEGORY,
-                                          'description': 'Laserinstellingen per materiaal en dikte (Lasercutter-tab)'})['pk']
-        print(f'category {it.CATEGORY} = {cat}')
+    existing = {key(r['material'], r['thickness']): r['partId'] for r in api.load_materials()}
+    seen = set()
+    for row in rows:
+        k = key(row['material'], row['thickness'])
+        seen.add(k)
+        pk = api.save_row(existing.get(k), row)
+        print(f"{'updated' if k in existing else 'created'} {it.part_name(row)} = {pk}")
 
-    templates = {t['name']: t['pk'] for t in api.get('parameter/template/', limit=500)}
-    for name, units in TEMPLATES:
-        if name not in templates:
-            templates[name] = api.post('parameter/template/', {'name': name, 'units': units,
-                                                               'model_type': 'part.part'})['pk']
-            print(f'template {name}')
-
-    existing_parts = {p['name']: p['pk'] for p in api.get('part/', category=cat, limit=500)}
-    params = {(p['model_id'], p['template']): p for p in api.get('parameter/', model_type='part.part', limit=5000)}
-
-    for material, (cuts, eng_speed, eng_power) in MATERIALS.items():
-        for thickness, (cut_speed, cut_power) in cuts.items():
-            name = f'{material} {thickness} mm'
-            pk = existing_parts.get(name)
-            if pk is None:
-                pk = api.post('part/', {'name': name, 'category': cat, 'virtual': True, 'active': True,
-                                        'salable': False, 'purchaseable': False, 'component': False,
-                                        'description': f'Laserinstellingen {material.lower()} {thickness} mm'})['pk']
-                print(f'part {name} = {pk}')
-            values = {
-                it.P_MATERIAL: material,
-                it.P_THICKNESS: str(thickness),
-                it.P_CUT_SPEED: str(round(random.uniform(*cut_speed))),
-                it.P_CUT_POWER: str(min(90, round(random.uniform(*cut_power)))),
-                it.P_CUT_PASSES: '1',
-                it.P_ENGRAVE_SPEED: str(int(round(random.uniform(*eng_speed), -1))),
-                it.P_ENGRAVE_POWER: str(round(random.uniform(*eng_power))),
-            }
-            for tname, value in values.items():
-                tpk = templates[tname]
-                current = params.get((pk, tpk))
-                if current is None:
-                    api.post('parameter/', {'template': tpk, 'model_type': 'part.part', 'model_id': pk, 'data': value})
-                elif overwrite and tname not in (it.P_MATERIAL, it.P_THICKNESS):
-                    api.patch(f"parameter/{current['pk']}/", {'data': value})
-            print(f'  {name}: cut {values[it.P_CUT_SPEED]} mm/s {values[it.P_CUT_POWER]} %, '
-                  f'engrave {values[it.P_ENGRAVE_SPEED]} mm/s {values[it.P_ENGRAVE_POWER]} %')
+    if prune:
+        cat = api.category_pk()
+        keys = {r['partId']: key(r['material'], r['thickness']) for r in api.load_materials()}
+        for part in api.get('part/', category=cat, limit=500):
+            if keys.get(part['pk']) not in seen:
+                api.delete_row(part['pk'])
+                print(f"removed {part['name']}")
 
 
 if __name__ == '__main__':

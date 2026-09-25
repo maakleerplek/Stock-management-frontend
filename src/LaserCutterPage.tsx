@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Zap, X, Plus, RotateCcw, ArrowRightLeft, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff } from 'lucide-react';
 import LaserAnimation from './components/LaserAnimation';
+import LaserLibrary from './components/LaserLibrary';
 import { useToast } from './ToastContext';
 import { cn } from './lib/utils';
 import { PRICING } from './constants';
@@ -36,6 +37,7 @@ export default function LaserCutterPage({ onCheckout, live }: LaserCutterPagePro
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-lijn min-h-full">
         <TimePanel onCheckout={onCheckout} live={live} />
         <SettingsPanel />
+        <LaserLibrary />
       </div>
     </div>
   );
