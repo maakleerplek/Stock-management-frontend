@@ -7,9 +7,6 @@ services:
         VITE_ORGANIZATION_URL: ${VITE_ORGANIZATION_URL}
         VITE_INVENTREE_URL: ${VITE_INVENTREE_URL}
         VITE_INVENTREE_PANEL_URL: ${VITE_INVENTREE_PANEL_URL}
-        VITE_AZURE_CLIENT_ID: ${VITE_AZURE_CLIENT_ID}
-        VITE_AZURE_TENANT_ID: ${VITE_AZURE_TENANT_ID}
-        VITE_AZURE_REDIRECT_URI: ${VITE_AZURE_REDIRECT_URI}
         VITE_LASER_PRICE_PER_MIN: ${VITE_LASER_PRICE_PER_MIN}
         VITE_CNC_PRICE_PER_MIN: ${VITE_CNC_PRICE_PER_MIN}
         VITE_PRINT_PRICE_PER_GRAM: ${VITE_PRINT_PRICE_PER_GRAM}
@@ -25,10 +22,13 @@ services:
     environment:
       # Runtime environment variable for Caddy to proxy to InvenTree backend
       - INVENTREE_BACKEND_URL=${INVENTREE_BACKEND_URL}
-      # Secrets stay on the server: nginx adds the token to API calls and checks
-      # the volunteer password. The VITE_ names still work for older .env files.
+      # Secrets stay on the server: nginx adds the token to API calls.
+      # The VITE_ name still works for older .env files.
       - INVENTREE_TOKEN=${INVENTREE_TOKEN:-${VITE_INVENTREE_TOKEN}}
-      - VOLUNTEER_PASSWORD=${VOLUNTEER_PASSWORD:-${VITE_VOLUNTEER_PASSWORD}}
+      # Authentik's end-session URL; see oauth2-proxy below.
+      - OIDC_LOGOUT_URL=${OIDC_LOGOUT_URL:-}
+      # Same as the published 443 port below, for the http -> https redirect.
+      - PUBLIC_HTTPS_PORT=${FRONTEND_HTTPS_PORT:-8444}
       # Host IP for SSL certificate generation
       - HOST_IP=${HOST_IP}
     ports:
@@ -43,6 +43,47 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+    depends_on:
+      - oauth2-proxy
+
+  # Volunteer sign-in. nginx asks it on every volunteer-only request; it is not
+  # published on a port, only nginx talks to it. Signed in = volunteer.
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.4
+    container_name: stock-oauth2-proxy
+    restart: unless-stopped
+    environment:
+      OAUTH2_PROXY_PROVIDER: oidc
+      OAUTH2_PROXY_PROVIDER_DISPLAY_NAME: Maakleerplek
+      OAUTH2_PROXY_OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}
+      OAUTH2_PROXY_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OAUTH2_PROXY_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      OAUTH2_PROXY_CODE_CHALLENGE_METHOD: S256
+      # Authentik only sends email/profile when those scope mappings are on the
+      # provider; without them use OIDC_SCOPE=openid and OIDC_EMAIL_CLAIM=sub.
+      OAUTH2_PROXY_SCOPE: ${OIDC_SCOPE:-openid email profile}
+      OAUTH2_PROXY_OIDC_EMAIL_CLAIM: ${OIDC_EMAIL_CLAIM:-email}
+      OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL: "true"   # Authentik decides who gets in
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"            # who may sign in is decided in Authentik
+      # Paths live under /oauth/ (the callback registered in Authentik is /oauth/callback).
+      OAUTH2_PROXY_PROXY_PREFIX: /oauth
+      OAUTH2_PROXY_REDIRECT_URL: ${PUBLIC_URL}/oauth/callback
+      OAUTH2_PROXY_WHITELIST_DOMAINS: ${OIDC_LOGOUT_HOST:-}
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_COOKIE_SECRET}
+      OAUTH2_PROXY_COOKIE_NAME: _stock_session
+      OAUTH2_PROXY_COOKIE_SECURE: "true"
+      OAUTH2_PROXY_COOKIE_SAMESITE: lax
+      OAUTH2_PROXY_COOKIE_EXPIRE: 12h            # a forgotten session on the till ends the same day
+      # Keep only who signed in, not Authentik's tokens: the full cookie is
+      # several kB and the proxy in front (NPM) answers 502 on headers that big.
+      OAUTH2_PROXY_SESSION_COOKIE_MINIMAL: "true"
+      OAUTH2_PROXY_UPSTREAMS: static://202       # auth only; nginx serves the app
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+      # Only nginx talks to it, over Docker's private network.
+      OAUTH2_PROXY_TRUSTED_PROXY_IPS: 172.16.0.0/12,192.168.0.0/16
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
 
 volumes:
   ssl-certs:

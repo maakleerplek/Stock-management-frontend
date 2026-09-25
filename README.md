@@ -4,6 +4,17 @@ A brutalist-styled inventory management frontend for InvenTree backend, featurin
 
 > ℹ️ **For more general information, guides, and internal documentation, visit the [HighTechLab SharePoint Stock Management Info Page](https://maakleerplek.sharepoint.com/sites/HighTechLab/SitePages/Stock-management-info-page.aspx).**
 
+## Where it runs
+
+The live app for the High Tech Lab runs on `htl-server`, a Rocky Linux VM on the maakleerplek server.
+
+| Address | Use |
+|---|---|
+| **https://stock.int.maakleerplek.be/** | Main address, with a valid certificate. Resolves inside the maakleerplek network only. |
+| https://10.72.1.246:8086/ | The server directly (self-signed certificate). Used by the lab kiosk. |
+
+`htl-tempserver` (10.72.3.68) is a test server with an old copy of the data. Don't use it for real sales.
+
 ## Screenshots
 
 | Checkout / Visitor Mode | Volunteer / Admin Dashboard |
@@ -82,16 +93,23 @@ docker-compose up --build
 
 ## Environment Variables
 
-Copy `.env.example` to `.env`. Two settings are secrets and only live on the
-server; the proxy (nginx in Docker, Vite in development) uses them and the
-browser never receives them:
+Copy `.env.example` to `.env`. The secrets only live on the server; the
+proxy (nginx in Docker, Vite in development) uses them and the browser never
+receives them:
 
 ```env
 INVENTREE_TOKEN=...        # added by the proxy to every InvenTree API call
-VOLUNTEER_PASSWORD=...     # checked by the proxy at volunteer login
+OIDC_CLIENT_SECRET=...     # Authentik client secret, used by oauth2-proxy
+OAUTH2_COOKIE_SECRET=...   # encrypts the volunteer session cookie
 ```
 
-Without a volunteer login the app can read the catalogue and run a checkout,
+Volunteers sign in with their maakleerplek account through Authentik
+(`auth.maakleerplek.be`); being signed in is what makes someone a volunteer.
+oauth2-proxy runs the sign-in next to the app, and nginx asks it on every
+volunteer-only call. Signing out ends the Authentik session too, so a shared
+till is safe to hand over. The sign-in only works on `PUBLIC_URL`.
+
+Without a volunteer sign-in the app can read the catalogue and run a checkout,
 nothing else. The rules are in `src/lib/apiAccess.ts` and
 `nginx.conf.template`. Use an InvenTree user with only the roles the app
 needs for the token, not a superuser.
@@ -128,7 +146,7 @@ src/
 
 ## Roadmap & TODOs
 
-See the [TODO.md](./TODO.md) file for upcoming features, access control upgrades (such as Microsoft authentication for volunteers), and development goals.
+See the [TODO.md](./TODO.md) file for upcoming features, and development goals.
 
 ## Branch Information
 

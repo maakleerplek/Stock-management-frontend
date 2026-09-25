@@ -2,23 +2,10 @@
 # rules for the Vite dev server (and their tests) - keep the two in step.
 #
 # The browser never sees the InvenTree token: nginx adds it to every request.
-# Volunteers prove themselves with X-Volunteer-Key = sha256(volunteer password);
-# entrypoint.sh computes VOLUNTEER_KEY from VOLUNTEER_PASSWORD at startup.
-
-# The key is a 64-character hex string, longer than the default bucket.
-map_hash_bucket_size 128;
-
-map $http_x_volunteer_key $is_volunteer {
-    "${VOLUNTEER_KEY}" 1;
-    default            0;
-}
-
-# Catalogue reads are open; writes there need a volunteer.
-map "$request_method:$is_volunteer" $catalogue_write_denied {
-    "~^(GET|HEAD):" 0;
-    "~:1$"          0;
-    default         1;
-}
+# A volunteer is anyone with a valid sign-in session from oauth2-proxy (the
+# sidecar in docker-compose.yml, signed in through Authentik). nginx asks it on
+# every volunteer-only request (auth_request); the session is an encrypted
+# cookie, so the browser cannot claim to be a volunteer by itself.
 
 server {
     listen 80;
@@ -30,8 +17,10 @@ server {
         return 200 "healthy\n";
     }
 
+    # $host has no port, so name the published HTTPS port; without it the
+    # redirect lands on port 443 of the host, which is another service.
     location / {
-        return 301 https://$host$request_uri;
+        return 301 https://$host:${PUBLIC_HTTPS_PORT}$request_uri;
     }
 }
 
@@ -63,7 +52,6 @@ server {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header Authorization "Token ${INVENTREE_TOKEN}";
-    proxy_set_header X-Volunteer-Key "";
     proxy_ssl_verify off;
 
     location /health {
@@ -71,9 +59,54 @@ server {
         return 200 "healthy\n";
     }
 
-    # The volunteer login asks here whether its key is right.
+    # oauth2-proxy is looked up per request (Docker's DNS), so nginx still
+    # starts, and the till still works, while the sign-in service is down.
+    resolver 127.0.0.11 valid=30s ipv6=off;
+    set $oauth2_proxy http://oauth2-proxy:4180;
+
+    # Sign-in, callback, sign-out and user info, served by oauth2-proxy.
+    # Its own headers only: the InvenTree token must never reach it.
+    location /oauth/ {
+        proxy_pass $oauth2_proxy;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Auth-Request-Redirect $request_uri;
+        proxy_set_header Authorization "";
+        # The session cookie carries the ID token and can be large.
+        proxy_buffer_size 16k;
+        proxy_buffers 8 16k;
+    }
+
+    # The auth_request target: 202 when signed in, 401 otherwise.
+    location = /oauth/auth {
+        internal;
+        proxy_pass $oauth2_proxy;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Authorization "";
+        proxy_buffer_size 16k;
+        proxy_buffers 8 16k;
+    }
+
+    # Ends the session here and at Authentik, so the next person on a shared
+    # device has to sign in again.
+    location = /logout {
+        return 302 /oauth/sign_out?rd=${OIDC_LOGOUT_URL};
+    }
+
+    # The app asks here whether this browser has a volunteer session.
+    # try_files runs after the access check; a plain return would run before it.
     location = /api/auth/check/ {
-        if ($is_volunteer = 0) { return 401; }
+        auth_request /oauth/auth;
+        try_files /__never__ @volunteer_ok;
+    }
+    location @volunteer_ok {
         return 204;
     }
 
@@ -82,21 +115,42 @@ server {
         proxy_pass ${INVENTREE_BACKEND_URL};
     }
 
-    # Catalogue: anyone may read, volunteers may write.
+    # Catalogue: anyone may read, volunteers may write. Writes are sent on to
+    # the checked location below; rewrite...last is one of the safe uses of if.
     location ~ ^/api/(part|stock|company|order|barcode)/ {
-        if ($catalogue_write_denied) { return 401; }
+        if ($request_method !~ ^(GET|HEAD)$) {
+            rewrite ^ /__volunteer$uri last;
+        }
+        proxy_pass ${INVENTREE_BACKEND_URL};
+    }
+
+    location ^~ /__volunteer/ {
+        internal;
+        auth_request /oauth/auth;
+        rewrite ^/__volunteer(/.*)$ $1 break;
         proxy_pass ${INVENTREE_BACKEND_URL};
     }
 
     # Everything else (users, settings, admin, ...) is volunteers only.
     location /api/ {
-        if ($is_volunteer = 0) { return 401; }
+        auth_request /oauth/auth;
         proxy_pass ${INVENTREE_BACKEND_URL};
     }
 
     # ^~ beats the static-asset regex below for images under /media/.
     location ^~ /media/ {
         proxy_pass ${INVENTREE_BACKEND_URL};
+    }
+
+    # The PWA's update machinery and the page that loads it must always be
+    # re-checked; cached for a year they pin every browser to an old build.
+    # (add_header here replaces the server-level ones, so repeat them.)
+    location ~* ^/(?:sw\.js|registerSW\.js|workbox-[^/]+\.js|manifest\.webmanifest|index\.html)$ {
+        add_header Cache-Control "no-cache";
+        add_header X-Frame-Options "SAMEORIGIN";
+        add_header X-Content-Type-Options "nosniff";
+        add_header X-XSS-Protection "1; mode=block";
+        try_files $uri =404;
     }
 
     location ~* \.(?:js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
@@ -106,5 +160,9 @@ server {
 
     location / {
         try_files $uri /index.html;
+        add_header Cache-Control "no-cache";
+        add_header X-Frame-Options "SAMEORIGIN";
+        add_header X-Content-Type-Options "nosniff";
+        add_header X-XSS-Protection "1; mode=block";
     }
 }

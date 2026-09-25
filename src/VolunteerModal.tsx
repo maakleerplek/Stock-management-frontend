@@ -1,11 +1,6 @@
 import { useState } from 'react';
 import { X, LogIn, AlertCircle } from 'lucide-react';
-import { useVolunteer } from './VolunteerContext';
-import { logInVolunteer } from './auth/volunteerKey';
-import inventreeClient from './api/inventreeClient';
-import { cn } from './lib/utils';
-import { isMsalConfigured } from './auth/msalConfig';
-import MicrosoftSignInButton from './auth/MicrosoftSignInButton';
+import { startSignIn } from './auth/session';
 
 interface VolunteerModalProps {
     open: boolean;
@@ -13,50 +8,18 @@ interface VolunteerModalProps {
 }
 
 export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [checking, setChecking] = useState(false);
-    const { setIsVolunteerMode } = useVolunteer();
+    const [leaving, setLeaving] = useState(false);
 
-    // Called after a successful Microsoft popup sign-in.
-    const handleMicrosoftSuccess = () => {
-        setIsVolunteerMode(true);
-        setPassword('');
-        setError('');
-        onClose();
-    };
-
-    // The proxy checks the password; the app only ever holds its hash.
-    const handleSubmit = async () => {
-        if (checking || !password) return;
-        setChecking(true);
-        const result = await logInVolunteer(password);
-        setChecking(false);
-        if (result === 'ok') {
-            // Till sales need this customer, and only a volunteer may create it.
-            void inventreeClient.getTillCustomer().catch(err => console.warn('[Volunteer] Till customer setup failed:', err));
-            setIsVolunteerMode(true);
-            setPassword('');
-            setError('');
-            onClose();
-        } else {
-            setError(result === 'wrong' ? 'Incorrect password' : 'Cannot reach the server - try again');
-            setPassword('');
-        }
+    // The sign-in happens at Authentik; the app reloads here afterwards and
+    // VolunteerContext picks up the session.
+    const handleSignIn = () => {
+        if (leaving) return;
+        setLeaving(true);
+        void startSignIn();
     };
 
     const handleClose = () => {
-        setPassword('');
-        setError('');
-        onClose();
-    };
-
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            e.stopPropagation();
-            handleSubmit();
-        }
+        if (!leaving) onClose();
     };
 
     return (
@@ -92,45 +55,11 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                 <div className="flex flex-col gap-1">
                                     <h3 className="font-semibold text-xs">Volunteers sign in here</h3>
                                     <p className="text-xs font-bold leading-relaxed text-brand-black/60">
-                                        {isMsalConfigured
-                                            ? 'Sign in with your Maakleerplek Microsoft account to adjust stock levels and manage inventory.'
-                                            : 'Enter the volunteer password to adjust stock levels and manage inventory.'}
+                                        Sign in with your Maakleerplek account to adjust stock levels and manage inventory. On a shared device, log out when you are done.
                                     </p>
                                 </div>
                             </div>
 
-                            {/* Primary login: Microsoft (shown once Azure is configured) */}
-                            {isMsalConfigured && (
-                                <MicrosoftSignInButton onSuccess={handleMicrosoftSuccess} />
-                            )}
-
-                            {/* Password login: temporary, until Microsoft sign-in moves to its own server. */}
-                            <div className="flex flex-col gap-2">
-                                {isMsalConfigured && (
-                                    <div className="flex items-center gap-3 my-1">
-                                        <div className="h-px flex-1 bg-brand-black/20" />
-                                        <span className="text-[10px] font-semibold text-brand-black/40">Or</span>
-                                        <div className="h-px flex-1 bg-brand-black/20" />
-                                    </div>
-                                )}
-                                <label className="text-xs font-semibold text-brand-black">Enter password</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    onKeyDown={handleKeyPress}
-                                    autoFocus={!isMsalConfigured}
-                                    className={cn(
-                                        "w-full px-4 py-3 text-lg font-semibold border border-lijn bg-white outline-none focus:bg-brand-beige transition-colors",
-                                        error && "border-red-600 bg-red-50"
-                                    )}
-                                />
-                                {error && (
-                                    <p className="text-xs font-semibold text-red-600 mt-1">
-                                        {error}
-                                    </p>
-                                )}
-                            </div>
                         </div>
 
                         {/* Actions */}
@@ -142,12 +71,13 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                 Cancel
                             </button>
                             <button
-                                onClick={handleSubmit}
-                                disabled={checking}
+                                onClick={handleSignIn}
+                                disabled={leaving}
+                                autoFocus
                                 className="flex-1 brutalist-button bg-amber-300 text-brand-black py-3 text-xs flex justify-center items-center gap-2"
                             >
                                 <LogIn className="w-4 h-4" />
-                                Authenticate
+                                {leaving ? 'Opening sign-in…' : 'Sign in'}
                             </button>
                         </div>
                     </div>

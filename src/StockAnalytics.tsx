@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Package, BarChart2, RefreshCw, Percent, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Package, BarChart2, RefreshCw, Percent, Download, HandHeart } from 'lucide-react';
 import inventreeClient from './api/inventreeClient';
 import { useStock } from './StockContext';
 import type { InvenTreeTrackingEntry } from './api/types';
 import { cn } from './lib/utils';
-import { isSale, unitsSold, TRACKING, type PartInfo } from './lib/stockHistory';
+import { isSale, isVolunteerDrink, unitsSold, unitsGiven, TRACKING, type PartInfo, type SaleKind } from './lib/stockHistory';
 import StockHistoryChart from './components/StockHistoryChart';
 
 
@@ -17,16 +17,23 @@ const DATE_RANGES = [
 
 type DateRange = typeof DATE_RANGES[number];
 
+const SALE_KINDS: { value: SaleKind; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'paid', label: 'Paid' },
+  { value: 'volunteer', label: 'Volunteer' },
+];
+
 interface PartAnalytics {
   partId: number;
   name: string;
   sellingPrice: number; // pricing_max
   costPrice: number;    // pricing_min
   category: string;
-  removed: number;
+  removed: number;      // paid + volunteer units within the selected kind
+  given: number;        // volunteer drinks: out of stock, never paid
   added: number;
   revenue: number;
-  profit: number;       // (sellingPrice - costPrice) × removed
+  profit: number;       // (sellingPrice - costPrice) × paid - costPrice × given
 }
 
 function BrutalistBar({
@@ -91,6 +98,7 @@ export default function StockAnalytics() {
   const [error, setError] = useState<string | null>(null);
   const [trackingEntries, setTrackingEntries] = useState<InvenTreeTrackingEntry[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGES[1]);
+  const [kind, setKind] = useState<SaleKind>('all');
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -141,15 +149,17 @@ export default function StockAnalytics() {
     return trackingEntries.filter(e => new Date(e.date) >= cutoff);
   }, [trackingEntries, dateRange]);
 
-  // Aggregate by part - profit = (sale price - supplier cost) x units removed
+  // Aggregate by part - profit = (sale price - supplier cost) x units paid,
+  // minus the supplier cost of every volunteer drink.
   const analytics = useMemo(() => {
     const byPartMap = new Map<number, PartAnalytics>();
 
     filteredEntries.forEach(entry => {
-      // Stocktakes and volunteer corrections are not sales or restocks.
-      const removed = unitsSold(entry);
+      // Stocktakes and volunteer-mode corrections are not sales or restocks.
+      const paid = kind === 'volunteer' ? 0 : unitsSold(entry);
+      const given = kind === 'paid' ? 0 : unitsGiven(entry);
       const added = entry.tracking_type === TRACKING.STOCK_ADD ? entry.deltas?.added ?? 0 : 0;
-      if (removed === 0 && added === 0) return;
+      if (paid === 0 && given === 0 && added === 0) return;
 
       const partId = entry.part;
       const info = partLookup.get(partId);
@@ -161,14 +171,15 @@ export default function StockAnalytics() {
 
       const prev = byPartMap.get(partId) ?? {
         partId, name, sellingPrice, costPrice, category,
-        removed: 0, added: 0, revenue: 0, profit: 0,
+        removed: 0, given: 0, added: 0, revenue: 0, profit: 0,
       };
       byPartMap.set(partId, {
         ...prev,
-        removed: prev.removed + removed,
+        removed: prev.removed + paid + given,
+        given: prev.given + given,
         added: prev.added + added,
-        revenue: prev.revenue + removed * sellingPrice,
-        profit: prev.profit + removed * margin,
+        revenue: prev.revenue + paid * sellingPrice,
+        profit: prev.profit + paid * margin - given * costPrice,
       });
     });
 
@@ -176,13 +187,19 @@ export default function StockAnalytics() {
     return {
       byPart,
       totalRemoved: byPart.reduce((s, p) => s + p.removed, 0),
+      totalGiven: byPart.reduce((s, p) => s + p.given, 0),
+      givenCost: byPart.reduce((s, p) => s + p.given * p.costPrice, 0),
       totalAdded: byPart.reduce((s, p) => s + p.added, 0),
       totalRevenue: byPart.reduce((s, p) => s + p.revenue, 0),
       totalProfit: byPart.reduce((s, p) => s + p.profit, 0),
-      totalTransactions: filteredEntries.filter(e => isSale(e) || e.tracking_type === TRACKING.STOCK_ADD).length,
+      totalTransactions: filteredEntries.filter(e =>
+        (kind !== 'volunteer' && isSale(e)) ||
+        (kind !== 'paid' && isVolunteerDrink(e)) ||
+        e.tracking_type === TRACKING.STOCK_ADD
+      ).length,
       hasCostPrices: byPart.some(p => p.costPrice > 0),
     };
-  }, [filteredEntries, partLookup]);
+  }, [filteredEntries, partLookup, kind]);
 
   const mostUsed = useMemo(() =>
     analytics.byPart.filter(p => p.removed > 0).sort((a, b) => b.removed - a.removed).slice(0, 10),
@@ -196,6 +213,11 @@ export default function StockAnalytics() {
 
   const mostProfit = useMemo(() =>
     analytics.byPart.filter(p => p.profit > 0).sort((a, b) => b.profit - a.profit).slice(0, 10),
+    [analytics]
+  );
+
+  const mostGiven = useMemo(() =>
+    analytics.byPart.filter(p => p.given > 0).sort((a, b) => b.given - a.given).slice(0, 10),
     [analytics]
   );
 
@@ -220,16 +242,18 @@ export default function StockAnalytics() {
     const rows: string[][] = [
       ['Stock analytics export'],
       [`Period: ${dateRange.label === 'ALL' ? 'All time' : `Last ${dateRange.days} days`}`],
+      [`Sales: ${SALE_KINDS.find(k => k.value === kind)?.label}`],
       [`Exported: ${new Date().toISOString()}`],
       [],
       ['--- PART SUMMARY ---'],
-      ['Part Name', 'Category', 'Units Removed', 'Units Added', 'Sell Price/unit (€)', 'Cost Price/unit (€)', 'Revenue (€)', 'Profit (€)'],
+      ['Part Name', 'Category', 'Units Removed', 'Volunteer Units', 'Units Added', 'Sell Price/unit (€)', 'Cost Price/unit (€)', 'Revenue (€)', 'Profit (€)'],
       ...analytics.byPart
         .sort((a, b) => b.removed - a.removed)
         .map(p => [
           p.name,
           p.category,
           String(p.removed),
+          String(p.given),
           String(p.added),
           p.sellingPrice.toFixed(2),
           p.costPrice > 0 ? p.costPrice.toFixed(2) : '',
@@ -244,6 +268,8 @@ export default function StockAnalytics() {
       ['--- TOTALS ---'],
       ['Transactions', String(analytics.totalTransactions)],
       ['Total Units Out', String(analytics.totalRemoved)],
+      ['Volunteer Drinks', String(analytics.totalGiven)],
+      ['Volunteer Drinks Cost (€)', analytics.givenCost.toFixed(2)],
       ['Total Units In', String(analytics.totalAdded)],
       ['Total Revenue (€)', analytics.totalRevenue.toFixed(2)],
       ['Total Profit (€)', analytics.totalProfit.toFixed(2)],
@@ -260,7 +286,7 @@ export default function StockAnalytics() {
     a.download = `stock-analytics-${period}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [analytics, byCategory, dateRange]);
+  }, [analytics, byCategory, dateRange, kind]);
 
   if (loading) {
     return (
@@ -286,13 +312,21 @@ export default function StockAnalytics() {
     );
   }
 
+  const hasGiven = analytics.totalGiven > 0;
   const statCards = [
     { label: 'Transactions', value: analytics.totalTransactions, icon: BarChart2, bg: 'bg-brand-beige-dark' },
-    { label: 'Units out', value: analytics.totalRemoved, icon: TrendingDown, bg: 'bg-rose-50' },
+    {
+      label: 'Units out',
+      value: analytics.totalRemoved,
+      sub: hasGiven ? `incl. ${analytics.totalGiven} volunteer drink${analytics.totalGiven === 1 ? '' : 's'}` : undefined,
+      icon: TrendingDown,
+      bg: 'bg-rose-50',
+    },
     { label: 'Revenue', value: `€${analytics.totalRevenue.toFixed(2)}`, icon: DollarSign, bg: 'bg-amber-50' },
     {
       label: analytics.hasCostPrices ? 'Profit' : 'Profit*',
       value: `€${analytics.totalProfit.toFixed(2)}`,
+      sub: hasGiven && analytics.givenCost > 0 ? `after €${analytics.givenCost.toFixed(2)} volunteer drinks` : undefined,
       icon: Percent,
       bg: 'bg-emerald-50',
     },
@@ -311,7 +345,23 @@ export default function StockAnalytics() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex border border-lijn" title="Paid sales, free volunteer drinks, or both">
+              {SALE_KINDS.map(k => (
+                <button
+                  key={k.value}
+                  onClick={() => setKind(k.value)}
+                  className={cn(
+                    'px-3 py-1.5 text-[10px] font-semibold border-r border-lijn last:border-r-0 transition-colors',
+                    kind === k.value
+                      ? 'bg-brand-black text-white'
+                      : 'bg-brand-beige text-brand-black hover:bg-brand-beige-dark'
+                  )}
+                >
+                  {k.label}
+                </button>
+              ))}
+            </div>
             <div className="flex border border-lijn">
               {DATE_RANGES.map(range => (
                 <button
@@ -358,12 +408,15 @@ export default function StockAnalytics() {
               <div className="text-2xl font-semibold font-mono text-brand-black leading-none tabular-nums">
                 {s.value}
               </div>
+              {s.sub && (
+                <div className="text-[10px] font-mono text-brand-black/50">{s.sub}</div>
+              )}
             </div>
           ))}
         </div>
 
         {trackingEntries.length > 0 && (
-          <StockHistoryChart entries={trackingEntries} parts={chartParts} days={dateRange.days} />
+          <StockHistoryChart entries={trackingEntries} parts={chartParts} days={dateRange.days} kind={kind} />
         )}
 
         {analytics.totalTransactions === 0 && (
@@ -399,21 +452,15 @@ export default function StockAnalytics() {
                   </span>
                 </div>
               ) : mostProfit.map(item => (
-                <div key={item.partId}>
-                  <BrutalistBar
-                    label={item.name}
-                    value={item.profit}
-                    maxValue={mostProfit[0].profit}
-                    prefix="€"
-                    decimals={2}
-                    color="bg-emerald-400"
-                  />
-                  {item.sellingPrice > 0 && item.costPrice > 0 && (
-                    <div className="text-[9px] font-mono text-brand-black/40 pl-[calc(7rem+0.5rem)] sm:pl-[calc(9rem+0.75rem)] -mt-1.5 mb-1">
-                      Sell €{item.sellingPrice.toFixed(2)} — cost €{item.costPrice.toFixed(2)} = €{(item.sellingPrice - item.costPrice).toFixed(2)}/unit
-                    </div>
-                  )}
-                </div>
+                <BrutalistBar
+                  key={item.partId}
+                  label={item.name}
+                  value={item.profit}
+                  maxValue={mostProfit[0].profit}
+                  prefix="€"
+                  decimals={2}
+                  color="bg-emerald-400"
+                />
               ))}
             </Section>
 
@@ -437,6 +484,21 @@ export default function StockAnalytics() {
                 />
               ))}
             </Section>
+
+            {/* Volunteer drinks: taken free after a shift, cost only */}
+            {mostGiven.length > 0 && (
+              <Section title="Volunteer drinks" icon={HandHeart}>
+                {mostGiven.map(item => (
+                  <BrutalistBar
+                    key={item.partId}
+                    label={item.name}
+                    value={item.given}
+                    maxValue={mostGiven[0].given}
+                    color="bg-violet-400"
+                  />
+                ))}
+              </Section>
+            )}
 
             {/* Most restocked */}
             <Section title="Most restocked items" icon={TrendingUp}>

@@ -13,8 +13,6 @@ import Header from './components/Header';
 import { ToastProvider, useToast } from './ToastContext';
 import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
-import MicrosoftAuthSync from './auth/MicrosoftAuthSync';
-import { isMsalConfigured } from './auth/msalConfig';
 import AdminToolsBar from './components/AdminToolsBar';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import StockAnalytics from './StockAnalytics';
@@ -295,7 +293,7 @@ function AppContent() {
   const inventreePanelUrl = import.meta.env.VITE_INVENTREE_PANEL_URL || '';
 
   const VolunteerNavigation = () => (
-    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto">
+    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto overflow-y-hidden">
       {[
         { id: 'volunteer', label: 'Overview', icon: LayoutDashboard },
         { id: 'scan', label: 'Scan', icon: ScanBarcode },
@@ -334,7 +332,7 @@ function AppContent() {
   );
 
   const PublicNavigation = () => (
-    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto shrink-0">
+    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto overflow-y-hidden shrink-0">
       {[
         { id: 'checkout', label: 'Checkout', icon: ScanBarcode },
         { id: 'browse', label: 'Stock list', icon: Package },
@@ -710,9 +708,6 @@ function AppContent() {
       </main>
 
       <Footer />
-
-      {/* Bridges Microsoft auth <-> volunteer mode (only when Azure is configured) */}
-      {isMsalConfigured && <MicrosoftAuthSync />}
 
       {/* Modals */}
       <VolunteerModal
