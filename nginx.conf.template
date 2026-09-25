@@ -20,6 +20,12 @@ map "$request_method:$is_volunteer" $catalogue_write_denied {
     default         1;
 }
 
+# WebSocket upgrade for the laser service's Socket.IO.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ""      close;
+}
+
 server {
     listen 80;
     server_name _;
@@ -86,6 +92,23 @@ server {
     location ~ ^/api/(part|stock|company|order|barcode)/ {
         if ($catalogue_write_denied) { return 401; }
         proxy_pass ${INVENTREE_BACKEND_URL};
+    }
+
+    # Laser time tracking and settings: the laser service (laser/ in this repo).
+    # Looked up per request, so the till still starts when that container is
+    # down. Its own headers only: the InvenTree token must never reach it.
+    location /laser/ {
+        resolver 127.0.0.11 valid=30s ipv6=off;
+        set $laser_upstream http://laser:5000;
+        proxy_pass $laser_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Authorization "";
+        proxy_set_header X-Volunteer-Key "";
+        proxy_read_timeout 1h;
     }
 
     # Everything else (users, settings, admin, ...) is volunteers only.
