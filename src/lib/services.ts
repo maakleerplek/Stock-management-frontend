@@ -74,3 +74,23 @@ export function laserStats(lines: ServiceLine[], days?: number, now: Date = new 
     perPerson: [...people.values()].sort((a, b) => b.minutes - a.minutes),
   };
 }
+
+/** Shape of a row from the laser service's GET /discarded. */
+export interface DiscardRow { seconds: number; source: 'unassigned' | 'session'; session_name: string | null; reason: string | null; discarded_at: string }
+
+export interface LostLaserStats {
+  count: number;
+  minutes: number;        // exact, not rounded up like the till does
+  value: number;          // minutes × price per minute: money not billed
+  rows: DiscardRow[];     // newest first
+}
+
+/** Laser time thrown away instead of billed (reset, deleted sessions). */
+export function lostLaserStats(rows: DiscardRow[], pricePerMinute: number, days?: number, now: Date = new Date()): LostLaserStats {
+  const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
+  const kept = rows
+    .filter(r => !since || new Date(r.discarded_at) >= since)
+    .sort((a, b) => b.discarded_at.localeCompare(a.discarded_at));
+  const minutes = kept.reduce((s, r) => s + r.seconds / 60, 0);
+  return { count: kept.length, minutes, value: minutes * pricePerMinute, rows: kept };
+}

@@ -18,6 +18,16 @@ export interface LaserSession {
   checkout_at: string | null;
 }
 
+/** Laser time that was thrown away instead of billed. */
+export interface DiscardedTime {
+  id: number;
+  seconds: number;
+  source: 'unassigned' | 'session';
+  session_name: string | null;
+  reason: string | null;
+  discarded_at: string;
+}
+
 export interface LaserTime {
   global_time: number;
   laser_state: boolean;
@@ -86,11 +96,12 @@ async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T>
 export const laserApi = {
   config: () => call<{ costPerMin: number; maxPower: number; simulate: boolean }>('/config'),
   createSession: (name: string) => call<{ id: string }>('/sessions', 'POST', { name }),
-  deleteSession: (id: string) => call('/sessions/' + encodeURIComponent(id), 'DELETE'),
+  deleteSession: (id: string, reason?: string) => call('/sessions/' + encodeURIComponent(id), 'DELETE', { reason }),
   setCheckout: (id: string, on: boolean) => call(`/sessions/${encodeURIComponent(id)}/checkout`, 'POST', { on }),
   markPaid: (id: string, order: string) => call(`/sessions/${encodeURIComponent(id)}/paid`, 'POST', { order }),
   flush: (sessionId: string) => call<{ flushed_time: number }>('/flush', 'POST', { session_id: sessionId }),
-  reset: () => call('/reset', 'POST'),
+  reset: (reason?: string) => call('/reset', 'POST', { reason }),
+  discarded: () => call<{ rows: DiscardedTime[] }>('/discarded'),
   simulate: (on: boolean) => call('/simulate', 'POST', { state: on ? 'ON' : 'OFF' }),
   materials: () => call<{ materials: LaserMaterial[] }>('/materials'),
   library: () => call<{ rows: LibraryRow[]; minPower: number; maxPower: number }>('/library'),

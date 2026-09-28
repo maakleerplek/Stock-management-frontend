@@ -183,11 +183,23 @@ def create_session():
     return {'id': sid}
 
 
+def reason_from_body() -> str | None:
+    return (((request.get_json(silent=True) or {}).get('reason') or '').strip()[:200]) or None
+
+
+def log_discard(seconds: float, source: str, session_name: str | None, reason: str | None):
+    db.execute('INSERT INTO discarded_time (seconds, source, session_name, reason, discarded_at) VALUES (?, ?, ?, ?, ?)',
+               (seconds, source, session_name, reason, datetime.now().isoformat()))
+
+
 @app.delete('/laser/api/sessions/<sid>')
 def delete_session(sid):
     rows = db.query('SELECT * FROM sessions WHERE id = ?', (sid,))
     if not rows:
         return {'error': 'Session not found'}, 404
+    s = rows[0]
+    if s['paid_at'] is None and s['total_time'] > 0:
+        log_discard(s['total_time'], 'session', s['name'], reason_from_body())
     db.execute('DELETE FROM time_blocks WHERE session_id = ?', (sid,))
     db.execute('DELETE FROM sessions WHERE id = ?', (sid,))
     broadcast_sessions()
@@ -238,9 +250,16 @@ def flush():
 @app.post('/laser/api/reset')
 def reset():
     seconds = take_time()
+    if seconds > 0:
+        log_discard(seconds, 'unassigned', None, reason_from_body())
     with state_lock:
         socketio.emit('time_update', time_payload())
     return {'reset_amount': seconds}
+
+
+@app.get('/laser/api/discarded')
+def get_discarded():
+    return {'rows': db.query('SELECT * FROM discarded_time ORDER BY discarded_at DESC')}
 
 
 @app.post('/laser/api/simulate')

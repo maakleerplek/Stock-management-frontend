@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Zap, X, Plus, RotateCcw, ArrowRightLeft, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff } from 'lucide-react';
+import { Zap, X, Plus, RotateCcw, ArrowRightLeft, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat } from 'lucide-react';
 import LaserAnimation from './components/LaserAnimation';
 import LaserLibrary from './components/LaserLibrary';
 import { useToast } from './ToastContext';
@@ -23,6 +23,14 @@ const OUTCOMES: { id: LaserOutcome; label: string }[] = [
   { id: 'failed', label: 'Did not work' },
   { id: 'risky', label: 'Fire / melting' },
 ];
+
+// The laser asks for a max and a min power. It drops towards min where the
+// head slows down (corners, curves, line ends), so those spots don't burn.
+// Cutting: 10 points under max. Engraving: same as max for now, to be tuned.
+const MIN_POWER_GAP: Record<LaserOperation, number> = { cut: 10, engrave: 0 };
+const TUBE_MIN_POWER = 10; // the tube needs at least this (laser/app.py MIN_POWER)
+const minPowerFor = (op: LaserOperation, power: number) =>
+  Math.max(TUBE_MIN_POWER, Math.min(power, power - MIN_POWER_GAP[op]));
 
 const CONFIDENCE: Record<LaserSetting['confidence'], string> = {
   none: 'No data for this thickness',
@@ -49,6 +57,8 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
   const [selected, setSelected] = useState('');
   const [newName, setNewName] = useState('');
   const [busy, setBusy] = useState(false);
+  // What the throw-away confirm is open for: the unassigned time or one session.
+  const [discarding, setDiscarding] = useState<'unassigned' | string | null>(null);
 
   // Keep a valid selection when sessions come and go.
   useEffect(() => {
@@ -127,11 +137,20 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
             className="brutalist-button px-3 bg-white text-sm flex items-center gap-1 disabled:opacity-40"
             disabled={busy || pending <= 0}
             title="Throw away the time that is not assigned"
-            onClick={() => { if (window.confirm('Throw away the unassigned time?')) run(() => laserApi.reset()); }}
+            onClick={() => setDiscarding(discarding === 'unassigned' ? null : 'unassigned')}
           >
             <RotateCcw size={14} />
           </button>
         </div>
+        {discarding === 'unassigned' && pending > 0 && (
+          <DiscardConfirm
+            what={`Throw away ${formatDuration(pending)} unassigned time`}
+            value={pending / 60 * PRICING.LASER_PER_MINUTE}
+            busy={busy}
+            onCancel={() => setDiscarding(null)}
+            onConfirm={reason => run(async () => { await laserApi.reset(reason); setDiscarding(null); })}
+          />
+        )}
       </div>
 
       <form className="flex gap-2" onSubmit={e => { e.preventDefault(); createSession(); }}>
@@ -150,7 +169,8 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
 
       <div className="space-y-2">
         {sessions.map(s => (
-          <div key={s.id} className="border border-lijn p-3 flex items-center justify-between gap-3 bg-white">
+          <div key={s.id} className="border border-lijn bg-white">
+          <div className="p-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="font-semibold text-sm truncate">{s.name}</div>
               <div className="text-xs text-grafiet font-mono">
@@ -178,15 +198,66 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
               <button
                 className="brutalist-button px-2 py-2 bg-white text-xs"
                 title="Delete session"
-                onClick={() => { if (window.confirm(`Delete the session of ${s.name}?`)) run(() => laserApi.deleteSession(s.id)); }}
+                onClick={() => setDiscarding(discarding === s.id ? null : s.id)}
               >
                 <Trash2 size={14} />
               </button>
             </div>
           </div>
+          {discarding === s.id && (
+            <div className="px-3 pb-3">
+              <DiscardConfirm
+                what={s.total_time > 0 ? `Delete ${s.name} and throw away ${formatDuration(s.total_time)}` : `Delete the session of ${s.name}`}
+                value={s.total_time > 0 ? s.minutes * PRICING.LASER_PER_MINUTE : null}
+                busy={busy}
+                onCancel={() => setDiscarding(null)}
+                onConfirm={reason => run(async () => { await laserApi.deleteSession(s.id, reason); setDiscarding(null); })}
+              />
+            </div>
+          )}
+          </div>
         ))}
       </div>
     </section>
+  );
+}
+
+/** Inline confirm before laser time is thrown away. The time is logged for the
+ *  analytics, with an optional reason; value null means nothing is lost. */
+function DiscardConfirm({ what, value, busy, onCancel, onConfirm }: {
+  what: string;
+  value: number | null;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (reason?: string) => void;
+}) {
+  const [reason, setReason] = useState('');
+  return (
+    <form
+      className="border border-lijn bg-rose-50 p-3 space-y-2"
+      onSubmit={e => { e.preventDefault(); onConfirm(reason.trim() || undefined); }}
+    >
+      <div className="text-xs font-semibold text-brand-black">
+        {what}{value !== null && ` · €${value.toFixed(2)}`}?
+      </div>
+      {value !== null && (
+        <input
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          placeholder="Why? (optional, e.g. test cut)"
+          className="w-full h-9 px-3 border border-lijn bg-white text-sm"
+          maxLength={200}
+          autoFocus
+        />
+      )}
+      <div className="flex justify-end gap-2">
+        <button type="button" className="brutalist-button px-3 py-1.5 bg-white text-xs" onClick={onCancel}>Cancel</button>
+        <button type="submit" disabled={busy} className="brutalist-button px-3 py-1.5 bg-brand-black text-white text-xs font-semibold disabled:opacity-40">
+          {value !== null ? 'Throw away' : 'Delete'}
+        </button>
+      </div>
+      {value !== null && <p className="text-[10px] text-grafiet">Kept in Analytics → Laser as thrown-away time.</p>}
+    </form>
   );
 }
 
@@ -320,11 +391,19 @@ function SettingsPanel() {
                   </p>
                 ) : (
                   <div className="p-4 space-y-3">
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <Stat label="Speed" value={`${r.speed}`} unit="mm/s" />
-                      <Stat label="Power" value={`${r.power}`} unit="%" />
-                      <Stat label="Passes" value={`${r.passes}`} unit="×" />
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                      <Stat icon={Gauge} label="Speed" value={`${r.speed}`} unit="mm/s" />
+                      <Stat icon={Flame} label="Max power" value={`${r.power}`} unit="%" />
+                      <Stat icon={FlameKindling} label="Min power" value={`${minPowerFor(r.operation, r.power ?? 0)}`} unit="%" />
+                      <Stat icon={Repeat} label="Passes" value={`${r.passes}`} unit="×" />
                     </div>
+                    <p className="text-[11px] text-grafiet">
+                      <span className="font-semibold text-brand-black/70">Min power</span> is used where the head slows down,
+                      in corners and curves, so those edges don't get more heat than the straight parts.
+                      {r.operation === 'cut'
+                        ? ' For cutting, set it about 10 % below max.'
+                        : ' For engraving the head keeps a steady speed, so the same as max is a good start.'}
+                    </p>
                     <p className="text-[11px] text-grafiet">
                       {CONFIDENCE[r.confidence]}{r.reportCount > 0 && ` (${r.reportCount})`}
                     </p>
@@ -360,10 +439,10 @@ function SettingsPanel() {
   );
 }
 
-function Stat({ label, value, unit }: { label: string; value: string; unit: string }) {
+function Stat({ icon: Icon, label, value, unit }: { icon: React.ElementType; label: string; value: string; unit: string }) {
   return (
     <div className="border border-lijn py-2">
-      <div className="text-[10px] font-semibold text-brand-black/60">{label}</div>
+      <div className="text-[10px] font-semibold text-brand-black/60 flex items-center justify-center gap-1"><Icon size={11} />{label}</div>
       <div className="text-2xl font-semibold tabular-nums">{value}<span className="text-xs text-grafiet ml-0.5">{unit}</span></div>
     </div>
   );

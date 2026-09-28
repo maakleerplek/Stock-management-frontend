@@ -67,3 +67,23 @@ def test_time_cannot_go_to_a_paid_session(tmp_path):
     laser.global_time = 30.0
     assert c.post('/laser/api/flush', json={'session_id': sid}).status_code == 400
     laser.global_time = 0.0
+
+
+def test_thrown_away_time_is_logged(tmp_path):
+    c = client(tmp_path)
+    laser.global_time = 902.0                               # 15 min 2 s unassigned
+    assert c.post('/laser/api/reset', json={'reason': 'test cut'}).status_code == 200
+    laser.global_time = 0.0
+    c.post('/laser/api/reset')                              # nothing to throw away: no row
+
+    sid = c.post('/laser/api/sessions', json={'name': 'Ruben'}).json['id']
+    db.execute('UPDATE sessions SET total_time = 120 WHERE id = ?', (sid,))
+    assert c.delete(f'/laser/api/sessions/{sid}').status_code == 200    # no body, no reason
+    empty = c.post('/laser/api/sessions', json={'name': 'Empty'}).json['id']
+    c.delete(f'/laser/api/sessions/{empty}', json={'reason': 'typo'})   # no time: no row
+
+    rows = sorted(c.get('/laser/api/discarded').json['rows'], key=lambda r: r['id'])
+    assert [(r['source'], r['seconds'], r['session_name'], r['reason']) for r in rows] == [
+        ('unassigned', 902.0, None, 'test cut'),
+        ('session', 120.0, 'Ruben', None),
+    ]
