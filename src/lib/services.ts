@@ -95,3 +95,22 @@ export function lostLaserStats(rows: DiscardRow[], pricePerMinute: number, days?
   const minutes = kept.reduce((s, r) => s + r.seconds / 60, 0);
   return { count: kept.length, minutes, value: minutes * pricePerMinute, rows: kept };
 }
+
+export interface ServiceRevenue { reference: string; quantity: number; revenue: number }
+
+/** Paid machine services per reference (Lasertime, CNC time, 3D printing, ...), most revenue first. */
+export function serviceRevenue(lines: ServiceLine[], days?: number, now: Date = new Date()): ServiceRevenue[] {
+  const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
+  const byRef = new Map<string, ServiceRevenue>();
+  for (const line of lines) {
+    if (!COUNTED.has(line.orderStatus)) continue;
+    if (since && !(line.date && new Date(line.date) >= since)) continue;
+    // Old laser lines carry the name in the reference: "Lasertime – Ruben (min)".
+    const reference = isLaser(line) ? 'Lasertime' : line.reference.trim() || 'Other';
+    const r = byRef.get(reference) ?? { reference, quantity: 0, revenue: 0 };
+    r.quantity += line.quantity;
+    r.revenue += line.quantity * line.price;
+    byRef.set(reference, r);
+  }
+  return [...byRef.values()].sort((a, b) => b.revenue - a.revenue);
+}

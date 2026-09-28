@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Package, BarChart2, Percent, Download, HandHeart } from 'lucide-react';
-import { useStock } from '../StockContext';
 import type { InvenTreeTrackingEntry } from '../api/types';
-import { isSale, isVolunteerDrink, unitsSold, unitsGiven, TRACKING, type PartInfo, type SaleKind } from '../lib/stockHistory';
+import type { PartInfo, SaleKind } from '../lib/stockHistory';
+import { itemAnalytics } from '../lib/itemAnalytics';
+import { usePartLookup } from './usePartLookup';
 import StockHistoryChart from '../components/StockHistoryChart';
 import { BrutalistBar, Section, Empty, SegmentedButtons, StatCards } from './ui';
 import type { DateRange } from './AnalyticsPage';
@@ -13,19 +14,6 @@ const SALE_KINDS: { value: SaleKind; label: string }[] = [
   { value: 'volunteer', label: 'Volunteer' },
 ];
 
-interface PartAnalytics {
-  partId: number;
-  name: string;
-  sellingPrice: number; // pricing_max
-  costPrice: number;    // pricing_min
-  category: string;
-  removed: number;      // paid + volunteer units within the selected kind
-  given: number;        // volunteer drinks: out of stock, never paid
-  added: number;
-  revenue: number;
-  profit: number;       // (sellingPrice - costPrice) × paid - costPrice × given
-}
-
 /** Stock movement, sales and volunteer drinks, from the InvenTree tracking log. */
 export default function ItemsTab({ trackingEntries, loading, error, onRetry, dateRange }: {
   trackingEntries: InvenTreeTrackingEntry[];
@@ -34,24 +22,9 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
   onRetry: () => void;
   dateRange: DateRange;
 }) {
-  const { items } = useStock();
   const [kind, setKind] = useState<SaleKind>('all');
 
-  // part_id -> { name, sellingPrice (sale price break), costPrice (supplier price), category }
-  const partLookup = useMemo(() => {
-    const map = new Map<number, { name: string; sellingPrice: number; costPrice: number; category: string }>();
-    items.forEach(item => {
-      if (item.part_id != null && !map.has(item.part_id)) {
-        map.set(item.part_id, {
-          name: item.name,
-          sellingPrice: item.price,   // sale price break
-          costPrice: item.cost,       // supplier price / pack size
-          category: item.category,
-        });
-      }
-    });
-    return map;
-  }, [items]);
+  const partLookup = usePartLookup();
 
   const chartParts = useMemo(() => {
     const map = new Map<number, PartInfo>();
@@ -59,65 +32,10 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
     return map;
   }, [partLookup]);
 
-  // Filter entries by selected date range
-  const filteredEntries = useMemo(() => {
-    if (!dateRange.days) return trackingEntries;
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - dateRange.days);
-    return trackingEntries.filter(e => new Date(e.date) >= cutoff);
-  }, [trackingEntries, dateRange]);
-
-  // Aggregate by part - profit = (sale price - supplier cost) x units paid,
-  // minus the supplier cost of every volunteer drink.
-  const analytics = useMemo(() => {
-    const byPartMap = new Map<number, PartAnalytics>();
-
-    filteredEntries.forEach(entry => {
-      // Stocktakes and volunteer-mode corrections are not sales or restocks.
-      const paid = kind === 'volunteer' ? 0 : unitsSold(entry);
-      const given = kind === 'paid' ? 0 : unitsGiven(entry);
-      const added = entry.tracking_type === TRACKING.STOCK_ADD ? entry.deltas?.added ?? 0 : 0;
-      if (paid === 0 && given === 0 && added === 0) return;
-
-      const partId = entry.part;
-      const info = partLookup.get(partId);
-      const name = info?.name ?? `Part #${partId}`;
-      const sellingPrice = info?.sellingPrice ?? 0;
-      const costPrice = info?.costPrice ?? 0;
-      const category = info?.category ?? 'Uncategorized';
-      const margin = Math.max(0, sellingPrice - costPrice);
-
-      const prev = byPartMap.get(partId) ?? {
-        partId, name, sellingPrice, costPrice, category,
-        removed: 0, given: 0, added: 0, revenue: 0, profit: 0,
-      };
-      byPartMap.set(partId, {
-        ...prev,
-        removed: prev.removed + paid + given,
-        given: prev.given + given,
-        added: prev.added + added,
-        revenue: prev.revenue + paid * sellingPrice,
-        profit: prev.profit + paid * margin - given * costPrice,
-      });
-    });
-
-    const byPart = Array.from(byPartMap.values());
-    return {
-      byPart,
-      totalRemoved: byPart.reduce((s, p) => s + p.removed, 0),
-      totalGiven: byPart.reduce((s, p) => s + p.given, 0),
-      givenCost: byPart.reduce((s, p) => s + p.given * p.costPrice, 0),
-      totalAdded: byPart.reduce((s, p) => s + p.added, 0),
-      totalRevenue: byPart.reduce((s, p) => s + p.revenue, 0),
-      totalProfit: byPart.reduce((s, p) => s + p.profit, 0),
-      totalTransactions: filteredEntries.filter(e =>
-        (kind !== 'volunteer' && isSale(e)) ||
-        (kind !== 'paid' && isVolunteerDrink(e)) ||
-        e.tracking_type === TRACKING.STOCK_ADD
-      ).length,
-      hasCostPrices: byPart.some(p => p.costPrice > 0),
-    };
-  }, [filteredEntries, partLookup, kind]);
+  const analytics = useMemo(
+    () => itemAnalytics(trackingEntries, partLookup, kind, dateRange.days ?? undefined),
+    [trackingEntries, partLookup, kind, dateRange],
+  );
 
   const mostUsed = useMemo(() =>
     analytics.byPart.filter(p => p.removed > 0).sort((a, b) => b.removed - a.removed).slice(0, 10),

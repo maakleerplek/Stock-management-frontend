@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, RefreshCw, Zap } from 'lucide-react';
+import { Package, RefreshCw, Sigma, Zap } from 'lucide-react';
 import inventreeClient from '../api/inventreeClient';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { laserApi } from '../lib/laserApi';
@@ -8,6 +8,7 @@ import { cn } from '../lib/utils';
 import { SegmentedButtons } from './ui';
 import ItemsTab from './ItemsTab';
 import LaserTab from './LaserTab';
+import TotalsTab from './TotalsTab';
 
 const DATE_RANGES = [
   { label: '7D', days: 7 },
@@ -20,6 +21,7 @@ export type DateRange = typeof DATE_RANGES[number];
 
 // A new analysis is one more entry here and one more tab file.
 const TABS = [
+  { id: 'totals', label: 'Totals', icon: Sigma, subtitle: 'Revenue, costs and profit' },
   { id: 'items', label: 'Items', icon: Package, subtitle: 'Stock movement & revenue' },
   { id: 'laser', label: 'Laser', icon: Zap, subtitle: 'Laser time, paid via a session or not' },
 ] as const;
@@ -29,7 +31,7 @@ type TabId = typeof TABS[number]['id'];
 // The open sub-tab lives in the hash after the page: #analytics/laser.
 function tabFromHash(): TabId {
   const sub = window.location.hash.split('/')[1];
-  return TABS.find(t => t.id === sub)?.id ?? 'items';
+  return TABS.find(t => t.id === sub)?.id ?? 'totals';
 }
 
 export default function AnalyticsPage() {
@@ -124,6 +126,16 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
+        {tab === 'totals' && (
+          <TotalsTab
+            trackingEntries={trackingEntries}
+            serviceLines={serviceLines}
+            discarded={discarded}
+            loading={trackingLoading || laserLoading}
+            trackingError={trackingError}
+            dateRange={dateRange}
+          />
+        )}
         {tab === 'items' && (
           <ItemsTab
             trackingEntries={trackingEntries}

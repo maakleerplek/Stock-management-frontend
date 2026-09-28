@@ -1,0 +1,86 @@
+import { describe, expect, it } from 'vitest';
+import type { InvenTreeTrackingEntry } from '../src/api/types';
+import { itemAnalytics, type PartPrice } from '../src/lib/itemAnalytics';
+import { serviceRevenue, lostLaserStats, type ServiceLine } from '../src/lib/services';
+import { buildTotals } from '../src/lib/totals';
+import { TRACKING } from '../src/lib/stockHistory';
+
+const now = new Date('2026-09-28T12:00:00');
+let pk = 0;
+const entry = (part: number, date: string, type: number, deltas: InvenTreeTrackingEntry['deltas'], notes = '') =>
+  ({ pk: ++pk, item: part, part, date, tracking_type: type, deltas, notes } as unknown as InvenTreeTrackingEntry);
+
+const parts = new Map<number, PartPrice>([
+  [1, { name: 'Cola', sellingPrice: 2, costPrice: 0.8, category: 'Drinks' }],
+  [2, { name: 'Sticker', sellingPrice: 1, costPrice: 0, category: 'Misc' }],   // no supplier price
+]);
+
+const entries = [
+  entry(1, '2026-09-27', TRACKING.SHIPPED_AGAINST_SALES_ORDER, { quantity: 3 }),          // 3 paid colas
+  entry(1, '2026-09-27', TRACKING.STOCK_REMOVE, { removed: 2 }, 'Volunteer drink via Interface-stock'),
+  entry(2, '2026-09-26', TRACKING.SHIPPED_AGAINST_SALES_ORDER, { quantity: 4 }),          // 4 stickers
+  entry(1, '2026-09-26', TRACKING.STOCK_ADD, { added: 24 }),
+  entry(1, '2026-07-01', TRACKING.SHIPPED_AGAINST_SALES_ORDER, { quantity: 10 }),         // outside 30 days
+];
+
+const line = (over: Partial<ServiceLine>): ServiceLine => ({
+  reference: 'Lasertime', description: 'Ruben', quantity: 10, price: 0.5, date: '2026-09-20', orderStatus: 30, ...over,
+});
+
+describe('itemAnalytics', () => {
+  it('splits paid revenue, cost of the paid units and volunteer drinks', () => {
+    const a = itemAnalytics(entries, parts, 'all', 30, now);
+    expect(a.totalRevenue).toBe(10);                       // 3 × 2 + 4 × 1
+    expect(a.paidCost).toBeCloseTo(2.4);                   // 3 × 0.8, stickers cost 0
+    expect(a.givenCost).toBeCloseTo(1.6);                  // 2 × 0.8
+    expect(a.uncostedUnits).toBe(4);
+    expect(a.totalAdded).toBe(24);
+    expect(a.totalRevenue - a.paidCost - a.givenCost).toBeCloseTo(a.totalProfit);
+  });
+
+  it('counts everything without a period', () => {
+    expect(itemAnalytics(entries, parts, 'all', undefined, now).totalRevenue).toBe(30);
+  });
+});
+
+describe('serviceRevenue', () => {
+  it('groups per service, old laser references included, and skips orders that are not money in', () => {
+    const s = serviceRevenue([
+      line({}),
+      line({ reference: 'Lasertime – Jan (min)', description: '', quantity: 4 }),
+      line({ reference: 'CNC time', quantity: 20 }),
+      line({ orderStatus: 40, quantity: 15 }),                     // cancelled
+      line({ date: '2026-07-01', quantity: 100 }),                 // outside 30 days
+    ], 30, now);
+    expect(s).toEqual([
+      { reference: 'CNC time', quantity: 20, revenue: 10 },
+      { reference: 'Lasertime', quantity: 14, revenue: 7 },
+    ]);
+  });
+});
+
+describe('buildTotals', () => {
+  it('adds the rows up to the total and keeps laser time without a session out of it', () => {
+    const items = itemAnalytics(entries, parts, 'all', 30, now);
+    const lost = lostLaserStats([
+      { seconds: 900, source: 'unassigned', session_name: null, reason: null, discarded_at: '2026-09-27T10:00:00' },
+    ], 0.5, 30, now);
+    const t = buildTotals(items, serviceRevenue([line({})], 30, now), lost);
+
+    expect(t.rows.map(r => r.label)).toEqual(['Items sold', 'Volunteer drinks', 'Laser time']);
+    expect(t.total.revenue).toBeCloseTo(15);                // 10 items + 5 laser
+    expect(t.total.costs).toBeCloseTo(4);                   // 2.4 + 1.6
+    expect(t.total.profit).toBeCloseTo(11);
+    expect(t.total.profit).toBeCloseTo(t.rows.reduce((s, r) => s + r.profit, 0));
+    expect(t.notViaSession).toEqual({ minutes: 15, value: 7.5 });
+    expect(t.notes).toHaveLength(2);                        // uncosted stickers, machine costs
+  });
+
+  it('leaves rows with only zeros out', () => {
+    const empty = itemAnalytics([], parts, 'all', 30, now);
+    const t = buildTotals(empty, [], lostLaserStats([], 0.5, 30, now));
+    expect(t.rows).toEqual([]);
+    expect(t.total).toEqual({ label: 'Total', revenue: 0, costs: 0, profit: 0 });
+    expect(t.notes).toEqual([]);
+  });
+});
