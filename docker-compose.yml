@@ -26,7 +26,7 @@ services:
       # The VITE_ name still works for older .env files.
       - INVENTREE_TOKEN=${INVENTREE_TOKEN:-${VITE_INVENTREE_TOKEN}}
       # Volunteer sign-in: authentik (oauth2-proxy below; also set
-      # COMPOSE_PROFILES=authentik so it starts) or password (test server).
+      # COMPOSE_PROFILES=authentik so it starts) or password (htl-tempserver only).
       - AUTH_MODE=${AUTH_MODE:-authentik}
       - VOLUNTEER_PASSWORD=${VOLUNTEER_PASSWORD:-${VITE_VOLUNTEER_PASSWORD:-}}
       # Authentik's end-session URL; see oauth2-proxy below.
@@ -40,6 +40,8 @@ services:
       - "${FRONTEND_HTTPS_PORT:-8444}:443"
     volumes:
       - ssl-certs:/etc/nginx/ssl
+      # entrypoint.sh allows AUTH_MODE=password only on the test server's host.
+      - /etc/hostname:/host/hostname:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]

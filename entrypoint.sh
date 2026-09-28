@@ -19,6 +19,15 @@ export AUTH_MODE=${AUTH_MODE:-authentik}
 case "$AUTH_MODE" in
     authentik) VOLUNTEER_KEY= ;;
     password)
+        # Only the test server may use the shared password; everywhere else a
+        # volunteer signs in through Authentik. Checked against the host's own
+        # name (docker-compose.yml mounts /etc/hostname), not a setting in
+        # .env, so a copied .env cannot turn it on elsewhere.
+        HOST_NAME=$(cat /host/hostname 2>/dev/null || true)
+        if [ "$HOST_NAME" != "htl-tempserver" ]; then
+            echo "ERROR: AUTH_MODE=password is only allowed on htl-tempserver, this host is '${HOST_NAME:-unknown}'." >&2
+            exit 1
+        fi
         VOLUNTEER_PASSWORD=${VOLUNTEER_PASSWORD:-$VITE_VOLUNTEER_PASSWORD}
         if [ -n "$VOLUNTEER_PASSWORD" ]; then
             VOLUNTEER_KEY=$(printf '%s' "$VOLUNTEER_PASSWORD" | sha256sum | cut -d' ' -f1)
