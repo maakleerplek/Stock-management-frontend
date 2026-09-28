@@ -15,7 +15,7 @@ import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
 import AdminToolsBar from './components/AdminToolsBar';
 import PurchaseOrderPage from './PurchaseOrderPage';
-import StockAnalytics from './StockAnalytics';
+import AnalyticsPage from './analytics/AnalyticsPage';
 import LaserCutterPage from './LaserCutterPage';
 import { laserApi, useLaserSocket } from './lib/laserApi';
 import {
@@ -37,9 +37,10 @@ import './index.css';
 export type AppView = 'checkout' | 'browse' | 'laser' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
 const VIEWS: AppView[] = ['checkout', 'browse', 'laser', 'volunteer', 'inventory', 'scan', 'orders', 'analytics'];
 
-// The open tab lives in the URL hash (#laser), so a refresh stays on it.
+// The open tab lives in the URL hash (#laser), so a refresh stays on it. A
+// page may add its own sub-tab after a slash (#analytics/laser).
 function viewFromHash(): AppView {
-  const hash = window.location.hash.slice(1);
+  const hash = window.location.hash.slice(1).split('/')[0];
   return VIEWS.find(v => v === hash) ?? 'checkout';
 }
 
@@ -306,7 +307,8 @@ function AppContent() {
   }, [isVolunteerMode, currentPage]);
 
   useEffect(() => {
-    window.history.replaceState(null, '', `#${currentPage}`);
+    // Leave the hash alone when it already points here: keeps the sub-tab.
+    if (viewFromHash() !== currentPage) window.history.replaceState(null, '', `#${currentPage}`);
   }, [currentPage]);
 
   // Clear prefill state when leaving the orders page
@@ -729,7 +731,7 @@ function AppContent() {
                   transition={{ duration: 0.15 }}
                   className="flex-1 flex flex-col min-h-0 overflow-hidden"
                 >
-                  <StockAnalytics />
+                  <AnalyticsPage />
                 </motion.div>
               )}
 
