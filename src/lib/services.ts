@@ -81,11 +81,12 @@ export interface DiscardRow { seconds: number; source: 'unassigned' | 'session';
 export interface LostLaserStats {
   count: number;
   minutes: number;        // exact, not rounded up like the till does
-  value: number;          // minutes × price per minute: money not billed
+  value: number;          // minutes × price per minute: not billed via a session
   rows: DiscardRow[];     // newest first
 }
 
-/** Laser time thrown away instead of billed (reset, deleted sessions). */
+/** Laser time cleared without a paid session (reset, deleted sessions). It may
+ *  have been paid some other way; we only know it did not go through the app. */
 export function lostLaserStats(rows: DiscardRow[], pricePerMinute: number, days?: number, now: Date = new Date()): LostLaserStats {
   const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
   const kept = rows

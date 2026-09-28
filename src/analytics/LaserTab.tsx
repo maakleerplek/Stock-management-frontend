@@ -13,7 +13,7 @@ const fmtMinutes = (m: number) => {
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleString('nl-BE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
-/** Paid laser sessions per person (sales orders) and time thrown away (laser service). */
+/** Paid laser sessions per person (sales orders) and time that never went through a paid session (laser service). */
 export default function LaserTab({ serviceLines, discarded, loading, dateRange }: {
   serviceLines: ServiceLine[];
   discarded: DiscardRow[];
@@ -41,9 +41,9 @@ export default function LaserTab({ serviceLines, discarded, loading, dateRange }
         { label: 'Avg per session', value: laser.sessions ? fmtMinutes(laser.avgPerSession) : '–', icon: Timer, bg: 'bg-brand-beige-dark' },
         { label: 'Avg per person', value: laser.people ? fmtMinutes(laser.avgPerPerson) : '–', icon: UserCheck, bg: 'bg-brand-beige-dark' },
         {
-          label: 'Thrown away',
+          label: 'Not via session',
           value: fmtMinutes(lost.minutes),
-          sub: lost.count ? `€${lost.value.toFixed(2)} not billed` : undefined,
+          sub: lost.count ? `€${lost.value.toFixed(2)}, unknown if paid` : undefined,
           icon: Trash2,
           bg: lost.count ? 'bg-rose-50' : 'bg-brand-beige-dark',
         },
@@ -81,8 +81,8 @@ export default function LaserTab({ serviceLines, discarded, loading, dateRange }
         )}
       </Section>
 
-      <Section title="Thrown away time" icon={Trash2}>
-        {lost.count === 0 ? <Empty text="No laser time thrown away in this period" /> : (
+      <Section title="Laser time not paid via a session" icon={Trash2}>
+        {lost.count === 0 ? <Empty text="All laser time in this period went through a session" /> : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>

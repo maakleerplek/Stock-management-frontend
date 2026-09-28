@@ -45,7 +45,7 @@ describe('lostLaserStats', () => {
     { seconds: 600, source: 'unassigned', session_name: null, reason: null, discarded_at: '2026-08-01T09:00:00' },
   ];
 
-  it('sums the thrown-away minutes and their value in the period, newest first', () => {
+  it('sums the minutes not paid via a session and their value in the period, newest first', () => {
     const s = lostLaserStats(rows, 0.5, 7, today);
     expect(s.count).toBe(2);
     expect(s.minutes).toBe(17);

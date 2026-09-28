@@ -21,7 +21,7 @@ export type DateRange = typeof DATE_RANGES[number];
 // A new analysis is one more entry here and one more tab file.
 const TABS = [
   { id: 'items', label: 'Items', icon: Package, subtitle: 'Stock movement & revenue' },
-  { id: 'laser', label: 'Laser', icon: Zap, subtitle: 'Laser time, paid and thrown away' },
+  { id: 'laser', label: 'Laser', icon: Zap, subtitle: 'Laser time, paid via a session or not' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -70,7 +70,7 @@ export default function AnalyticsPage() {
         .catch(err => console.warn('[Analytics] Could not load service lines:', err)),
       laserApi.discarded()
         .then(d => { if (!cancelled) setDiscarded(d.rows); })
-        .catch(err => console.warn('[Analytics] Could not load thrown-away laser time:', err)),
+        .catch(err => console.warn('[Analytics] Could not load laser time without a session:', err)),
     ]).finally(() => { if (!cancelled) setLaserLoading(false); });
     return () => { cancelled = true; };
   }, [refreshKey]);

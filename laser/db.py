@@ -38,8 +38,9 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
             flushed_at TEXT NOT NULL
         );
 
-        -- Laser time that was thrown away instead of billed: unassigned time
-        -- (reset) or a deleted session. Kept so lost money stays visible.
+        -- Laser time cleared without a paid session: unassigned time
+        -- (reset) or a deleted session. Kept so time that never went through a
+        -- paid session stays visible; it may have been paid some other way.
         CREATE TABLE IF NOT EXISTS discarded_time (
             id INTEGER PRIMARY KEY,
             seconds REAL NOT NULL,

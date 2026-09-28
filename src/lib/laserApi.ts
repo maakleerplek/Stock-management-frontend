@@ -18,7 +18,7 @@ export interface LaserSession {
   checkout_at: string | null;
 }
 
-/** Laser time that was thrown away instead of billed. */
+/** Laser time cleared without a paid session (it may have been paid some other way). */
 export interface DiscardedTime {
   id: number;
   seconds: number;

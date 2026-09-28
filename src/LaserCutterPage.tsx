@@ -136,7 +136,7 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
           <button
             className="brutalist-button px-3 bg-white text-sm flex items-center gap-1 disabled:opacity-40"
             disabled={busy || pending <= 0}
-            title="Throw away the time that is not assigned"
+            title="Clear the time that is not assigned to a session"
             onClick={() => setDiscarding(discarding === 'unassigned' ? null : 'unassigned')}
           >
             <RotateCcw size={14} />
@@ -144,7 +144,7 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
         </div>
         {discarding === 'unassigned' && pending > 0 && (
           <DiscardConfirm
-            what={`Throw away ${formatDuration(pending)} unassigned time`}
+            what={`Clear ${formatDuration(pending)} that is not on a session`}
             value={pending / 60 * PRICING.LASER_PER_MINUTE}
             busy={busy}
             onCancel={() => setDiscarding(null)}
@@ -207,7 +207,7 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
           {discarding === s.id && (
             <div className="px-3 pb-3">
               <DiscardConfirm
-                what={s.total_time > 0 ? `Delete ${s.name} and throw away ${formatDuration(s.total_time)}` : `Delete the session of ${s.name}`}
+                what={s.total_time > 0 ? `Delete ${s.name} with ${formatDuration(s.total_time)} unpaid` : `Delete the session of ${s.name}`}
                 value={s.total_time > 0 ? s.minutes * PRICING.LASER_PER_MINUTE : null}
                 busy={busy}
                 onCancel={() => setDiscarding(null)}
@@ -222,8 +222,9 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
   );
 }
 
-/** Inline confirm before laser time is thrown away. The time is logged for the
- *  analytics, with an optional reason; value null means nothing is lost. */
+/** Inline confirm before laser time leaves the app without a paid session. The
+ *  time is logged for the analytics (it may or may not have been paid some
+ *  other way), with an optional reason; value null means no time is involved. */
 function DiscardConfirm({ what, value, busy, onCancel, onConfirm }: {
   what: string;
   value: number | null;
@@ -244,7 +245,7 @@ function DiscardConfirm({ what, value, busy, onCancel, onConfirm }: {
         <input
           value={reason}
           onChange={e => setReason(e.target.value)}
-          placeholder="Why? (optional, e.g. test cut)"
+          placeholder="Why? (optional, e.g. test cut, paid in cash)"
           className="w-full h-9 px-3 border border-lijn bg-white text-sm"
           maxLength={200}
           autoFocus
@@ -253,10 +254,10 @@ function DiscardConfirm({ what, value, busy, onCancel, onConfirm }: {
       <div className="flex justify-end gap-2">
         <button type="button" className="brutalist-button px-3 py-1.5 bg-white text-xs" onClick={onCancel}>Cancel</button>
         <button type="submit" disabled={busy} className="brutalist-button px-3 py-1.5 bg-brand-black text-white text-xs font-semibold disabled:opacity-40">
-          {value !== null ? 'Throw away' : 'Delete'}
+          {value !== null ? 'Clear' : 'Delete'}
         </button>
       </div>
-      {value !== null && <p className="text-[10px] text-grafiet">Kept in Analytics → Laser as thrown-away time.</p>}
+      {value !== null && <p className="text-[10px] text-grafiet">Shown in Analytics → Laser as time not paid via a session.</p>}
     </form>
   );
 }
