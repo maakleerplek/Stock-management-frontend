@@ -25,6 +25,10 @@ services:
       # Secrets stay on the server: nginx adds the token to API calls.
       # The VITE_ name still works for older .env files.
       - INVENTREE_TOKEN=${INVENTREE_TOKEN:-${VITE_INVENTREE_TOKEN}}
+      # Volunteer sign-in: authentik (oauth2-proxy below; also set
+      # COMPOSE_PROFILES=authentik so it starts) or password (test server).
+      - AUTH_MODE=${AUTH_MODE:-authentik}
+      - VOLUNTEER_PASSWORD=${VOLUNTEER_PASSWORD:-${VITE_VOLUNTEER_PASSWORD:-}}
       # Authentik's end-session URL; see oauth2-proxy below.
       - OIDC_LOGOUT_URL=${OIDC_LOGOUT_URL:-}
       # Same as the published 443 port below, for the http -> https redirect.
@@ -43,12 +47,14 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
-    depends_on:
-      - oauth2-proxy
+    # No depends_on oauth2-proxy: nginx looks it up per request, and in
+    # password mode it does not run at all.
 
   # Volunteer sign-in. nginx asks it on every volunteer-only request; it is not
   # published on a port, only nginx talks to it. Signed in = volunteer.
+  # Only with AUTH_MODE=authentik: starts when COMPOSE_PROFILES=authentik.
   oauth2-proxy:
+    profiles: [authentik]
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.4
     container_name: stock-oauth2-proxy
     restart: unless-stopped

@@ -13,11 +13,30 @@ export OIDC_LOGOUT_URL=${OIDC_LOGOUT_URL:-}
 # The host port the HTTPS side is published on, for the http -> https redirect.
 export PUBLIC_HTTPS_PORT=${PUBLIC_HTTPS_PORT:-443}
 
+# Volunteer sign-in: authentik (oauth2-proxy, the default) or password (one
+# shared password, for a server that cannot reach Authentik).
+export AUTH_MODE=${AUTH_MODE:-authentik}
+case "$AUTH_MODE" in
+    authentik) VOLUNTEER_KEY= ;;
+    password)
+        VOLUNTEER_PASSWORD=${VOLUNTEER_PASSWORD:-$VITE_VOLUNTEER_PASSWORD}
+        if [ -n "$VOLUNTEER_PASSWORD" ]; then
+            VOLUNTEER_KEY=$(printf '%s' "$VOLUNTEER_PASSWORD" | sha256sum | cut -d' ' -f1)
+        else
+            echo "WARNING: AUTH_MODE=password without VOLUNTEER_PASSWORD - volunteer login is disabled." >&2
+            VOLUNTEER_KEY=$(head -c 32 /dev/urandom | sha256sum | cut -d' ' -f1)
+        fi
+        unset VOLUNTEER_PASSWORD VITE_VOLUNTEER_PASSWORD
+        ;;
+    *) echo "ERROR: AUTH_MODE must be authentik or password, not '$AUTH_MODE'." >&2; exit 1 ;;
+esac
+export VOLUNTEER_KEY
+
 if [ -z "$INVENTREE_TOKEN" ]; then
     echo "WARNING: INVENTREE_TOKEN is not set - every API call will fail." >&2
 fi
 
-if [ -z "$OIDC_LOGOUT_URL" ]; then
+if [ "$AUTH_MODE" = authentik ] && [ -z "$OIDC_LOGOUT_URL" ]; then
     echo "WARNING: OIDC_LOGOUT_URL is not set - signing out does not end the Authentik session." >&2
 fi
 
@@ -33,7 +52,10 @@ else
     echo "Reusing existing SSL certificate."
 fi
 
-envsubst '${INVENTREE_BACKEND_URL} ${INVENTREE_TOKEN} ${OIDC_LOGOUT_URL} ${PUBLIC_HTTPS_PORT}' \
+envsubst '${INVENTREE_BACKEND_URL} ${INVENTREE_TOKEN} ${PUBLIC_HTTPS_PORT} ${AUTH_MODE}' \
     < /etc/nginx/templates/nginx.conf.template > /etc/nginx/conf.d/default.conf
+envsubst '${OIDC_LOGOUT_URL} ${VOLUNTEER_KEY}' \
+    < "/etc/nginx/templates/auth-${AUTH_MODE}.conf.template" > /etc/nginx/auth.conf
+echo "Volunteer sign-in: ${AUTH_MODE}"
 
 exec "$@"

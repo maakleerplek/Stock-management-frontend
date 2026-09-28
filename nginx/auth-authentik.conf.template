@@ -1,0 +1,45 @@
+# AUTH_MODE=authentik: volunteers sign in through Authentik. oauth2-proxy (the
+# sidecar in docker-compose.yml) keeps the session in an encrypted cookie, so
+# the browser cannot claim to be a volunteer by itself.
+# Included in the HTTPS server block of nginx.conf.template.
+
+# oauth2-proxy is looked up per request (Docker's DNS, the resolver in
+# nginx.conf.template), so nginx still starts, and the till still works,
+# while the sign-in service is down.
+set $oauth2_proxy http://oauth2-proxy:4180;
+
+# Sign-in, callback, sign-out and user info, served by oauth2-proxy.
+# Its own headers only: the InvenTree token must never reach it.
+location /oauth/ {
+    proxy_pass $oauth2_proxy;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Auth-Request-Redirect $request_uri;
+    proxy_set_header Authorization "";
+    # The session cookie carries the ID token and can be large.
+    proxy_buffer_size 16k;
+    proxy_buffers 8 16k;
+}
+
+# The auth_request target: 202 when signed in, 401 otherwise.
+location = /oauth/auth {
+    internal;
+    proxy_pass $oauth2_proxy;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header Authorization "";
+    proxy_buffer_size 16k;
+    proxy_buffers 8 16k;
+}
+
+# Ends the session here and at Authentik, so the next person on a shared
+# device has to sign in again.
+location = /logout {
+    return 302 /oauth/sign_out?rd=${OIDC_LOGOUT_URL};
+}

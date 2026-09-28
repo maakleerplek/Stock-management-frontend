@@ -6,17 +6,19 @@ import { VitePWA } from 'vite-plugin-pwa'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 import type { Plugin } from 'vite'
-import { requiredAccess, VOLUNTEER_CHECK_PATH } from './src/lib/apiAccess'
+import { createHash } from 'crypto'
+import { requiredAccess, VOLUNTEER_CHECK_PATH, AUTH_MODE_PATH, VOLUNTEER_KEY_COOKIE } from './src/lib/apiAccess'
 
 /**
  * Dev-server twin of the nginx access rules: the InvenTree token stays on the
  * server, and volunteer-only calls need a session. There is no Authentik in
  * development, so signing in just sets a cookie; DEV_VOLUNTEER=false in .env
- * turns sign-in off to test the till's view.
+ * turns sign-in off to test the till's view. AUTH_MODE=password with
+ * VOLUNTEER_PASSWORD tests the password sign-in instead.
  */
 const DEV_SESSION = 'dev_volunteer=1'
 
-function apiAccess(allowSignIn: boolean): Plugin {
+function apiAccess(allowSignIn: boolean, authMode: string, volunteerKey: string): Plugin {
   return {
     name: 'api-access',
     configureServer(server) {
@@ -32,12 +34,19 @@ function apiAccess(allowSignIn: boolean): Plugin {
         }
         if (pathOnly === '/logout') {
           res.statusCode = 302
-          res.setHeader('Set-Cookie', 'dev_volunteer=; Path=/; Max-Age=0')
+          res.setHeader('Set-Cookie', [`dev_volunteer=; Path=/; Max-Age=0`, `${VOLUNTEER_KEY_COOKIE}=; Path=/; Max-Age=0`])
           res.setHeader('Location', '/')
           return res.end()
         }
         if (!url.startsWith('/api/')) return next()
-        const isVolunteer = allowSignIn && (req.headers.cookie ?? '').includes(DEV_SESSION)
+        if (pathOnly === AUTH_MODE_PATH) {
+          res.setHeader('Content-Type', 'application/json')
+          return res.end(JSON.stringify({ mode: authMode }))
+        }
+        const cookies = req.headers.cookie ?? ''
+        const isVolunteer = allowSignIn && (authMode === 'password'
+          ? cookies.split(/;\s*/).includes(`${VOLUNTEER_KEY_COOKIE}=${volunteerKey}`)
+          : cookies.includes(DEV_SESSION))
         if (pathOnly === VOLUNTEER_CHECK_PATH) {
           res.statusCode = isVolunteer ? 204 : 401
           return res.end()
@@ -59,13 +68,15 @@ export default defineConfig(({ mode }) => {
   // client code never reads them, so they do not end up in the bundle.
   const inventreeToken = env.INVENTREE_TOKEN || env.VITE_INVENTREE_TOKEN || ''
   const allowSignIn = env.DEV_VOLUNTEER !== 'false'
+  const authMode = env.AUTH_MODE === 'password' ? 'password' : 'authentik'
+  const volunteerKey = createHash('sha256').update(env.VOLUNTEER_PASSWORD || '').digest('hex')
   const backend = env.INVENTREE_BACKEND_URL || 'http://127.0.0.1:8001'
   const proxyTarget = { target: backend, changeOrigin: true, secure: false, headers: { Authorization: `Token ${inventreeToken}` } }
 
   return {
     plugins: [
       react(),
-      apiAccess(allowSignIn),
+      apiAccess(allowSignIn, authMode, volunteerKey),
       tailwindcss(),
       basicSsl(), 
       svgr(),

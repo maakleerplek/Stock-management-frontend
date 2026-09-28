@@ -3,7 +3,8 @@
  *
  * The proxy holds the InvenTree token; the browser never sees it. Anyone at the
  * till may read the catalogue and run a checkout. Everything else needs a
- * volunteer session: signed in through Authentik via oauth2-proxy.
+ * volunteer session: signed in through Authentik via oauth2-proxy, or on a
+ * test server the shared volunteer password (AUTH_MODE=password).
  *
  * nginx.conf.template enforces the same rules in production; the Vite dev
  * server imports this module. Keep the two in step.
@@ -17,6 +18,12 @@ export const CHECKOUT_WRITE =
 export const PUBLIC_READ = /^\/api\/(part|stock|company|order|barcode)\//;
 
 export const VOLUNTEER_CHECK_PATH = '/api/auth/check/';
+/** Answers {"mode": "authentik" | "password"}: which sign-in the server uses. */
+export const AUTH_MODE_PATH = '/api/auth/mode/';
+/** Password mode: sha256 of the volunteer password, checked by the proxy. */
+export const VOLUNTEER_KEY_COOKIE = 'volunteer_key';
+
+export type AuthMode = 'authentik' | 'password';
 
 export type Access = 'public' | 'volunteer';
 

@@ -18,7 +18,7 @@ COPY . .
 
 # Build arguments for environment variables (passed at build time).
 # Secrets are NOT build arguments: everything here ends up in the public
-# JavaScript. The InvenTree token and volunteer password are runtime settings
+# JavaScript. The InvenTree token and the volunteer password are runtime settings
 # of the nginx stage (see entrypoint.sh).
 ARG VITE_ORGANIZATION_NAME
 ARG VITE_ORGANIZATION_URL
@@ -73,6 +73,7 @@ COPY --from=builder /app/dist .
 
 # Copy Nginx template and entrypoint
 COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
+COPY nginx/ /etc/nginx/templates/
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

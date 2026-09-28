@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, LogIn, AlertCircle } from 'lucide-react';
-import { startSignIn } from './auth/session';
+import { getAuthMode, signInWithPassword, startSignIn, type AuthMode } from './auth/session';
 
 interface VolunteerModalProps {
     open: boolean;
@@ -9,13 +9,35 @@ interface VolunteerModalProps {
 
 export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
     const [leaving, setLeaving] = useState(false);
+    const [mode, setMode] = useState<AuthMode | null>(null);
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
 
-    // The sign-in happens at Authentik; the app reloads here afterwards and
-    // VolunteerContext picks up the session.
-    const handleSignIn = () => {
-        if (leaving) return;
+    useEffect(() => {
+        if (open) void getAuthMode().then(setMode);
+    }, [open]);
+
+    // Authentik: the sign-in happens there, the app reloads here afterwards and
+    // VolunteerContext picks up the session. Password: the cookie is set here,
+    // and a reload does the same.
+    const handleSignIn = async () => {
+        if (leaving || !mode) return;
+        if (mode === 'authentik') {
+            setLeaving(true);
+            void startSignIn();
+            return;
+        }
+        if (!password) return;
         setLeaving(true);
-        void startSignIn();
+        setError(null);
+        const result = await signInWithPassword(password);
+        if (result === 'ok') {
+            window.location.reload();
+            return;
+        }
+        setLeaving(false);
+        setPassword('');
+        setError(result === 'wrong' ? 'Wrong password.' : 'The server did not answer. Try again.');
     };
 
     const handleClose = () => {
@@ -55,10 +77,26 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                 <div className="flex flex-col gap-1">
                                     <h3 className="font-semibold text-xs">Volunteers sign in here</h3>
                                     <p className="text-xs font-bold leading-relaxed text-brand-black/60">
-                                        Sign in with your Maakleerplek account to adjust stock levels and manage inventory. On a shared device, log out when you are done.
+                                        {mode === 'password'
+                                            ? 'Enter the volunteer password to adjust stock levels and manage inventory. On a shared device, log out when you are done.'
+                                            : 'Sign in with your Maakleerplek account to adjust stock levels and manage inventory. On a shared device, log out when you are done.'}
                                     </p>
                                 </div>
                             </div>
+                            {mode === 'password' && (
+                                <form onSubmit={e => { e.preventDefault(); void handleSignIn(); }} className="flex flex-col gap-2">
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        placeholder="Volunteer password"
+                                        autoComplete="current-password"
+                                        autoFocus
+                                        className="h-10 px-3 border border-lijn bg-white text-sm"
+                                    />
+                                    {error && <p className="text-xs font-semibold text-red-600">{error}</p>}
+                                </form>
+                            )}
 
                         </div>
 
@@ -71,13 +109,13 @@ export default function VolunteerModal({ open, onClose }: VolunteerModalProps) {
                                 Cancel
                             </button>
                             <button
-                                onClick={handleSignIn}
-                                disabled={leaving}
-                                autoFocus
+                                onClick={() => void handleSignIn()}
+                                disabled={leaving || !mode || (mode === 'password' && !password)}
+                                autoFocus={mode === 'authentik'}
                                 className="flex-1 brutalist-button bg-amber-300 text-brand-black py-3 text-xs flex justify-center items-center gap-2"
                             >
                                 <LogIn className="w-4 h-4" />
-                                {leaving ? 'Opening sign-in…' : 'Sign in'}
+                                {leaving ? (mode === 'password' ? 'Checking…' : 'Opening sign-in…') : 'Sign in'}
                             </button>
                         </div>
                     </div>

@@ -2,10 +2,9 @@
 # rules for the Vite dev server (and their tests) - keep the two in step.
 #
 # The browser never sees the InvenTree token: nginx adds it to every request.
-# A volunteer is anyone with a valid sign-in session from oauth2-proxy (the
-# sidecar in docker-compose.yml, signed in through Authentik). nginx asks it on
-# every volunteer-only request (auth_request); the session is an encrypted
-# cookie, so the browser cannot claim to be a volunteer by itself.
+# Every volunteer-only request goes through auth_request /oauth/auth, defined
+# in nginx/auth-<AUTH_MODE>.conf.template: a signed-in oauth2-proxy session
+# (Authentik), or the volunteer password's hash in a cookie (test servers).
 
 # WebSocket upgrade for the laser service's Socket.IO.
 map $http_upgrade $connection_upgrade {
@@ -65,45 +64,19 @@ server {
         return 200 "healthy\n";
     }
 
-    # oauth2-proxy is looked up per request (Docker's DNS), so nginx still
-    # starts, and the till still works, while the sign-in service is down.
+    # Docker's DNS, for upstreams looked up per request (laser, oauth2-proxy).
     resolver 127.0.0.11 valid=30s ipv6=off;
-    set $oauth2_proxy http://oauth2-proxy:4180;
 
-    # Sign-in, callback, sign-out and user info, served by oauth2-proxy.
-    # Its own headers only: the InvenTree token must never reach it.
-    location /oauth/ {
-        proxy_pass $oauth2_proxy;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Auth-Request-Redirect $request_uri;
-        proxy_set_header Authorization "";
-        # The session cookie carries the ID token and can be large.
-        proxy_buffer_size 16k;
-        proxy_buffers 8 16k;
-    }
+    # Volunteer sign-in: Authentik (oauth2-proxy) or a shared password, picked
+    # by AUTH_MODE in entrypoint.sh. Both define /oauth/auth, the check every
+    # volunteer-only location below asks (auth_request), and /logout.
+    include /etc/nginx/auth.conf;
 
-    # The auth_request target: 202 when signed in, 401 otherwise.
-    location = /oauth/auth {
-        internal;
-        proxy_pass $oauth2_proxy;
-        proxy_pass_request_body off;
-        proxy_set_header Content-Length "";
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header Authorization "";
-        proxy_buffer_size 16k;
-        proxy_buffers 8 16k;
-    }
-
-    # Ends the session here and at Authentik, so the next person on a shared
-    # device has to sign in again.
-    location = /logout {
-        return 302 /oauth/sign_out?rd=${OIDC_LOGOUT_URL};
+    # Tells the app which sign-in to show.
+    location = /api/auth/mode/ {
+        default_type application/json;
+        add_header Cache-Control "no-store";
+        return 200 '{"mode":"${AUTH_MODE}"}';
     }
 
     # The app asks here whether this browser has a volunteer session.
