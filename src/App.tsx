@@ -52,6 +52,7 @@ const VOLUNTEER_TABS: (NavTab & { short: string })[] = [
   { id: 'scan', label: 'Scan', short: 'Scan', icon: ScanBarcode },
   { id: 'inventory', label: 'Stock list', short: 'Stock', icon: Package },
   { id: 'orders', label: 'Purchase orders', short: 'Orders', icon: ShoppingBag },
+  { id: 'laser', label: 'Lasercutter', short: 'Laser', icon: Zap },
   { id: 'analytics', label: 'Analytics', short: 'Analytics', icon: BarChart2 },
 ];
 // The bottom bar has room for four tabs and More.
@@ -302,7 +303,8 @@ function AppContent() {
     try {
       await laserApi.setCheckout(sessionId, true);
       setMobileCheckoutTab('cart');
-      setCurrentPage('checkout');
+      // A volunteer's cart is on the Scan tab; the checkout sends them to the overview.
+      setCurrentPage(isVolunteerMode ? 'scan' : 'checkout');
     } catch (error) {
       handleApiError(error, 'putting the laser time in the checkout');
     }
@@ -405,7 +407,19 @@ function AppContent() {
       />
 
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {!isVolunteerMode && <PublicNavigation />}
+        {isVolunteerMode ? (
+          <>
+            <VolunteerNavigation />
+            <AdminToolsBar
+              onNewItem={() => setAddPartFormModalOpen(true)}
+              onAddCategory={() => setAddCategoryModalOpen(true)}
+              onAddLocation={() => setAddLocationModalOpen(true)}
+              onAddSupplier={() => setAddSupplierModalOpen(true)}
+            />
+          </>
+        ) : (
+          <PublicNavigation />
+        )}
 
         {currentPage === 'browse' && (
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -481,16 +495,6 @@ function AppContent() {
 
         {isVolunteerMode && (currentPage === 'volunteer' || currentPage === 'scan' || currentPage === 'inventory' || currentPage === 'orders' || currentPage === 'analytics') && (
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-            <VolunteerNavigation />
-
-            {/* Admin Tools Bar */}
-            <AdminToolsBar
-              onNewItem={() => setAddPartFormModalOpen(true)}
-              onAddCategory={() => setAddCategoryModalOpen(true)}
-              onAddLocation={() => setAddLocationModalOpen(true)}
-              onAddSupplier={() => setAddSupplierModalOpen(true)}
-            />
-
             <AnimatePresence mode="wait">
               {currentPage === 'volunteer' && (
                 <motion.div
@@ -706,7 +710,7 @@ function AppContent() {
                     <ShoppingWindow
                       scanEvent={scanEvent}
                       onCheckoutResultChange={() => { }}
-                      laserSessions={[]}
+                      laserSessions={laser.sessions}
                     />
                   </aside>
                 </motion.div>
