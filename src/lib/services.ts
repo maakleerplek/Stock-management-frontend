@@ -26,7 +26,6 @@ export interface LaserStats {
   revenue: number;
   typedMinutes: number;   // laser minutes typed in at the till, without a name
   avgPerSession: number;
-  avgPerPerson: number;
   perPerson: PersonUse[]; // most minutes first
 }
 
@@ -70,7 +69,6 @@ export function laserStats(lines: ServiceLine[], days?: number, now: Date = new 
     revenue,
     typedMinutes,
     avgPerSession: sessions ? named / sessions : 0,
-    avgPerPerson: people.size ? named / people.size : 0,
     perPerson: [...people.values()].sort((a, b) => b.minutes - a.minutes),
   };
 }
