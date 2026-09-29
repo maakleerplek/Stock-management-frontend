@@ -157,3 +157,15 @@ def test_personal_data_wiped_30_days_after_closing(env):
     storage.check(on=date.today() + timedelta(days=storage.KEEP_PERSONAL_DAYS + 1))
     [row] = db.query('SELECT email, first_name FROM storage_items')
     assert row == {'email': '', 'first_name': ''}
+
+
+def test_owner_checks_out_on_the_page(env):
+    c, inv, _ = env
+    code = store(c).json['code']
+    assert c.post('/storage/api/checkout', json={'code': code, 'email': 'x@example.com'}).status_code == 404
+    assert inv.stock[42]['quantity'] == 1
+    assert c.post('/storage/api/checkout', json={'code': code, 'email': 'r@example.com'}).status_code == 200
+    assert inv.stock[42]['quantity'] == 0
+    [row] = db.query('SELECT closed_reason FROM storage_items')
+    assert row['closed_reason'] == 'checked_out'
+    assert c.post('/storage/api/checkout', json={'code': code, 'email': 'r@example.com'}).status_code == 404

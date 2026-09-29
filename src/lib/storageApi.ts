@@ -45,6 +45,7 @@ export const storageApi = {
   extendWithToken: (token: string) => call<{ code: string; expires: string }>('/extend', 'POST', { token }),
   extendWithCode: (code: string, email: string) =>
     call<{ code: string; expires: string }>('/extend', 'POST', { code, email }),
+  checkout: (code: string, email: string) => call<{ code: string }>('/checkout', 'POST', { code, email }),
   list: () => call<{ items: StoredItem[]; graceDays: number }>('/admin/items'),
   adminExtend: (code: string) =>
     call<{ code: string; expires: string }>(`/admin/items/${encodeURIComponent(code)}/extend`, 'POST', {}),

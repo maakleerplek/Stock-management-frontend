@@ -14,8 +14,8 @@ Once an hour check() looks at every open item:
       decide; nothing is thrown away by the server.
 
 To take it home, the owner scans the code at the kiosk (Interface-stock,
-check_out_stored_item): that removes the stock item, and the next check()
-closes the row.
+check_out_stored_item), after which the next check() closes the row, or fills
+in the code and e-mail on the Storage tab (/storage/api/checkout).
 
 Anyone may store and extend (nginx: /storage/api/). The list, pick-up and
 extend-without-link are volunteer-only (nginx: /storage/api/admin/).
@@ -269,23 +269,47 @@ def store():
     return {'code': code, 'created': stored_on, 'expires': expires, 'spot': SPOT}
 
 
-@bp.post('/storage/api/extend')
-def extend_public():
-    """With the token from the reminder mail, or with the code and the e-mail."""
-    if client is None:
-        return {'error': 'The storage service has no InvenTree connection'}, 503
-    b = request.json or {}
-    row = None
+def owned_row(b: dict) -> dict | None:
+    """The open row for the token from the reminder mail, or for code + e-mail."""
     if b.get('token'):
         rows = db.query('SELECT * FROM storage_items WHERE token = ? AND closed_at IS NULL', (str(b['token']),))
-        row = rows[0] if rows else None
-    elif b.get('code') and b.get('email'):
+        return rows[0] if rows else None
+    if b.get('code') and b.get('email'):
         row = row_by_code(str(b['code']))
-        if row and row['email'].lower() != str(b['email']).strip().lower():
-            row = None
+        if row and row['email'].lower() == str(b['email']).strip().lower():
+            return row
+    return None
+
+
+def take_out(row: dict, reason: str, note: str):
+    """The stock item goes to 0 and the row is closed."""
+    item = stock_item(row['stock_pk'])
+    if item and float(item.get('quantity') or 0) > 0:
+        client.post('stock/remove/', {'items': [{'pk': row['stock_pk'], 'quantity': item['quantity']}],
+                                      'notes': f"{note} ({row['code']})"})
+    close(row, reason)
+
+
+@bp.post('/storage/api/extend')
+def extend_public():
+    if client is None:
+        return {'error': 'The storage service has no InvenTree connection'}, 503
+    row = owned_row(request.json or {})
     if row is None:
         return {'error': 'No stored item found for that code and e-mail'}, 404
     return {'code': row['code'], 'expires': extend(row)}
+
+
+@bp.post('/storage/api/checkout')
+def checkout_public():
+    """The owner took the item home: same as scanning the code at the kiosk."""
+    if client is None:
+        return {'error': 'The storage service has no InvenTree connection'}, 503
+    row = owned_row(request.json or {})
+    if row is None:
+        return {'error': 'No stored item found for that code and e-mail'}, 404
+    take_out(row, 'checked_out', 'Taken home from temporary storage via the Storage tab')
+    return {'code': row['code']}
 
 
 @bp.get('/storage/api/admin/items')
@@ -308,10 +332,6 @@ def admin_pickup(code):
     if row is None:
         return {'error': f'{code} is not in storage'}, 404
     reason = 'removed' if (request.json or {}).get('reason') == 'removed' else 'picked_up'
-    item = stock_item(row['stock_pk'])
-    if item and float(item.get('quantity') or 0) > 0:
-        client.post('stock/remove/', {'items': [{'pk': row['stock_pk'], 'quantity': item['quantity']}],
-                                      'notes': 'Picked up from temporary storage' if reason == 'picked_up'
-                                      else 'Removed from temporary storage after the reminder'})
-    close(row, reason)
+    take_out(row, reason, 'Picked up from temporary storage' if reason == 'picked_up'
+             else 'Removed from temporary storage after the reminder')
     return {'ok': True}

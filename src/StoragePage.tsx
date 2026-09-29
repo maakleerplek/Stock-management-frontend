@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Archive, CalendarPlus, Check, Loader2, PackageCheck, Trash2 } from 'lucide-react';
+import { Archive, CalendarPlus, Check, Home, Loader2, PackageCheck, ScanBarcode, Trash2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
@@ -18,6 +18,15 @@ const formatDate = (iso: string) =>
 const input = 'w-full h-10 px-3 border border-lijn bg-white text-sm';
 const label = 'text-xs font-semibold text-brand-black/60 block mb-1';
 
+function Confirm({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode }) {
+  return (
+    <label className="flex items-start gap-2 text-sm text-brand-black">
+      <input type="checkbox" className="mt-1 shrink-0" checked={checked} onChange={e => onChange(e.target.checked)} />
+      <span>{children}</span>
+    </label>
+  );
+}
+
 export default function StoragePage() {
   const { isVolunteerMode } = useVolunteer();
   const [config, setConfig] = useState<{ spot: string; days: number; graceDays: number } | null>(null);
@@ -31,7 +40,7 @@ export default function StoragePage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-lijn min-h-full">
         <StorePanel spot={config?.spot} days={config?.days ?? 90} />
         <div className="divide-y divide-lijn">
-          <ExtendPanel />
+          <YourItemPanel days={config?.days ?? 90} />
           {isVolunteerMode && <VolunteerPanel />}
         </div>
       </div>
@@ -42,9 +51,11 @@ export default function StoragePage() {
 function StorePanel({ spot, days }: { spot?: string; days: number }) {
   const { addToast } = useToast();
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', content: '' });
-  const [agreed, setAgreed] = useState(false);
+  // One per warning below; all must be ticked before storing.
+  const [agreed, setAgreed] = useState([false, false, false]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<StoreResult | null>(null);
+  const tick = (i: number) => (v: boolean) => setAgreed(a => a.map((x, j) => (j === i ? v : x)));
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [field]: e.target.value }));
@@ -83,12 +94,12 @@ function StorePanel({ spot, days }: { spot?: string; days: number }) {
           <li>Put the item on {result.spot}.</li>
         </ol>
         <p className="text-sm text-grafiet">
-          To take it home, scan the code at the kiosk. It then leaves the stock system.
-          We also sent the code to {form.email}.
+          To take it home, scan the code at the barcode scanner of the checkout, or fill in the code and your
+          e-mail under "Take it home" on this page. We also sent the code to {form.email}.
         </p>
         <button
           className="brutalist-button px-4 h-10 bg-white text-sm font-semibold"
-          onClick={() => { setResult(null); setForm({ firstName: '', lastName: '', email: '', content: '' }); setAgreed(false); }}
+          onClick={() => { setResult(null); setForm({ firstName: '', lastName: '', email: '', content: '' }); setAgreed([false, false, false]); }}
         >
           Store something else
         </button>
@@ -96,7 +107,7 @@ function StorePanel({ spot, days }: { spot?: string; days: number }) {
     );
   }
 
-  const complete = form.firstName.trim() && form.lastName.trim() && form.email.trim() && form.content.trim() && agreed;
+  const complete = form.firstName.trim() && form.lastName.trim() && form.email.trim() && form.content.trim() && agreed.every(Boolean);
 
   return (
     <section className="p-4 sm:p-6 space-y-5">
@@ -133,10 +144,17 @@ function StorePanel({ spot, days }: { spot?: string; days: number }) {
             placeholder="e.g. a wooden box with a half-built robot, 2 plywood sheets"
           />
         </div>
-        <label className="flex items-start gap-2 text-sm text-brand-black">
-          <input type="checkbox" className="mt-1" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
-          <span>I take it home within {days} days, or extend it. After that it may be removed.</span>
-        </label>
+        <div className="space-y-2 border border-lijn bg-white p-3">
+          <Confirm checked={agreed[0]} onChange={tick(0)}>
+            I stick coloured tape on it with my name, today's date and the code I get after this step.
+          </Confirm>
+          <Confirm checked={agreed[1]} onChange={tick(1)}>
+            It is not food, chemicals, or anything that can leak, rot or catch fire.
+          </Confirm>
+          <Confirm checked={agreed[2]} onChange={tick(2)}>
+            I take it home within {days} days, or extend it. After that it may be removed.
+          </Confirm>
+        </div>
         <button
           type="submit"
           disabled={!complete || busy}
@@ -149,50 +167,83 @@ function StorePanel({ spot, days }: { spot?: string; days: number }) {
   );
 }
 
-function ExtendPanel() {
+type Done = { kind: 'extended'; code: string; expires: string } | { kind: 'checked_out'; code: string };
+
+function YourItemPanel({ days }: { days: number }) {
   const { addToast } = useToast();
   const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [extended, setExtended] = useState<{ code: string; expires: string } | null>(null);
+  const [haveIt, setHaveIt] = useState(false);
+  const [newTape, setNewTape] = useState(false);
+  const [busy, setBusy] = useState<'checkout' | 'extend' | null>(null);
+  const [done, setDone] = useState<Done | null>(null);
 
   // Opened from the reminder mail: extend straight away.
   useEffect(() => {
     const token = tokenFromHash();
     if (!token) return;
-    setBusy(true);
+    setBusy('extend');
     storageApi.extendWithToken(token)
-      .then(setExtended)
+      .then(r => setDone({ kind: 'extended', ...r }))
       .catch(e => addToast(e instanceof Error ? e.message : 'Could not extend', 'error'))
       .finally(() => {
-        setBusy(false);
+        setBusy(null);
         window.history.replaceState(null, '', '#storage');
       });
   }, [addToast]);
 
-  const submit = async () => {
-    setBusy(true);
+  const filled = code.trim() !== '' && email.trim() !== '';
+
+  const run = async (action: 'checkout' | 'extend') => {
+    setBusy(action);
     try {
-      setExtended(await storageApi.extendWithCode(code.trim(), email.trim()));
+      if (action === 'checkout') {
+        const r = await storageApi.checkout(code.trim(), email.trim());
+        setDone({ kind: 'checked_out', code: r.code });
+      } else {
+        const r = await storageApi.extendWithCode(code.trim(), email.trim());
+        setDone({ kind: 'extended', ...r });
+      }
     } catch (e) {
-      addToast(e instanceof Error ? e.message : 'Could not extend', 'error');
+      addToast(e instanceof Error ? e.message : 'That did not work', 'error');
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
+  };
+
+  const reset = () => {
+    setDone(null); setCode(''); setEmail(''); setHaveIt(false); setNewTape(false);
   };
 
   return (
     <section className="p-4 sm:p-6 space-y-4">
       <h2 className="text-lg font-semibold text-brand-black flex items-center gap-2 border-b border-lijn pb-3">
-        <CalendarPlus size={18} /> Keep it longer
+        <PackageCheck size={18} /> Take it home or keep it longer
       </h2>
-      {extended ? (
-        <div className="border border-lijn bg-emerald-50 p-4 text-sm text-brand-black space-y-1">
-          <div><strong className="font-mono">{extended.code}</strong> is kept until <strong>{formatDate(extended.expires)}</strong>.</div>
-          <div>Put new tape on it with today's date and the same code.</div>
+
+      {done ? (
+        <div className="space-y-3">
+          <div className="border border-lijn bg-emerald-50 p-4 text-sm text-brand-black space-y-1">
+            {done.kind === 'checked_out' ? (
+              <div><strong className="font-mono">{done.code}</strong> is no longer in storage. You can take it home.</div>
+            ) : (
+              <>
+                <div><strong className="font-mono">{done.code}</strong> is kept until <strong>{formatDate(done.expires)}</strong>.</div>
+                <div>Put new tape on it with today's date and the same code.</div>
+              </>
+            )}
+          </div>
+          <button className="brutalist-button px-4 h-10 bg-white text-sm font-semibold" onClick={reset}>Done</button>
         </div>
       ) : (
-        <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (code.trim() && email.trim()) submit(); }}>
+        <>
+          <p className="text-sm text-grafiet flex gap-2">
+            <ScanBarcode size={16} className="shrink-0 mt-0.5" />
+            <span>
+              Taking your item home? Scan the code on the tape at the barcode scanner of the checkout.
+              Or fill in the code and your e-mail here. Either way the item leaves the stock system.
+            </span>
+          </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={label} htmlFor="ex-code">Code on the tape</label>
@@ -203,14 +254,36 @@ function ExtendPanel() {
               <input id="ex-email" type="email" className={input} value={email} onChange={e => setEmail(e.target.value)} />
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={!code.trim() || !email.trim() || busy}
-            className="brutalist-button px-4 h-10 bg-white text-sm font-semibold flex items-center gap-2 disabled:opacity-40"
-          >
-            {busy ? <Loader2 size={14} className="animate-spin" /> : <CalendarPlus size={14} />} Extend
-          </button>
-        </form>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="border border-lijn bg-white p-3 space-y-3 flex flex-col">
+              <div className="text-sm font-semibold flex items-center gap-2"><Home size={14} /> Take it home</div>
+              <Confirm checked={haveIt} onChange={setHaveIt}>
+                I have the item with me. After this it is no longer stored, and anything left behind may be removed.
+              </Confirm>
+              <button
+                disabled={!filled || !haveIt || busy !== null}
+                onClick={() => run('checkout')}
+                className="mt-auto brutalist-button px-4 h-10 bg-brand-black text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
+              >
+                {busy === 'checkout' ? <Loader2 size={14} className="animate-spin" /> : <Home size={14} />} Take it home
+              </button>
+            </div>
+            <div className="border border-lijn bg-white p-3 space-y-3 flex flex-col">
+              <div className="text-sm font-semibold flex items-center gap-2"><CalendarPlus size={14} /> Keep it longer</div>
+              <Confirm checked={newTape} onChange={setNewTape}>
+                I put new tape on it with today's date and the same code. It is kept {days} days from today.
+              </Confirm>
+              <button
+                disabled={!filled || !newTape || busy !== null}
+                onClick={() => run('extend')}
+                className="mt-auto brutalist-button px-4 h-10 bg-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
+              >
+                {busy === 'extend' ? <Loader2 size={14} className="animate-spin" /> : <CalendarPlus size={14} />} Extend
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </section>
   );
