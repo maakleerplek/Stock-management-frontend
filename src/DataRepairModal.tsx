@@ -3,6 +3,7 @@ import { X, Wrench, CheckCircle, XCircle, Loader2, Tag } from 'lucide-react';
 import inventreeClient from './api/inventreeClient';
 import type { SelectOption } from './AddPartForm';
 import { cn } from './lib/utils';
+import ModalFrame from './components/ModalFrame';
 
 interface DataRepairModalProps {
     open: boolean;
@@ -157,8 +158,7 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 bg-brand-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto">
-            <div className="bg-white border border-lijn w-full max-w-2xl my-4">
+        <ModalFrame maxWidth="max-w-2xl">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-lijn bg-brand-black">
                     <div className="flex items-center gap-2">
@@ -322,7 +322,6 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
                         )}
                     </div>
                 )}
-            </div>
-        </div>
+        </ModalFrame>
     );
 }

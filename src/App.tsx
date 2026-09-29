@@ -16,6 +16,7 @@ import VolunteerModal from './VolunteerModal';
 import AdminToolsBar from './components/AdminToolsBar';
 import BottomNav, { type NavTab } from './components/BottomNav';
 import Sheet, { SheetItem } from './components/Sheet';
+import ModalFrame from './components/ModalFrame';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import AnalyticsPage from './analytics/AnalyticsPage';
 import LaserCutterPage from './LaserCutterPage';
@@ -786,15 +787,8 @@ function AppContent() {
 
       {/* Add Part Modal */}
       {addPartFormModalOpen && (
-        <div
-          className="fixed inset-0 bg-brand-black/50 z-50 flex items-start sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
-          onClick={() => setAddPartFormModalOpen(false)}
-        >
-          <div
-            className="border border-lijn bg-white w-full max-w-3xl my-0 sm:my-8 max-h-screen overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6">
+        <ModalFrame onClose={() => setAddPartFormModalOpen(false)} maxWidth="max-w-3xl">
+            <div className="p-4 sm:p-6">
               <AddPartForm
                 onSubmit={handleAddPartSubmit}
                 onCancel={() => setAddPartFormModalOpen(false)}
@@ -803,21 +797,13 @@ function AppContent() {
                 suppliers={suppliers}
               />
             </div>
-          </div>
-        </div>
+        </ModalFrame>
       )}
 
       {/* Add Category Modal */}
       {addCategoryModalOpen && (
-        <div
-          className="fixed inset-0 bg-brand-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setAddCategoryModalOpen(false)}
-        >
-          <div
-            className="border border-lijn bg-white w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6">
+        <ModalFrame onClose={() => setAddCategoryModalOpen(false)}>
+            <div className="p-4 sm:p-6">
               <AddCategoryForm
                 onSubmit={handleAddCategorySubmit}
                 onCancel={() => setAddCategoryModalOpen(false)}
@@ -825,48 +811,31 @@ function AppContent() {
                 locations={locations}
               />
             </div>
-          </div>
-        </div>
+        </ModalFrame>
       )}
 
       {/* Add Location Modal */}
       {addLocationModalOpen && (
-        <div
-          className="fixed inset-0 bg-brand-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setAddLocationModalOpen(false)}
-        >
-          <div
-            className="border border-lijn bg-white w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6">
+        <ModalFrame onClose={() => setAddLocationModalOpen(false)}>
+            <div className="p-4 sm:p-6">
               <AddLocationForm
                 onSubmit={handleAddLocationSubmit}
                 onCancel={() => setAddLocationModalOpen(false)}
                 locations={locations}
               />
             </div>
-          </div>
-        </div>
+        </ModalFrame>
       )}
       {/* Add Supplier Modal */}
       {addSupplierModalOpen && (
-        <div
-          className="fixed inset-0 bg-brand-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setAddSupplierModalOpen(false)}
-        >
-          <div
-            className="border border-lijn bg-white w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6">
+        <ModalFrame onClose={() => setAddSupplierModalOpen(false)}>
+            <div className="p-4 sm:p-6">
               <AddSupplierForm
                 onSubmit={handleAddSupplierSubmit}
                 onCancel={() => setAddSupplierModalOpen(false)}
               />
             </div>
-          </div>
-        </div>
+        </ModalFrame>
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import { PRICING } from './constants';
 import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
+import ModalFrame from './components/ModalFrame';
 import { AlertCircle, Check, X, Settings } from 'lucide-react';
 
 interface ShoppingWindowProps {
@@ -213,8 +214,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
 
             {/* Brutalist Custom Confirmation Modal */}
             {confirmOpen && (
-                <div className="fixed inset-0 bg-brand-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="border border-lijn bg-brand-beige w-full max-w-2xl flex flex-col">
+                <ModalFrame maxWidth="max-w-2xl" className="bg-brand-beige flex flex-col">
                         <div className="bg-brand-beige-dark text-brand-black p-5 flex items-center justify-between border-b border-lijn">
                             <div className="flex items-center gap-3">
                                 <AlertCircle size={24} className="text-emerald-500" />
@@ -279,8 +279,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                 )}
                             </button>
                         </div>
-                    </div>
-                </div>
+                </ModalFrame>
             )}
         </div>
     );

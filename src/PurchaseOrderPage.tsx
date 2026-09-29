@@ -5,6 +5,7 @@ import type { PurchaseOrderLine } from './api/types';
 import { useStock } from './StockContext';
 import type { SelectOption } from './AddPartForm';
 import { cn } from './lib/utils';
+import ModalFrame from './components/ModalFrame';
 import ImageDisplay from './ImageDisplay';
 
 interface OrderLine {
@@ -734,8 +735,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
 
             {/* Receive modal — record what actually turned up, line by line */}
             {receiveModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-                    <div className="w-full max-w-2xl border border-lijn bg-white max-h-[90vh] overflow-auto">
+                <ModalFrame maxWidth="max-w-2xl">
                         <div className="flex items-center gap-2 p-4 border-b border-lijn bg-brand-black">
                             <Truck size={14} className="text-white" />
                             <h2 className="text-sm font-semibold text-white">
@@ -839,8 +839,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                 Book in
                             </button>
                         </div>
-                    </div>
-                </div>
+                </ModalFrame>
             )}
 
             {/* Receive confirmation — booking in writes stock and cannot be undone */}
