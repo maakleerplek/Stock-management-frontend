@@ -9,7 +9,8 @@ interface AdminToolsBarProps {
 
 export default function AdminToolsBar({ onNewItem, onAddCategory, onAddLocation, onAddSupplier }: AdminToolsBarProps) {
   return (
-    <div className="flex items-center gap-2 px-4 py-2 bg-brand-beige-dark border-b border-lijn">
+    // On a phone the header's + button opens the same actions (App.tsx).
+    <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-brand-beige-dark border-b border-lijn">
       <span className="text-[10px] font-semibold text-brand-black/60 mr-2">
         Admin:
       </span>

@@ -1,12 +1,7 @@
 import { Book, Github, MessageSquare, Database } from 'lucide-react';
 import { useState } from 'react';
 import CacheManager from './CacheManager';
-
-const FOOTER_LINKS = {
-  docs: import.meta.env.VITE_DOCS_URL || 'https://docs.inventree.org/en/stable/',
-  feedback: import.meta.env.VITE_FEEDBACK_URL || '',
-  github: import.meta.env.VITE_GITHUB_URL || 'https://github.com/maakleerplek/stock-management',
-};
+import { FOOTER_LINKS } from '../constants';
 
 const linkClass = 'flex items-center gap-1.5 hover:text-brand-black underline-offset-4 hover:underline flex-shrink-0';
 
@@ -15,7 +10,8 @@ export default function Footer() {
 
   return (
     <>
-      <footer className="border-t border-lijn bg-brand-beige-dark px-4 sm:px-8 py-2.5 mt-auto flex-shrink-0">
+      {/* On a phone these links are in the More sheet (BottomNav). */}
+      <footer className="hidden md:block border-t border-lijn bg-brand-beige-dark px-4 sm:px-8 py-2.5 mt-auto flex-shrink-0">
         <div className="flex justify-between items-center gap-4 text-xs text-grafiet">
           <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto">
             <a href={FOOTER_LINKS.docs} target="_blank" rel="noopener noreferrer" className={linkClass} title="Documentation">

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LogOut, Settings, X, AlertTriangle } from 'lucide-react';
+import { LogOut, Settings, X, AlertTriangle, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVolunteer } from '../VolunteerContext';
 import htlCube from '../assets/htl-cube-white.png';
@@ -9,9 +9,11 @@ interface HeaderProps {
   currentView: 'checkout' | 'volunteer' | 'inventory';
   onViewChange: (view: 'checkout' | 'volunteer' | 'inventory') => void;
   onVolunteerClick?: () => void;
+  /** Phone only: opens the admin actions (new item, category, ...). */
+  onAddClick?: () => void;
 }
 
-export default function Header({ currentView, onViewChange, onVolunteerClick }: HeaderProps) {
+export default function Header({ currentView, onViewChange, onVolunteerClick, onAddClick }: HeaderProps) {
   const { isVolunteerMode, setIsVolunteerMode } = useVolunteer();
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
 
@@ -31,7 +33,7 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
 
   return (
     <>
-      <header className="border-b border-brand-black/80 bg-brand-beige px-4 sm:px-8 h-16 flex justify-between items-center relative shrink-0">
+      <header className="border-b border-brand-black/80 bg-brand-beige px-4 sm:px-8 h-12 md:h-16 flex justify-between items-center relative shrink-0">
         {/* Centered Clock */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:block">
           <Clock />
@@ -43,19 +45,24 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
           rel="noopener noreferrer"
           className="flex items-center gap-3 hover:opacity-80 transition-opacity"
         >
-          <div className="w-9 h-9 flex items-center justify-center bg-brand-black">
-            <img src={htlCube} alt="HTL" className="w-6 h-6 object-contain" />
+          <div className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center bg-brand-black">
+            <img src={htlCube} alt="HTL" className="w-5 h-5 md:w-6 md:h-6 object-contain" />
           </div>
           <div className="flex flex-col justify-center leading-none">
-            <h1 className="text-xl font-semibold tracking-tight text-brand-black">
+            <h1 className="text-lg md:text-xl font-semibold tracking-tight text-brand-black">
               maakleerplek
             </h1>
-            <p className="text-xs font-medium text-grafiet mt-1">
+            <p className="hidden md:block text-xs font-medium text-grafiet mt-1">
               Stock management
             </p>
           </div>
         </a>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
+          {isVolunteerMode && onAddClick && (
+            <button onClick={onAddClick} className="md:hidden brutalist-button w-10 h-10 p-0! flex items-center justify-center bg-amber-300" aria-label="Add">
+              <Plus size={18} />
+            </button>
+          )}
           {isVolunteerMode && (
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-amber-300 border-l-4 border-amber-700 text-amber-800">
               Volunteer mode
@@ -71,20 +78,21 @@ export default function Header({ currentView, onViewChange, onVolunteerClick }: 
           )}
           <button
             onClick={handleVolunteerToggle}
+            aria-label={isVolunteerMode ? 'Log out' : 'Admin panel'}
             className={cn(
-              "brutalist-button flex items-center gap-2 px-4 py-2 text-sm",
+              "brutalist-button flex items-center justify-center gap-2 h-10 md:h-auto w-10 md:w-auto p-0! md:px-4! md:py-2! text-sm",
               !isVolunteerMode && "btn-primary"
             )}
           >
             {isVolunteerMode ? (
               <>
                 <LogOut size={16} />
-                <span>Log out</span>
+                <span className="hidden md:inline">Log out</span>
               </>
             ) : (
               <>
                 <Settings size={16} />
-                <span>Admin panel</span>
+                <span className="hidden md:inline">Admin panel</span>
               </>
             )}
           </button>

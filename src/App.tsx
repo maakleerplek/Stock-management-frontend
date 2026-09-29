@@ -14,6 +14,8 @@ import { ToastProvider, useToast } from './ToastContext';
 import { VolunteerProvider, useVolunteer } from './VolunteerContext';
 import VolunteerModal from './VolunteerModal';
 import AdminToolsBar from './components/AdminToolsBar';
+import BottomNav, { type NavTab } from './components/BottomNav';
+import Sheet, { SheetItem } from './components/Sheet';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import AnalyticsPage from './analytics/AnalyticsPage';
 import LaserCutterPage from './LaserCutterPage';
@@ -28,7 +30,7 @@ import {
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
-import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2, Zap } from 'lucide-react';
+import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2, Zap, Plus, Tag, MapPin, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import { TRACKING } from './lib/stockHistory';
@@ -36,6 +38,24 @@ import './index.css';
 
 export type AppView = 'checkout' | 'browse' | 'laser' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
 const VIEWS: AppView[] = ['checkout', 'browse', 'laser', 'volunteer', 'inventory', 'scan', 'orders', 'analytics'];
+
+// Tabs for the top bar (md and up) and the bottom bar (phone). `short` is
+// the label under the icon in the bottom bar.
+const PUBLIC_TABS: (NavTab & { short: string })[] = [
+  { id: 'checkout', label: 'Checkout', short: 'Checkout', icon: ScanBarcode },
+  { id: 'browse', label: 'Stock list', short: 'Stock', icon: Package },
+  { id: 'laser', label: 'Lasercutter', short: 'Laser', icon: Zap },
+];
+const VOLUNTEER_TABS: (NavTab & { short: string })[] = [
+  { id: 'volunteer', label: 'Overview', short: 'Overview', icon: LayoutDashboard },
+  { id: 'scan', label: 'Scan', short: 'Scan', icon: ScanBarcode },
+  { id: 'inventory', label: 'Stock list', short: 'Stock', icon: Package },
+  { id: 'orders', label: 'Purchase orders', short: 'Orders', icon: ShoppingBag },
+  { id: 'analytics', label: 'Analytics', short: 'Analytics', icon: BarChart2 },
+];
+// The bottom bar has room for four tabs and More.
+const BOTTOM_TAB_COUNT = 4;
+const bottomTab = (t: NavTab & { short: string }): NavTab => ({ id: t.id, label: t.short, icon: t.icon });
 
 // The open tab lives in the URL hash (#laser), so a refresh stays on it. A
 // page may add its own sub-tab after a slash (#analytics/laser).
@@ -53,6 +73,7 @@ function AppContent() {
   const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false);
   const [addLocationModalOpen, setAddLocationModalOpen] = useState(false);
   const [addSupplierModalOpen, setAddSupplierModalOpen] = useState(false);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [categories, setCategories] = useState<SelectOption[]>([]);
   const [locations, setLocations] = useState<SelectOption[]>([]);
   const [suppliers, setSuppliers] = useState<SelectOption[]>([]);
@@ -321,14 +342,8 @@ function AppContent() {
   const inventreePanelUrl = import.meta.env.VITE_INVENTREE_PANEL_URL || '';
 
   const VolunteerNavigation = () => (
-    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto overflow-y-hidden">
-      {[
-        { id: 'volunteer', label: 'Overview', icon: LayoutDashboard },
-        { id: 'scan', label: 'Scan', icon: ScanBarcode },
-        { id: 'inventory', label: 'Stock list', icon: Package },
-        { id: 'orders', label: 'Purchase orders', icon: ShoppingBag },
-        { id: 'analytics', label: 'Analytics', icon: BarChart2 },
-      ].map(tab => (
+    <div className="hidden md:flex border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 gap-5 sm:gap-8 overflow-x-auto overflow-y-hidden">
+      {VOLUNTEER_TABS.map(tab => (
         <button
           key={tab.id}
           onClick={() => setCurrentPage(tab.id as AppView)}
@@ -340,8 +355,7 @@ function AppContent() {
           )}
         >
           <tab.icon size={14} className="flex-shrink-0" />
-          <span className="hidden sm:inline">{tab.label}</span>
-          <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+          <span>{tab.label}</span>
         </button>
       ))}
       {inventreePanelUrl && (
@@ -360,12 +374,8 @@ function AppContent() {
   );
 
   const PublicNavigation = () => (
-    <div className="border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 flex gap-5 sm:gap-8 overflow-x-auto overflow-y-hidden shrink-0">
-      {[
-        { id: 'checkout', label: 'Checkout', icon: ScanBarcode },
-        { id: 'browse', label: 'Stock list', icon: Package },
-        { id: 'laser', label: 'Lasercutter', icon: Zap },
-      ].map(tab => (
+    <div className="hidden md:flex border-b border-lijn bg-brand-beige px-4 sm:px-8 py-0 gap-5 sm:gap-8 overflow-x-auto overflow-y-hidden shrink-0">
+      {PUBLIC_TABS.map(tab => (
         <button
           key={tab.id}
           onClick={() => setCurrentPage(tab.id as AppView)}
@@ -384,11 +394,12 @@ function AppContent() {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-brand-beige">
+    <div className="h-dvh flex flex-col bg-brand-beige">
       <Header
         currentView={currentPage === 'checkout' ? 'checkout' : (currentPage === 'volunteer' ? 'volunteer' : 'inventory')}
         onViewChange={(v) => handleViewChange(v as AppView)}
         onVolunteerClick={handleVolunteerClick}
+        onAddClick={() => setAddSheetOpen(true)}
       />
 
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -741,7 +752,31 @@ function AppContent() {
         )}
       </main>
 
+      {isVolunteerMode ? (
+        <BottomNav
+          tabs={VOLUNTEER_TABS.slice(0, BOTTOM_TAB_COUNT).map(bottomTab)}
+          moreTabs={VOLUNTEER_TABS.slice(BOTTOM_TAB_COUNT).map(bottomTab)}
+          current={currentPage}
+          onSelect={id => setCurrentPage(id as AppView)}
+          inventreeUrl={inventreePanelUrl}
+        />
+      ) : (
+        <BottomNav tabs={PUBLIC_TABS.map(bottomTab)} current={currentPage} onSelect={id => setCurrentPage(id as AppView)} />
+      )}
+
       <Footer />
+
+      {/* Phone: the admin actions of AdminToolsBar, behind the header's + */}
+      <Sheet open={addSheetOpen} onClose={() => setAddSheetOpen(false)} title="Add">
+        {[
+          { label: 'New item', icon: Plus, open: setAddPartFormModalOpen },
+          { label: 'Category', icon: Tag, open: setAddCategoryModalOpen },
+          { label: 'Location', icon: MapPin, open: setAddLocationModalOpen },
+          { label: 'Supplier', icon: Building2, open: setAddSupplierModalOpen },
+        ].map(a => (
+          <SheetItem key={a.label} icon={a.icon} label={a.label} onClick={() => { setAddSheetOpen(false); a.open(true); }} />
+        ))}
+      </Sheet>
 
       {/* Modals */}
       <VolunteerModal
