@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
+import { NOTES } from '../src/sendCodeHandler';
 import {
   isSale, isVolunteerDrink, unitsGiven, stockLevels, levelAt, bucketStart, bucketRange, salesPerBucket, assignColors, SERIES_COLORS,
 } from '../src/lib/stockHistory';
@@ -32,6 +33,12 @@ describe('volunteer drinks', () => {
     expect(isSale(log[1])).toBe(false);
     expect(isVolunteerDrink(log[1])).toBe(true);
     expect(unitsGiven(log[1])).toBe(3);
+  });
+
+  it('include the ones taken in the app\'s volunteer mode', () => {
+    const app = entry(1, 1, '2026-09-24T10:00', 12, { removed: 1, quantity: 16 }, NOTES.DRINK);
+    expect(isVolunteerDrink(app)).toBe(true);
+    expect(isSale(app)).toBe(false);
   });
 
   it('are not mistaken for paid kiosk sales or volunteer-mode corrections', () => {

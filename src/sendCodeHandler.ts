@@ -13,7 +13,7 @@ import type { ItemData } from './api/types';
 const TV_URL = import.meta.env.VITE_TV_PRESENTATION_URL as string | undefined;
 
 async function sendChangelogEvent(
-    action: 'checkout' | 'add' | 'remove' | 'set' | 'create',
+    action: 'checkout' | 'volunteer' | 'add' | 'remove' | 'set' | 'create',
     item_name: string,
     quantity: number,
     source: string,
@@ -56,6 +56,8 @@ export const NOTES = {
     ADD: 'Added via Stock App - Volunteer Mode',
     REMOVE: 'Removed via Stock App - Volunteer Mode',
     SET: 'Stock set via App - Volunteer Mode',
+    // Analytics finds free drinks by "Volunteer drink", like the kiosk's note.
+    DRINK: 'Volunteer drink via Stock App',
 } as const;
 
 /** A machine service on the bill: laser minutes, CNC minutes, printed grams. */
@@ -138,6 +140,23 @@ export async function handleRemoveItem(
         return true;
     } catch (error) {
         console.error(`Failed to remove from part ${partId}:`, error);
+        return false;
+    }
+}
+
+/** Volunteer: take a free drink. Out of stock, never paid; counted apart from sales. */
+export async function handleVolunteerDrink(
+    partId: number,
+    quantity: number,
+    itemName?: string,
+    source = 'volunteer-scanner',
+): Promise<boolean> {
+    try {
+        await inventreeClient.removeStockFromPart(partId, quantity, NOTES.DRINK);
+        if (itemName) void sendChangelogEvent('volunteer', itemName, quantity, source);
+        return true;
+    } catch (error) {
+        console.error(`Failed to book volunteer drink for part ${partId}:`, error);
         return false;
     }
 }

@@ -10,6 +10,15 @@ import { useToast } from './ToastContext';
 export interface CartItem extends ItemData {
     cartQuantity: number;
 }
+
+/** What a volunteer's cart does: add/remove stock, set it, or take a free drink. */
+export type VolunteerCartMode = 'adjust' | 'set' | 'drink';
+
+const MODE_LABELS: Record<VolunteerCartMode, { tab: string; title: string; action: string }> = {
+    adjust: { tab: 'Add / remove', title: 'Add to stock', action: 'Add to stock' },
+    set: { tab: 'Set absolute', title: 'Set stock', action: 'Set stock' },
+    drink: { tab: 'Free drink', title: 'Volunteer drink', action: 'Take for free' },
+};
 interface ShoppingCartProps {
     cartItems: CartItem[];
     onUpdateQuantity: (itemId: number, newQuantity: number) => void;
@@ -20,8 +29,8 @@ interface ShoppingCartProps {
     onClearCheckout?: () => void;
     extraCosts: number;
     isVolunteerMode: boolean;
-    isSetMode?: boolean;
-    onSetModeChange?: (isSet: boolean) => void;
+    mode?: VolunteerCartMode;
+    onModeChange?: (mode: VolunteerCartMode) => void;
     isCheckingOut?: boolean;
 }
 
@@ -35,8 +44,8 @@ function ShoppingCart({
     onClearCheckout,
     extraCosts,
     isVolunteerMode,
-    isSetMode = false,
-    onSetModeChange,
+    mode = 'adjust',
+    onModeChange,
     isCheckingOut = false,
 }: ShoppingCartProps) {
     const { addToast } = useToast();
@@ -73,42 +82,32 @@ function ShoppingCart({
                     ) : (
                         <ShoppingCartIcon className="w-4 h-4" />
                     )}
-                    {isVolunteerMode ? (isSetMode ? "Set stock" : "Add to stock") : "Shopping cart"}
+                    {isVolunteerMode ? MODE_LABELS[mode].title : "Shopping cart"}
                 </h2>
             </div>
 
             {/* Volunteer Mode Toggle */}
-            {isVolunteerMode && onSetModeChange && (
+            {isVolunteerMode && onModeChange && (
                 <div className="px-4 py-3 border-b border-lijn bg-brand-beige-dark">
-                    <div className="grid grid-cols-2 gap-0">
-                        <button
-                            onClick={() => {
-                                if ('vibrate' in navigator) navigator.vibrate(20);
-                                onSetModeChange(false);
-                            }}
-                            className={cn(
-                                "py-2.5 text-[10px] font-semibold cursor-pointer border border-lijn flex items-center justify-center gap-1.5 transition-colors",
-                                !isSetMode
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-brand-beige text-brand-black hover:bg-blue-100"
-                            )}
-                        >
-                            Add / remove
-                        </button>
-                        <button
-                            onClick={() => {
-                                if ('vibrate' in navigator) navigator.vibrate(20);
-                                onSetModeChange(true);
-                            }}
-                            className={cn(
-                                "py-2.5 text-[10px] font-semibold cursor-pointer border border-l-0 border-lijn flex items-center justify-center gap-1.5 transition-colors",
-                                isSetMode
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-brand-beige text-brand-black hover:bg-blue-100"
-                            )}
-                        >
-                            Set absolute
-                        </button>
+                    <div className="grid grid-cols-3 gap-0">
+                        {(Object.keys(MODE_LABELS) as VolunteerCartMode[]).map((m, i) => (
+                            <button
+                                key={m}
+                                onClick={() => {
+                                    if ('vibrate' in navigator) navigator.vibrate(20);
+                                    onModeChange(m);
+                                }}
+                                className={cn(
+                                    "py-2.5 text-[10px] font-semibold cursor-pointer border border-lijn flex items-center justify-center gap-1.5 transition-colors",
+                                    i > 0 && "border-l-0",
+                                    mode === m
+                                        ? "bg-blue-600 text-white"
+                                        : "bg-brand-beige text-brand-black hover:bg-blue-100"
+                                )}
+                            >
+                                {MODE_LABELS[m].tab}
+                            </button>
+                        ))}
                     </div>
                 </div>
             )}
@@ -168,8 +167,13 @@ function ShoppingCart({
                                             let stockChangeText: string;
                                             let stockChangeColor: string;
                                             
-                                            if (isVolunteerMode) {
-                                                if (isSetMode) {
+                                            if (isVolunteerMode && mode === 'drink') {
+                                                // Free drink: stock goes down, like a sale.
+                                                newStock = currentStock - item.cartQuantity;
+                                                stockChangeText = `-${item.cartQuantity} free`;
+                                                stockChangeColor = 'text-red-600';
+                                            } else if (isVolunteerMode) {
+                                                if (mode === 'set') {
                                                     // Set mode: stock will be set to cartQuantity
                                                     newStock = item.cartQuantity;
                                                     stockChangeText = `SET TO ${newStock}`;
@@ -343,7 +347,7 @@ function ShoppingCart({
                                             Processing...
                                         </>
                                     ) : (
-                                        isVolunteerMode ? (isSetMode ? 'Set stock' : 'Add to stock') : 'Checkout'
+                                        isVolunteerMode ? MODE_LABELS[mode].action : 'Checkout'
                                     )}
                                 </button>
                             </div>

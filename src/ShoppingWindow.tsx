@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import ShoppingCart, { type CartItem } from './ShoppingCart';
+import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingCart';
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
 import { laserApi, type LaserSession } from './lib/laserApi';
 import { PRICING } from './constants';
-import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem, handleVolunteerDrink } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import ModalFrame from './components/ModalFrame';
@@ -46,7 +46,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
         ...typedExtras,
     ];
     const extraCosts = extraTotal(extras);
-    const [isSetMode, setIsSetMode] = useState<boolean>(false);
+    const [mode, setMode] = useState<VolunteerCartMode>('adjust');
+    const modeRef = useRef(mode);
+    modeRef.current = mode;
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const { addToast } = useToast();
@@ -54,10 +56,13 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const isVolunteerModeRef = useRef(isVolunteerMode);
     isVolunteerModeRef.current = isVolunteerMode;
 
-    const handleSetModeChange = useCallback((newMode: boolean) => {
-        setIsSetMode(newMode);
-        if (!newMode) {
+    const handleModeChange = useCallback((newMode: VolunteerCartMode) => {
+        setMode(newMode);
+        if (newMode === 'adjust') {
             setCartItems((prevItems) => prevItems.filter(item => item.cartQuantity !== 0));
+        } else if (newMode === 'drink') {
+            // A drink is taken, never negative or zero.
+            setCartItems((prevItems) => prevItems.filter(item => item.cartQuantity > 0));
         }
     }, []);
 
@@ -84,7 +89,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
             const existingItem = prevItems.find((i) => i.id === item.id);
             if (existingItem) {
                 // The till cannot sell more than is in stock; volunteers restocking can add any amount.
-                const newQuantity = isVolunteerModeRef.current
+                const newQuantity = isVolunteerModeRef.current && modeRef.current !== 'drink'
                     ? existingItem.cartQuantity + 1
                     : Math.min(existingItem.cartQuantity + 1, item.quantity);
                 return prevItems.map((i) =>
@@ -93,7 +98,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
             }
             return [...prevItems, { ...item, cartQuantity: 1 }];
         });
-    }, []); // stable: reads checkedOutResult and volunteer mode via refs, not state
+    }, []); // stable: reads checkedOutResult, volunteer mode and cart mode via refs, not state
 
     useEffect(() => {
         if (scanEvent) {
@@ -105,11 +110,11 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
         setCartItems((prevItems) =>
             prevItems.map((item) => {
                 if (item.id !== itemId) return item;
-                if (isVolunteerMode) {
+                if (isVolunteerMode && mode !== 'drink') {
                     // Volunteer mode: allow any value (negative = remove stock)
                     return { ...item, cartQuantity: newQuantity };
                 }
-                // Checkout mode: clamp minimum at 1 so only the trash button removes items
+                // Checkout and free drink: clamp minimum at 1 so only the trash button removes items
                 return { ...item, cartQuantity: Math.max(1, newQuantity) };
             })
         );
@@ -127,11 +132,24 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
         setConfirmOpen(false);
         setIsCheckingOut(true);
         try {
+            if (isVolunteerMode && mode === 'drink') {
+                // Free volunteer drinks: out of stock, no sale.
+                for (const item of cartItems) {
+                    if (!await handleVolunteerDrink(item.id, item.cartQuantity, item.name)) {
+                        addToast(`Failed to book "${item.name}" as a volunteer drink. Operation stopped.`, 'error');
+                        return;
+                    }
+                }
+                setCartItems([]);
+                setCheckedOut(null);
+                addToast('Enjoy your drink! Booked as a free volunteer drink.', 'success');
+                return;
+            }
             if (isVolunteerMode) {
                 // Volunteer corrections, item by item.
                 for (const item of cartItems) {
                     const totalPrice = item.price > 0 ? parseFloat((item.price * Math.abs(item.cartQuantity)).toFixed(2)) : undefined;
-                    const success = isSetMode
+                    const success = mode === 'set'
                         ? await handleSetItem(item.id, item.cartQuantity, item.name, totalPrice)
                         : item.cartQuantity < 0
                             ? await removeStock(item.id, Math.abs(item.cartQuantity), item.name, totalPrice)
@@ -186,8 +204,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                     onClearCheckout={() => setCheckedOut(null)}
                     extraCosts={extraCosts}
                     isVolunteerMode={isVolunteerMode}
-                    isSetMode={isSetMode}
-                    onSetModeChange={handleSetModeChange}
+                    mode={mode}
+                    onModeChange={handleModeChange}
                     isCheckingOut={isCheckingOut}
                 />
 
@@ -254,7 +272,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                             <div className="border-t-[3px] border-lijn pt-6 flex flex-col items-end">
                                 <span className="text-[10px] font-semibold text-brand-black/50">Total amount</span>
                                 <span className="text-5xl font-semibold text-brand-black tracking-tight">
-                                    €{(cartItems.reduce((acc, i) => acc + i.price * i.cartQuantity, 0) + extraCosts).toFixed(2)}
+                                    {isVolunteerMode && mode === 'drink'
+                                        ? 'Free'
+                                        : `€${(cartItems.reduce((acc, i) => acc + i.price * i.cartQuantity, 0) + extraCosts).toFixed(2)}`}
                                 </span>
                             </div>
                         </div>
