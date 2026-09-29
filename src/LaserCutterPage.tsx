@@ -91,12 +91,13 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
         </span>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 px-4 py-3 border border-lijn bg-white">
-        <div className="w-full max-w-[304px]">
+      <div className="flex flex-row items-end justify-between gap-3 px-4 py-3 border border-lijn bg-white">
+        {/* The animation needs room; on a phone the status and time are enough. */}
+        <div className="hidden sm:block w-full max-w-[304px]">
           <LaserAnimation active={laserOn} />
         </div>
-        <div className="text-right shrink-0">
-          <div className={cn('text-xs font-semibold flex items-center justify-end gap-1.5 mb-1', laserOn ? 'text-brand-black' : 'text-grafiet')}>
+        <div className="text-left sm:text-right shrink-0">
+          <div className={cn('text-xs font-semibold flex items-center sm:justify-end gap-1.5 mb-1', laserOn ? 'text-brand-black' : 'text-grafiet')}>
             <span className={cn('inline-block w-2 h-2', laserOn ? 'bg-[#E0561F]' : 'bg-lijn')} />
             {laserOn ? 'Laser on' : 'Laser idle'}
           </div>
@@ -120,21 +121,21 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
           <select
             value={selected}
             onChange={e => setSelected(e.target.value)}
-            className="flex-1 h-10 px-3 border border-lijn bg-white text-sm"
+            className="flex-1 min-w-0 h-11 sm:h-10 px-3 border border-lijn bg-white text-sm"
             disabled={!sessions.length}
           >
             {!sessions.length && <option value="">Make a session first</option>}
             {sessions.map(s => <option key={s.id} value={s.id}>{s.name} ({formatDuration(s.total_time)})</option>)}
           </select>
           <button
-            className="brutalist-button px-4 bg-brand-black text-white text-sm font-semibold flex items-center gap-2 disabled:opacity-40"
+            className="brutalist-button px-4 bg-brand-black text-white text-sm font-semibold flex items-center gap-2 shrink-0 disabled:opacity-40"
             disabled={busy || !selected || pending <= 0}
             onClick={() => run(() => laserApi.flush(selected))}
           >
             <ArrowRightLeft size={14} /> Assign
           </button>
           <button
-            className="brutalist-button px-3 bg-white text-sm flex items-center gap-1 disabled:opacity-40"
+            className="brutalist-button px-3 min-w-11 bg-white text-sm flex items-center justify-center gap-1 shrink-0 disabled:opacity-40"
             disabled={busy || pending <= 0}
             title="Clear the time that is not assigned to a session"
             onClick={() => setDiscarding(discarding === 'unassigned' ? null : 'unassigned')}
@@ -158,11 +159,11 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
           value={newName}
           onChange={e => setNewName(e.target.value)}
           placeholder="Your name or project"
-          className="flex-1 h-10 px-3 border border-lijn bg-white text-sm"
+          className="flex-1 min-w-0 h-11 sm:h-10 px-3 border border-lijn bg-white text-sm"
           maxLength={80}
         />
         <button type="submit" disabled={busy || newName.trim().length < 2}
-          className="brutalist-button px-4 bg-white text-sm font-semibold flex items-center gap-2 disabled:opacity-40">
+          className="brutalist-button px-4 bg-white text-sm font-semibold flex items-center gap-2 shrink-0 whitespace-nowrap disabled:opacity-40">
           <Plus size={14} /> New session
         </button>
       </form>
