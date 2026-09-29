@@ -65,6 +65,38 @@ export type LibraryDraft = Omit<LibraryRow, 'partId'>;
 export type LaserOperation = 'cut' | 'engrave';
 export type LaserOutcome = 'clean' | 'partial' | 'failed' | 'risky';
 
+/** One "Tried it? How did it go?" report. Stored in InvenTree (laser/feedback.py). */
+export interface FeedbackReport {
+  /** The InvenTree part that holds the report. */
+  id: number;
+  created_at: string;
+  material: string;
+  thickness_mm: number;
+  operation: LaserOperation;
+  speed: number;
+  power: number;
+  passes: number;
+  strength: number | null;
+  outcome: LaserOutcome;
+  submitted_by: string | null;
+}
+
+/** Reports for one material, thickness and operation, next to the library and the advice. */
+export interface FeedbackGroup {
+  material: string;
+  thickness: number;
+  operation: LaserOperation;
+  last: string;
+  counts: Record<LaserOutcome, number>;
+  library: { partId: number; setting: { speed: number; power: number; passes: number } | null } | null;
+  /** What the laser page shows: library row and reports blended. */
+  advice: LaserSetting;
+  /** The reports alone; this is what "Update library" writes. */
+  reported: LaserSetting;
+  /** At least 3 good reports and they are more than 10 % off the library. */
+  differs: boolean;
+}
+
 export interface LaserSetting {
   operation: LaserOperation;
   speed: number | null;
@@ -88,7 +120,7 @@ async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T>
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401) throw new Error('Only volunteers can change the library. Sign in as volunteer.');
+  if (res.status === 401) throw new Error('Only volunteers can do this. Sign in as volunteer.');
   if (!res.ok) throw new Error(data.error || `Laser service: ${res.status}`);
   return data as T;
 }
@@ -118,6 +150,10 @@ export const laserApi = {
     material: string; thickness: number; operation: LaserOperation; speed: number; power: number;
     passes: number; strength?: number; outcome: LaserOutcome;
   }) => call('/attempts', 'POST', a),
+  // Volunteers only (nginx: /laser/api/admin/).
+  feedback: (days?: number | null) =>
+    call<{ reports: FeedbackReport[]; groups: FeedbackGroup[] }>(`/admin/feedback${days ? `?days=${days}` : ''}`),
+  deleteReport: (id: number) => call(`/admin/attempts/${id}`, 'DELETE'),
 };
 
 /** Live laser state and sessions over Socket.IO. */

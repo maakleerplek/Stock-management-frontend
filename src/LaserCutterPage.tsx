@@ -273,6 +273,8 @@ function SettingsPanel() {
   const [strength, setStrength] = useState(50);
   const [results, setResults] = useState<LaserSetting[]>([]);
   const [reported, setReported] = useState<Record<string, boolean>>({});
+  // "I used other settings": what was really used, per operation, as typed.
+  const [used, setUsed] = useState<Record<string, { speed: string; power: string; passes: string }>>({});
 
   useEffect(() => {
     laserApi.materials()
@@ -290,7 +292,7 @@ function SettingsPanel() {
     if (!material || thickness === null || thickness <= 0 || !ops.length) { setResults([]); return; }
     const id = window.setTimeout(() => {
       laserApi.recommend(material, thickness, ops, strength)
-        .then(d => { setResults(d.results); setReported({}); })
+        .then(d => { setResults(d.results); setReported({}); setUsed({}); })
         .catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'));
     }, 150);
     return () => window.clearTimeout(id);
@@ -302,10 +304,18 @@ function SettingsPanel() {
 
   const report = async (r: LaserSetting, outcome: LaserOutcome) => {
     if (r.speed === null || r.power === null || thickness === null) return;
+    const u = used[r.operation];
+    const speed = u ? parseFloat(u.speed) : r.speed;
+    const power = u ? parseFloat(u.power) : r.power;
+    const passes = u ? parseInt(u.passes, 10) : r.passes ?? 1;
+    if (!(speed > 0) || !(power > 0) || !(passes >= 1)) {
+      addToast('Fill in the speed, power and passes you used.', 'warning');
+      return;
+    }
     try {
       await laserApi.logAttempt({
-        material, thickness, operation: r.operation, speed: r.speed, power: r.power,
-        passes: r.passes ?? 1, outcome, ...(r.operation === 'engrave' ? { strength } : {}),
+        material, thickness, operation: r.operation, speed, power,
+        passes, outcome, ...(r.operation === 'engrave' ? { strength } : {}),
       });
       setReported(prev => ({ ...prev, [r.operation]: true }));
       addToast('Thanks, the advice learns from this.', 'success');
@@ -418,7 +428,34 @@ function SettingsPanel() {
                         <p className="text-xs text-emerald-600 font-semibold">Result saved.</p>
                       ) : (
                         <>
-                          <p className="text-[11px] font-semibold text-brand-black/60 mb-2">Tried it? How did it go?</p>
+                          <div className="flex items-baseline justify-between gap-2 mb-2">
+                            <p className="text-[11px] font-semibold text-brand-black/60">Tried it? How did it go?</p>
+                            {!used[r.operation] && (
+                              <button
+                                onClick={() => setUsed(prev => ({ ...prev, [r.operation]: { speed: String(r.speed), power: String(r.power), passes: String(r.passes ?? 1) } }))}
+                                className="text-[11px] text-grafiet underline underline-offset-2 hover:text-brand-black"
+                              >
+                                I used other settings
+                              </button>
+                            )}
+                          </div>
+                          {used[r.operation] && (
+                            <div className="grid grid-cols-3 gap-2 mb-2">
+                              {([['speed', 'Speed (mm/s)'], ['power', 'Power (%)'], ['passes', 'Passes']] as const).map(([field, label]) => (
+                                <label key={field} className="text-[10px] font-semibold text-brand-black/60">
+                                  {label}
+                                  <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    min={field === 'passes' ? 1 : 0}
+                                    value={used[r.operation][field]}
+                                    onChange={e => setUsed(prev => ({ ...prev, [r.operation]: { ...prev[r.operation], [field]: e.target.value } }))}
+                                    className="mt-0.5 w-full h-9 px-2 border border-lijn bg-white text-sm font-normal text-brand-black"
+                                  />
+                                </label>
+                              ))}
+                            </div>
+                          )}
                           <div className="flex flex-wrap gap-1.5">
                             {OUTCOMES.map(o => (
                               <button key={o.id} onClick={() => report(r, o.id)}
