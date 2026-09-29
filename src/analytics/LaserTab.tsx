@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Zap, Users, Clock, Timer, UserCheck, Trash2, Euro } from 'lucide-react';
+import { Zap, Users, Clock, Timer, Trash2, Euro } from 'lucide-react';
 import { laserStats, lostLaserStats, type ServiceLine, type DiscardRow } from '../lib/services';
 import { PRICING } from '../constants';
 import { Section, Empty, StatCards } from './ui';
@@ -39,7 +39,6 @@ export default function LaserTab({ serviceLines, discarded, loading, dateRange }
         { label: 'People', value: laser.people, icon: Users, bg: 'bg-brand-beige-dark' },
         { label: 'Laser time', value: fmtMinutes(laser.minutes), sub: `€${laser.revenue.toFixed(2)} paid`, icon: Clock, bg: 'bg-amber-50' },
         { label: 'Avg per session', value: laser.sessions ? fmtMinutes(laser.avgPerSession) : '–', icon: Timer, bg: 'bg-brand-beige-dark' },
-        { label: 'Avg per person', value: laser.people ? fmtMinutes(laser.avgPerPerson) : '–', icon: UserCheck, bg: 'bg-brand-beige-dark' },
         {
           label: 'Not via session',
           value: fmtMinutes(lost.minutes),

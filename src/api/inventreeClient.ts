@@ -30,6 +30,7 @@ import type {
     InvenTreeCompany,
     CreateSupplierPartPayload,
     PurchaseOrderLine,
+    PurchaseOrderSummary,
 } from './types';
 import { ApiCache, CACHE_TTL } from '../lib/cache';
 import { hasVolunteerSession, markSignedOut, VOLUNTEER_AUTH_FAILED } from '../auth/session';
@@ -833,9 +834,9 @@ export class InvenTreeClient {
 
     // ==================== Purchase Orders ====================
 
-    async getPurchaseOrders(): Promise<{ pk: number; reference: string; status: number; status_text: string; supplier: number; supplier_detail: { name: string }; description: string; creation_date: string }[]> {
+    async getPurchaseOrders(): Promise<PurchaseOrderSummary[]> {
         const result = await this.request<{ results: Awaited<ReturnType<InvenTreeClient['getPurchaseOrders']>> }>(
-            '/order/po/?limit=50&ordering=-creation_date',
+            '/order/po/?limit=100&ordering=-creation_date',
             'GET',
             undefined,
             false,

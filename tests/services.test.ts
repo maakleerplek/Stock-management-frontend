@@ -17,7 +17,6 @@ describe('laser use from sales-order extra lines', () => {
     ], undefined, now);
     expect(s).toMatchObject({ sessions: 3, people: 2, minutes: 52, typedMinutes: 4, revenue: 26 });
     expect(s.avgPerSession).toBe(16);
-    expect(s.avgPerPerson).toBe(24);
     expect(s.perPerson.map(p => [p.name, p.sessions, p.minutes])).toEqual([['Sidd', 1, 30], ['Ruben', 2, 18]]);
   });
 

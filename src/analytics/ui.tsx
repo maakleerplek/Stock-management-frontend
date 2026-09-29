@@ -92,7 +92,7 @@ export function StatCards({ cards }: {
   return (
     // gap-px over a line-coloured background: clean borders however the tiles wrap.
     <div className={cn('grid grid-cols-2 gap-px bg-lijn border border-lijn',
-      cards.length > 4 ? 'sm:grid-cols-3 lg:grid-cols-6' : 'sm:grid-cols-4')}>
+      cards.length > 5 ? 'sm:grid-cols-3 lg:grid-cols-6' : cards.length === 5 ? 'sm:grid-cols-3 lg:grid-cols-5' : 'sm:grid-cols-4')}>
       {cards.map(s => (
         <div key={s.label} className={cn('p-4 flex flex-col gap-1', s.bg)}>
           <div className="flex items-center gap-1.5 text-[10px] font-semibold text-brand-black/60">

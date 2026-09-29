@@ -220,4 +220,27 @@ export interface PurchaseOrderLine {
     destination: number | null;
     destination_detail: { pk: number; name: string; pathstring: string } | null;
     part_detail?: { pk: number; name: string; thumbnail?: string; image?: string };
+    /** Per pack; empty when nobody entered a price on the order. */
+    purchase_price?: string | number | null;
+    purchase_price_currency?: string | null;
+}
+
+/** A purchase order as the list and the detail view use it. */
+export interface PurchaseOrderSummary {
+    pk: number;
+    reference: string;
+    status: number;
+    status_text: string;
+    supplier: number;
+    supplier_detail: { name: string };
+    supplier_name?: string;
+    description: string;
+    creation_date: string;
+    issue_date?: string | null;
+    target_date?: string | null;
+    complete_date?: string | null;
+    line_items?: number;
+    completed_lines?: number;
+    total_price?: number | string | null;
+    order_currency?: string | null;
 }
