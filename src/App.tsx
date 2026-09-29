@@ -87,7 +87,7 @@ function AppContent() {
   // tab shows it, the checkout bills the sessions someone pressed Pay on.
   const laser = useLaserSocket();
   const { addToast } = useToast();
-  const { isVolunteerMode } = useVolunteer();
+  const { isVolunteerMode, sessionChecked } = useVolunteer();
   const { items: stockItems, loading: stockLoading, lastFetched: stockLastFetched } = useStock();
 
   const totalParts = stockItems.length;
@@ -323,10 +323,11 @@ function AppContent() {
     if (isVolunteerMode && currentPage === 'checkout') {
       setCurrentPage('volunteer');
     }
-    if (!isVolunteerMode && currentPage !== 'checkout' && currentPage !== 'browse' && currentPage !== 'laser') {
+    // Wait for the session check, or a refresh on a volunteer tab lands on the checkout.
+    if (sessionChecked && !isVolunteerMode && currentPage !== 'checkout' && currentPage !== 'browse' && currentPage !== 'laser') {
       setCurrentPage('checkout');
     }
-  }, [isVolunteerMode, currentPage]);
+  }, [isVolunteerMode, sessionChecked, currentPage]);
 
   useEffect(() => {
     // Leave the hash alone when it already points here: keeps the sub-tab.
@@ -478,7 +479,7 @@ function AppContent() {
           </div>
         )}
 
-        {(currentPage === 'volunteer' || currentPage === 'scan' || currentPage === 'inventory' || currentPage === 'orders' || currentPage === 'analytics') && (
+        {isVolunteerMode && (currentPage === 'volunteer' || currentPage === 'scan' || currentPage === 'inventory' || currentPage === 'orders' || currentPage === 'analytics') && (
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             <VolunteerNavigation />
 

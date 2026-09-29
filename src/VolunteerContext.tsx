@@ -7,6 +7,8 @@ interface VolunteerContextType {
     isVolunteerMode: boolean;
     /** Leaving volunteer mode signs out here and at Authentik. */
     setIsVolunteerMode: (mode: boolean) => void;
+    /** False until the proxy answered; until then nobody counts as signed out. */
+    sessionChecked: boolean;
 }
 
 const VolunteerContext = createContext<VolunteerContextType | undefined>(undefined);
@@ -16,11 +18,14 @@ export function VolunteerProvider({ children }: { children: ReactNode }) {
     // Volunteer mode is whatever the proxy says about this browser's session,
     // asked once on load (also right after coming back from the sign-in).
     const [isVolunteerMode, setIsVolunteerModeState] = useState(false);
+    const [sessionChecked, setSessionChecked] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
         checkVolunteerSession().then(result => {
-            if (cancelled || result !== 'ok') return;
+            if (cancelled) return;
+            setSessionChecked(true);
+            if (result !== 'ok') return;
             setIsVolunteerModeState(true);
             // Till sales need this customer, and only a volunteer may create it.
             void inventreeClient.getTillCustomer().catch(err => console.warn('[Volunteer] Till customer setup failed:', err));
@@ -48,7 +53,7 @@ export function VolunteerProvider({ children }: { children: ReactNode }) {
     }, [addToast]);
 
     return (
-        <VolunteerContext.Provider value={{ isVolunteerMode, setIsVolunteerMode }}>
+        <VolunteerContext.Provider value={{ isVolunteerMode, setIsVolunteerMode, sessionChecked }}>
             {children}
         </VolunteerContext.Provider>
     );
