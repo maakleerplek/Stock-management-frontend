@@ -1,8 +1,7 @@
-"""SQLite storage: laser sessions and logged attempts.
+"""SQLite storage: live laser data (sessions, time cleared without a session).
 
-The material list with its baseline settings lives in InvenTree (see
-inventree.py), so it is part of the InvenTree backup. Only what users add
-here - sessions and "how did it go" reports - is in this file.
+Lasting data is in InvenTree and so in its backup: the material library
+(inventree.py) and the "how did it go" reports (feedback.py).
 """
 import os
 import sqlite3
@@ -50,6 +49,8 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
             discarded_at TEXT NOT NULL
         );
 
+        -- Old: reports now live in InvenTree (feedback.py). Kept so
+        -- app.migrate_feedback can move rows that are still here.
         CREATE TABLE IF NOT EXISTS attempts (
             id INTEGER PRIMARY KEY,
             material TEXT NOT NULL,

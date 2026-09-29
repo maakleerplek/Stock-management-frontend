@@ -22,6 +22,7 @@ from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
 
 import db
+import feedback
 import inventree
 from recommend import MAX_POWER, Point, recommend
 
@@ -295,12 +296,11 @@ def points_for(material: str, operation: str) -> list[Point]:
         s = r[operation]
         if r['material'].lower() == material.lower() and s and r['thickness'] is not None:
             points.append(Point(r['thickness'], s['speed'], s['power'], s['passes'], 'clean', baseline=True))
-    for a in db.query(
-            "SELECT *, julianday('now') - julianday(created_at) AS days_old FROM attempts "
-            'WHERE lower(material) = lower(?) AND operation = ?', (material, operation)):
-        points.append(Point(a['thickness_mm'], a['speed'], a['power'], a['passes'], a['outcome'],
-                            days_old=a['days_old'] or 0,
-                            strength=a['strength'] if operation == 'engrave' else None))
+    for a in feedback.load(_inventree):
+        if a['material'].lower() == material.lower() and a['operation'] == operation:
+            points.append(Point(a['thickness_mm'], a['speed'], a['power'], a['passes'], a['outcome'],
+                                days_old=feedback.days_old(a),
+                                strength=a['strength'] if operation == 'engrave' else None))
     return points
 
 
@@ -414,15 +414,107 @@ def add_attempt():
         return {'error': 'Unknown operation or outcome'}, 400
     if not (0 < power <= MAX_POWER) or speed <= 0 or not (1 <= passes <= 20) or not material:
         return {'error': f'Power must be 1-{MAX_POWER} %, speed above 0'}, 400
-    db.execute('INSERT INTO attempts (material, thickness_mm, operation, speed, power, passes, strength, '
-               'outcome, submitted_by, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-               (material, thickness, operation, speed, power, passes, strength, outcome,
-                (b.get('submitted_by') or '')[:80] or None, (b.get('notes') or '')[:500] or None))
-    return {'ok': True}
+    if _inventree is None:
+        return {'error': 'InvenTree is not configured'}, 503
+    try:
+        pk = feedback.save(_inventree, {
+            'material': material, 'thickness_mm': thickness, 'operation': operation, 'speed': speed,
+            'power': power, 'passes': passes, 'strength': strength, 'outcome': outcome,
+            'submitted_by': (b.get('submitted_by') or '')[:80] or None})
+    except Exception as e:
+        return {'error': f'InvenTree: {e}'}, 502
+    return {'ok': True, 'id': pk}
+
+
+# ---------------------------------------------------------------- feedback (volunteers)
+# nginx lets only volunteers reach /laser/api/admin/.
+
+GOOD = ('clean', 'partial')
+DIFFERS_MIN_REPORTS = 3     # from here the advice says "Based on reports"
+DIFFERS_FRACTION = 0.10
+
+
+def library_setting(material: str, thickness: float, operation: str) -> dict | None:
+    for r in inventree.materials(_inventree):
+        if r['material'].lower() == material.lower() and r['thickness'] == thickness:
+            return {'partId': r['partId'], 'setting': r[operation]}
+    return None
+
+
+def differs(advice: dict, setting: dict | None) -> bool:
+    if advice.get('speed') is None or not setting:
+        return advice.get('speed') is not None
+    return any(abs(advice[k] - setting[k]) > DIFFERS_FRACTION * setting[k] for k in ('speed', 'power'))
+
+
+def feedback_groups(reports: list[dict]) -> list[dict]:
+    """One group per material, thickness and operation, with the library row
+    and what the advice says now."""
+    groups: dict[tuple, dict] = {}
+    for r in reports:
+        key = (r['material'].lower(), r['thickness_mm'], r['operation'])
+        g = groups.setdefault(key, {'material': r['material'], 'thickness': r['thickness_mm'],
+                                    'operation': r['operation'], 'last': r['created_at'],
+                                    'counts': {'clean': 0, 'partial': 0, 'failed': 0, 'risky': 0}})
+        g['counts'][r['outcome']] += 1
+        g['last'] = max(g['last'], r['created_at'])
+    out = []
+    for g in groups.values():
+        lib = library_setting(g['material'], g['thickness'], g['operation'])
+        points = points_for(g['material'], g['operation'])
+        # advice: what the laser page shows (library row and reports blended).
+        # reported: the reports alone. That is what goes into the library; the
+        # blend would count the same reports again once the row has changed.
+        advice = recommend(points, g['thickness'], g['operation'])
+        reported = recommend([p for p in points if not p.baseline], g['thickness'], g['operation'])
+        good = g['counts']['clean'] + g['counts']['partial']
+        out.append({**g, 'library': lib, 'advice': advice, 'reported': reported,
+                    'differs': good >= DIFFERS_MIN_REPORTS and differs(reported, lib and lib['setting'])})
+    return sorted(out, key=lambda g: g['last'], reverse=True)
+
+
+@app.get('/laser/api/admin/feedback')
+def get_feedback():
+    try:
+        reports = feedback.load(_inventree)
+        days = request.args.get('days')
+        if days:
+            reports = [r for r in reports if feedback.days_old(r) <= float(days)]
+        return {'reports': reports, 'groups': feedback_groups(reports)}
+    except ValueError:
+        return {'error': 'days must be a number'}, 400
+    except Exception as e:
+        return {'error': f'InvenTree: {e}'}, 502
+
+
+@app.delete('/laser/api/admin/attempts/<int:report_id>')
+def delete_attempt(report_id):
+    if _inventree is None:
+        return {'error': 'InvenTree is not configured'}, 503
+    if report_id not in {r['id'] for r in feedback.load(_inventree)}:
+        return {'error': 'No such report'}, 404
+    try:
+        feedback.delete(_inventree, report_id)
+    except Exception as e:
+        return {'error': f'InvenTree: {e}'}, 502
+    return {'deleted': report_id}
+
+
+def migrate_feedback():
+    """Reports used to be in laser.db; move any that are left to InvenTree."""
+    if _inventree is None:
+        return
+    try:
+        moved = feedback.migrate_from_sqlite(_inventree, db)
+        if moved:
+            print(f'[feedback] moved {moved} report(s) from laser.db to InvenTree')
+    except Exception as e:
+        print(f'[feedback] moving reports to InvenTree failed, retried at the next start: {e}')
 
 
 if __name__ == '__main__':
     db.connect()
     threading.Thread(target=udp_server, daemon=True).start()
     threading.Thread(target=ticker, daemon=True).start()
+    threading.Thread(target=migrate_feedback, daemon=True).start()
     socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)

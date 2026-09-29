@@ -4,6 +4,7 @@ import { laserStats, lostLaserStats, type ServiceLine, type DiscardRow } from '.
 import { PRICING } from '../constants';
 import { Section, Empty, StatCards } from './ui';
 import type { DateRange } from './AnalyticsPage';
+import LaserFeedback from './LaserFeedback';
 
 const fmtMinutes = (m: number) => {
   const r = Math.round(m);
@@ -14,11 +15,12 @@ const fmtDate = (iso: string) =>
   new Date(iso).toLocaleString('nl-BE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 /** Paid laser sessions per person (sales orders) and time that never went through a paid session (laser service). */
-export default function LaserTab({ serviceLines, discarded, loading, dateRange }: {
+export default function LaserTab({ serviceLines, discarded, loading, dateRange, refreshKey }: {
   serviceLines: ServiceLine[];
   discarded: DiscardRow[];
   loading: boolean;
   dateRange: DateRange;
+  refreshKey: number;
 }) {
   const days = dateRange.days ?? undefined;
   const laser = useMemo(() => laserStats(serviceLines, days), [serviceLines, days]);
@@ -108,6 +110,8 @@ export default function LaserTab({ serviceLines, discarded, loading, dateRange }
           </div>
         )}
       </Section>
+
+      <LaserFeedback days={dateRange.days} refreshKey={refreshKey} />
     </div>
   );
 }

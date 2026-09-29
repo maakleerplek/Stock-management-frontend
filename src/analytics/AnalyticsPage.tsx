@@ -146,7 +146,7 @@ export default function AnalyticsPage() {
           />
         )}
         {tab === 'laser' && (
-          <LaserTab serviceLines={serviceLines} discarded={discarded} loading={laserLoading} dateRange={dateRange} />
+          <LaserTab serviceLines={serviceLines} discarded={discarded} loading={laserLoading} dateRange={dateRange} refreshKey={refreshKey} />
         )}
 
       </div>
