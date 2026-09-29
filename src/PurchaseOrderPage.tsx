@@ -5,6 +5,8 @@ import type { PurchaseOrderLine } from './api/types';
 import { useStock } from './StockContext';
 import type { SelectOption } from './AddPartForm';
 import { cn } from './lib/utils';
+import ModalFrame from './components/ModalFrame';
+import NumberStepper from './components/NumberStepper';
 import ImageDisplay from './ImageDisplay';
 
 interface OrderLine {
@@ -496,7 +498,34 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                     )}
 
                                     {draft.orderLines.length > 0 && (
-                                        <div className="border border-lijn overflow-x-auto">
+                                        <ul className="md:hidden border border-lijn divide-y divide-lijn">
+                                            {draft.orderLines.map(line => {
+                                                const packs = parseFloat(line.packs) || 0;
+                                                return (
+                                                    <li key={line.partPk} className={cn('p-3 space-y-2', packs > 0 && 'bg-amber-50')}>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="border border-lijn bg-white w-10 h-10 overflow-hidden flex-shrink-0">
+                                                                <ImageDisplay imagePath={line.image} alt={line.partName} width={40} height={40} />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-semibold break-words">{line.partName}</p>
+                                                                <p className="text-xs text-grafiet">
+                                                                    <span className={cn(line.currentStock === 0 && 'text-red-600 font-semibold')}>{line.currentStock} in stock</span>
+                                                                    {' · '}pack of {line.packQuantity}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <NumberStepper label="Packs to order" value={line.packs} onChange={v => updatePacks(draft.draftId, line.partPk, v)} />
+                                                            <span className="text-sm text-grafiet">{packs > 0 ? `${packs * line.packQuantity} units` : 'packs'}</span>
+                                                        </div>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    )}
+                                    {draft.orderLines.length > 0 && (
+                                        <div className="hidden md:block border border-lijn overflow-x-auto">
                                             <table className="w-full min-w-[500px]">
                                                 <thead>
                                                     <tr className="bg-brand-beige-dark border-b border-lijn">
@@ -569,13 +598,13 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                     )}
 
                                     {linesWithQty.length > 0 && (
-                                        <div className="flex items-center justify-between pt-2 border-t border-lijn">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-lijn">
                                             <div className="text-xs font-bold text-brand-black/60">
                                                 {linesWithQty.length} item(s) — {linesWithQty.reduce((s, l) => s + parseFloat(l.packs) * l.packQuantity, 0)} units total
                                             </div>
                                             <button
                                                 onClick={() => openConfirm(draft)}
-                                                className="brutalist-button px-6 py-2.5 text-xs bg-emerald-400 text-brand-black flex items-center gap-2 hover:brightness-95"
+                                                className="brutalist-button px-6 h-11 sm:h-auto sm:py-2.5 text-sm sm:text-xs bg-emerald-400 text-brand-black flex items-center justify-center gap-2 hover:brightness-95"
                                             >
                                                 <ShoppingBag size={14} />
                                                 Review & order
@@ -734,8 +763,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
 
             {/* Receive modal — record what actually turned up, line by line */}
             {receiveModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-                    <div className="w-full max-w-2xl border border-lijn bg-white max-h-[90vh] overflow-auto">
+                <ModalFrame maxWidth="max-w-2xl">
                         <div className="flex items-center gap-2 p-4 border-b border-lijn bg-brand-black">
                             <Truck size={14} className="text-white" />
                             <h2 className="text-sm font-semibold text-white">
@@ -763,7 +791,34 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                 </select>
                             </div>
 
-                            <table className="w-full text-xs">
+                            <ul className="md:hidden divide-y divide-lijn border-y border-lijn">
+                                {receiveModal.rows.map((row, i) => {
+                                    const packs = parseFloat(row.packs) || 0;
+                                    const over = packs > Math.max(row.ordered - row.alreadyReceived, 0);
+                                    return (
+                                        <li key={row.linePk} className="py-3 space-y-2">
+                                            <div>
+                                                <p className="text-sm font-semibold break-words">{row.name}</p>
+                                                <p className="text-xs text-grafiet">Ordered {row.ordered} · already in {row.alreadyReceived}</p>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <NumberStepper
+                                                    label="Packs receiving"
+                                                    value={row.packs}
+                                                    className={cn(over && 'border-amber-500')}
+                                                    onChange={v => {
+                                                        const rows = [...receiveModal.rows];
+                                                        rows[i] = { ...row, packs: v };
+                                                        setReceiveModal({ ...receiveModal, rows });
+                                                    }}
+                                                />
+                                                <span className="text-sm text-grafiet">{packs * row.packQuantity} units</span>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                            <table className="hidden md:table w-full text-xs">
                                 <thead>
                                     <tr className="border-b border-lijn text-[10px] text-brand-black/60">
                                         <th className="text-left p-2">Item</th>
@@ -839,8 +894,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                                 Book in
                             </button>
                         </div>
-                    </div>
-                </div>
+                </ModalFrame>
             )}
 
             {/* Receive confirmation — booking in writes stock and cannot be undone */}

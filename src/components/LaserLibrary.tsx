@@ -3,6 +3,7 @@ import { BookOpen, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useToast } from '../ToastContext';
 import { useVolunteer } from '../VolunteerContext';
 import { cn } from '../lib/utils';
+import ModalFrame from './ModalFrame';
 import { laserApi, type LibraryDraft, type LibraryRow } from '../lib/laserApi';
 
 /**
@@ -198,9 +199,8 @@ function EditForm({ partId, initial, groups, limits, onClose, onSaved }: {
   const input = 'h-9 px-2 border border-lijn bg-white text-sm w-full';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-      <form onClick={e => e.stopPropagation()} onSubmit={e => { e.preventDefault(); run(() => laserApi.saveLibraryRow(partId, d)); }}
-        className="bg-brand-beige w-full max-w-2xl max-h-full overflow-auto border border-brand-black p-5 space-y-4">
+    <ModalFrame onClose={onClose} maxWidth="max-w-2xl" className="bg-brand-beige sm:border-brand-black">
+      <form onSubmit={e => { e.preventDefault(); run(() => laserApi.saveLibraryRow(partId, d)); }} className="p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-brand-black">{partId === null ? 'Add material' : `Edit ${initial.material}`}</h3>
           <button type="button" onClick={onClose} className="p-1" aria-label="Close"><X size={18} /></button>
@@ -256,6 +256,6 @@ function EditForm({ partId, initial, groups, limits, onClose, onSaved }: {
           )}
         </div>
       </form>
-    </div>
+    </ModalFrame>
   );
 }

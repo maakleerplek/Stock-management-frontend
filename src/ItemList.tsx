@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, RefreshCw, Box, Euro, Loader2, Plus, Minus, Trash2, CheckCircle, Tag, MapPin } from 'lucide-react';
+import { Search, RefreshCw, Box, Euro, Loader2, Plus, Minus, Trash2, CheckCircle, Tag, MapPin, SlidersHorizontal } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,6 +8,7 @@ import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import { useStock } from './StockContext';
 import StockConfirmationModal from './components/StockConfirmationModal';
+import Sheet from './components/Sheet';
 
 interface Item {
     id: number;
@@ -54,6 +55,11 @@ export default function ItemList() {
     const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
     const [isCommitting, setIsCommitting] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    // Phone only: the filter sheet, the item whose stock is being changed, and
+    // the list of pending changes.
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const [editingId, setEditingId] = useState<number | null>(null);
+    const [pendingOpen, setPendingOpen] = useState(false);
 
     const { addToast } = useToast();
     const { isVolunteerMode } = useVolunteer();
@@ -149,6 +155,38 @@ export default function ItemList() {
         return adjustments.find(a => a.item.id === id)?.delta ?? 0;
     };
 
+    // Say out loud how old these numbers are. Silently showing a stale list is
+    // worse than showing nothing, because it looks correct.
+    const freshness = lastFetched === null ? null : (() => {
+        const mins = Math.floor((Date.now() - lastFetched) / 60000);
+        const label = mins < 1 ? 'just now' : mins < 60
+            ? `${mins} min ago`
+            : `${Math.floor(mins / 60)} h ${mins % 60} min ago`;
+        return { stale: mins >= 5, label };
+    })();
+    const editing = editingId === null ? null : items.find(i => i.id === editingId) ?? null;
+
+    const categorySelect = (
+        <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="flex-1 bg-transparent outline-none text-base md:text-xs font-semibold cursor-pointer"
+        >
+            <option value="">All categories</option>
+            {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+    );
+    const locationSelect = (
+        <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="flex-1 bg-transparent outline-none text-base md:text-xs font-semibold cursor-pointer"
+        >
+            <option value="">All locations</option>
+            {locationOptions.map(l => <option key={l} value={l}>{l}</option>)}
+        </select>
+    );
+
     if (loading && items.length === 0) {
         return (
             <div className="flex justify-center items-center h-[50vh]">
@@ -160,9 +198,77 @@ export default function ItemList() {
     return (
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-brand-beige">
             {/* Main Table Area */}
-            <main className="flex-1 flex flex-col min-h-0 p-4 sm:p-6 overflow-hidden">
-                {/* Header - Fixed at top */}
-                <div className="flex-shrink-0 mb-4 border border-lijn bg-brand-beige">
+            {/* On a phone main is the one scroll area; from md up the table scrolls inside it. */}
+            <main className="flex-1 flex flex-col min-h-0 md:p-6 overflow-y-auto md:overflow-hidden">
+                {/* Phone: search, filters and refresh in one bar that stays on top */}
+                <div className="md:hidden sticky top-0 z-10 bg-brand-beige border-b border-lijn px-3 py-2 space-y-1.5">
+                    <div className="flex gap-2">
+                        <div className="flex items-center flex-1 min-w-0 px-3 h-11 border border-lijn bg-brand-beige">
+                            <Search className="w-5 h-5 text-brand-black/60 mr-2 shrink-0" />
+                            <input
+                                type="search"
+                                placeholder="Search items"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="flex-1 min-w-0 bg-transparent outline-none text-base"
+                            />
+                        </div>
+                        <button
+                            onClick={() => setFiltersOpen(true)}
+                            className={cn('relative w-11 h-11 shrink-0 flex items-center justify-center border border-lijn', hasActiveFilters && 'bg-brand-black text-white')}
+                            aria-label="Filters"
+                        >
+                            <SlidersHorizontal size={18} />
+                        </button>
+                        <button
+                            onClick={async () => { await refreshInventory(); addToast('Stock list refreshed', 'success'); }}
+                            disabled={loading}
+                            className="w-11 h-11 shrink-0 flex items-center justify-center border border-lijn disabled:opacity-50"
+                            aria-label="Refresh"
+                        >
+                            <RefreshCw size={18} className={cn(loading && 'animate-spin')} />
+                        </button>
+                    </div>
+                    <p className={cn('text-xs', freshness?.stale ? 'text-amber-700 font-semibold' : 'text-grafiet')}>
+                        {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
+                        {hasActiveFilters && ' (filtered)'}
+                        {freshness && (freshness.stale ? ` · possibly out of date, updated ${freshness.label}` : ` · updated ${freshness.label}`)}
+                    </p>
+                </div>
+
+                <Sheet
+                    open={filtersOpen}
+                    onClose={() => setFiltersOpen(false)}
+                    title="Filters"
+                    footer={
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => { setCategoryFilter(''); setLocationFilter(''); }}
+                                disabled={!hasActiveFilters}
+                                className="brutalist-button flex-1 h-12"
+                            >
+                                Clear
+                            </button>
+                            <button onClick={() => setFiltersOpen(false)} className="brutalist-button btn-primary flex-1 h-12">
+                                Show {filteredItems.length}
+                            </button>
+                        </div>
+                    }
+                >
+                    <div className="p-4 space-y-3">
+                        <div className="flex items-center gap-2 border border-lijn px-3 h-12">
+                            <Tag size={16} className="text-brand-black/60 shrink-0" />
+                            {categorySelect}
+                        </div>
+                        <div className="flex items-center gap-2 border border-lijn px-3 h-12">
+                            <MapPin size={16} className="text-brand-black/60 shrink-0" />
+                            {locationSelect}
+                        </div>
+                    </div>
+                </Sheet>
+
+                {/* Header (md and up) */}
+                <div className="hidden md:block flex-shrink-0 mb-4 border border-lijn bg-brand-beige">
                     {/* Top row: title + search + refresh */}
                     <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 p-4">
                         <div className="flex items-center gap-3">
@@ -198,25 +304,11 @@ export default function ItemList() {
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 pb-4 border-t border-lijn pt-4">
                         <div className="flex items-center gap-2 border border-lijn bg-brand-beige px-3 py-2 flex-1 sm:flex-none sm:min-w-[200px]">
                             <Tag size={14} className="text-brand-black/60 flex-shrink-0" />
-                            <select
-                                value={categoryFilter}
-                                onChange={(e) => setCategoryFilter(e.target.value)}
-                                className="flex-1 bg-transparent outline-none text-xs font-semibold cursor-pointer"
-                            >
-                                <option value="">All categories</option>
-                                {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
+                            {categorySelect}
                         </div>
                         <div className="flex items-center gap-2 border border-lijn bg-brand-beige px-3 py-2 flex-1 sm:flex-none sm:min-w-[200px]">
                             <MapPin size={14} className="text-brand-black/60 flex-shrink-0" />
-                            <select
-                                value={locationFilter}
-                                onChange={(e) => setLocationFilter(e.target.value)}
-                                className="flex-1 bg-transparent outline-none text-xs font-semibold cursor-pointer"
-                            >
-                                <option value="">All locations</option>
-                                {locationOptions.map(l => <option key={l} value={l}>{l}</option>)}
-                            </select>
+                            {locationSelect}
                         </div>
                         {hasActiveFilters && (
                             <button
@@ -233,23 +325,16 @@ export default function ItemList() {
                 </div>
 
                 {error && (
-                    <div className="flex-shrink-0 border border-lijn bg-brand-beige p-4 mb-4">
+                    <div className="flex-shrink-0 border border-lijn bg-brand-beige p-4 m-3 md:m-0 md:mb-4">
                         <p className="text-sm font-bold text-red-600">{error}</p>
                     </div>
                 )}
 
-                {/* Say out loud how old these numbers are. Silently showing a stale
-                    list is worse than showing nothing, because it looks correct. */}
-                {!error && lastFetched !== null && (() => {
-                    const ageMs = Date.now() - lastFetched;
-                    const stale = ageMs > 5 * 60 * 1000;
-                    const mins = Math.floor(ageMs / 60000);
-                    const label = mins < 1 ? 'just now' : mins < 60
-                        ? `${mins} min ago`
-                        : `${Math.floor(mins / 60)} h ${mins % 60} min ago`;
+                {!error && freshness && (() => {
+                    const { stale, label } = freshness;
                     return (
                         <div className={cn(
-                            'flex-shrink-0 flex items-center justify-between gap-3 px-3 py-2 mb-4 border',
+                            'hidden md:flex flex-shrink-0 items-center justify-between gap-3 px-3 py-2 mb-4 border',
                             stale ? 'border-amber-500 bg-amber-50' : 'border-lijn bg-transparent'
                         )}>
                             <p className={cn(
@@ -271,18 +356,20 @@ export default function ItemList() {
                 })()}
 
                 {/* Table Container - Fills remaining space and scrolls */}
-                <div className="flex-1 min-h-0 flex flex-col border border-lijn bg-brand-beige">
-                    {/* Scrollable list wrapper */}
-                    <div className="flex-1 overflow-auto">
-                        {/* ── Mobile: row cards (below sm) ── */}
-                        <ul className="sm:hidden divide-y divide-lijn">
+                <div className="md:flex-1 md:min-h-0 flex flex-col md:border border-lijn bg-brand-beige">
+                    {/* Scrollable list wrapper (md and up; on a phone main scrolls) */}
+                    <div className="md:flex-1 md:overflow-auto">
+                        {/* ── Phone: rows; a volunteer taps one to change its stock ── */}
+                        <ul className="md:hidden divide-y divide-lijn border-b border-lijn">
                             {pagedItems.map((item) => {
                                 const delta = getAdjustmentDelta(item.id);
                                 return (
                                     <li
                                         key={item.id}
+                                        onClick={isVolunteerMode && item.id > 0 ? () => setEditingId(item.id) : undefined}
                                         className={cn(
                                             "grid grid-cols-[48px_1fr_auto] gap-3 items-center px-4 py-3",
+                                            isVolunteerMode && item.id > 0 && "cursor-pointer active:bg-brand-beige-dark",
                                             delta > 0 && "bg-emerald-50",
                                             delta < 0 && "bg-rose-50",
                                             delta === 0 && item.quantity === 0 && "bg-rose-50/50"
@@ -292,7 +379,7 @@ export default function ItemList() {
                                             <ImageDisplay imagePath={item.image} alt={item.name} width={48} height={48} />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="font-bold text-sm tracking-tight truncate">{item.name}</p>
+                                            <p className="font-bold text-sm tracking-tight line-clamp-2 break-words">{item.name}</p>
                                             <div className="flex items-center gap-1 mt-0.5 text-brand-black/70">
                                                 <Euro className="w-3 h-3" />
                                                 <span className="font-bold text-xs">{item.price.toFixed(2)}</span>
@@ -304,7 +391,7 @@ export default function ItemList() {
                                             </div>
                                             <MetaTags category={item.category} location={item.location} className="mt-1" />
                                         </div>
-                                        <div className="flex items-center gap-3 justify-self-end">
+                                        <div className="justify-self-end">
                                             <div className="text-right">
                                                 <div className={cn(
                                                     "font-semibold text-lg leading-none",
@@ -316,24 +403,6 @@ export default function ItemList() {
                                                     {delta !== 0 ? (delta > 0 ? `+${delta}` : delta) : 'Stock'}
                                                 </div>
                                             </div>
-                                            {isVolunteerMode && item.id > 0 && (
-                                                <div className="flex">
-                                                    <button
-                                                        onClick={() => addAdjustment(item, -1)}
-                                                        className="w-11 h-11 flex items-center justify-center border border-lijn bg-rose-400"
-                                                        title="Remove 1 from stock"
-                                                    >
-                                                        <Minus size={18} className="text-brand-black" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => addAdjustment(item, 1)}
-                                                        className="w-11 h-11 flex items-center justify-center border border-l-0 border-lijn bg-emerald-400"
-                                                        title="Add 1 to stock"
-                                                    >
-                                                        <Plus size={18} className="text-brand-black" />
-                                                    </button>
-                                                </div>
-                                            )}
                                         </div>
                                     </li>
                                 );
@@ -346,7 +415,7 @@ export default function ItemList() {
                         </ul>
 
                         {/* ── Desktop: table (sm and up) ── */}
-                        <table className="hidden sm:table w-full min-w-[600px] border-collapse">
+                        <table className="hidden md:table w-full min-w-[600px] border-collapse">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-lijn bg-brand-beige-dark">
                                     <th className="p-3 pl-6 text-left w-[80px]" />
@@ -468,10 +537,10 @@ export default function ItemList() {
                     </div>
 
                     {/* Pagination - Fixed at bottom of table */}
-                    <div className="flex-shrink-0 flex items-center justify-between gap-2 px-4 sm:px-6 py-3 border-t border-lijn bg-brand-beige-dark">
+                    <div className="flex-shrink-0 flex items-center justify-between gap-2 px-4 sm:px-6 py-3 md:border-t border-lijn bg-brand-beige-dark">
                         <div className="flex items-center gap-2 sm:gap-4">
                             <label className="hidden sm:inline text-[10px] font-semibold">Rows:</label>
-                            <select value={rowsPerPage} onChange={handleChangeRowsPerPage} className="brutalist-input px-3 py-1 text-xs font-bold border border-lijn bg-brand-beige">
+                            <select value={rowsPerPage} onChange={handleChangeRowsPerPage} className="brutalist-input px-3 h-11 md:h-auto md:py-1 text-base md:text-xs font-bold border border-lijn bg-brand-beige">
                                 <option value={10}>10</option>
                                 <option value={25}>25</option>
                                 <option value={50}>50</option>
@@ -483,22 +552,25 @@ export default function ItemList() {
                                 {filteredItems.length > 0 ? `${page * rowsPerPage + 1}–${Math.min((page + 1) * rowsPerPage, filteredItems.length)} / ${filteredItems.length}` : '0 items'}
                             </span>
                             <div className="flex gap-2">
-                                <button onClick={() => handleChangePage(null, page - 1)} disabled={page === 0} className={cn("brutalist-button px-4 py-2 text-xs", page === 0 && "opacity-30 cursor-not-allowed")}>Prev</button>
-                                <button onClick={() => handleChangePage(null, page + 1)} disabled={page >= Math.ceil(filteredItems.length / rowsPerPage) - 1} className={cn("brutalist-button px-4 py-2 text-xs", page >= Math.ceil(filteredItems.length / rowsPerPage) - 1 && "opacity-30 cursor-not-allowed")}>Next</button>
+                                <button onClick={() => handleChangePage(null, page - 1)} disabled={page === 0} className={cn("brutalist-button px-4 h-11 md:h-auto md:py-2 text-sm md:text-xs", page === 0 && "opacity-30 cursor-not-allowed")}>Prev</button>
+                                <button onClick={() => handleChangePage(null, page + 1)} disabled={page >= Math.ceil(filteredItems.length / rowsPerPage) - 1} className={cn("brutalist-button px-4 h-11 md:h-auto md:py-2 text-sm md:text-xs", page >= Math.ceil(filteredItems.length / rowsPerPage) - 1 && "opacity-30 cursor-not-allowed")}>Next</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Mobile / tablet: compact pending-changes bar (sidebar is lg-only) */}
+                {/* Phone / tablet: pending changes stay in view at the bottom (the sidebar is lg-only) */}
                 {isVolunteerMode && adjustments.length > 0 && (
-                    <div className="lg:hidden flex-shrink-0 mt-4 border border-lijn bg-brand-beige p-3 flex items-center gap-3">
-                        <span className="text-[10px] font-semibold text-brand-black/70 whitespace-nowrap">
-                            {adjustments.length} pending
-                        </span>
+                    <div className="lg:hidden sticky bottom-0 z-10 flex-shrink-0 md:mt-4 border-t md:border border-lijn bg-brand-beige p-3 flex items-center gap-2">
+                        <button
+                            onClick={() => setPendingOpen(true)}
+                            className="text-sm md:text-[10px] font-semibold text-brand-black underline underline-offset-2 whitespace-nowrap px-1 h-11 md:h-auto"
+                        >
+                            {adjustments.length} {adjustments.length === 1 ? 'change' : 'changes'}
+                        </button>
                         <button
                             onClick={clearAdjustments}
-                            className="brutalist-button px-3 py-2 text-[10px] font-semibold"
+                            className="brutalist-button px-3 h-11 md:h-auto md:py-2 text-sm md:text-[10px] font-semibold"
                         >
                             Clear
                         </button>
@@ -506,7 +578,7 @@ export default function ItemList() {
                             disabled={isCommitting}
                             onClick={() => setIsConfirmOpen(true)}
                             className={cn(
-                                "brutalist-button flex-1 py-2 bg-emerald-400 text-brand-black text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-2",
+                                "brutalist-button flex-1 h-11 md:h-auto md:py-2 bg-emerald-400 text-brand-black text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-2",
                                 isCommitting ? "opacity-75 cursor-not-allowed" : "hover:brightness-95"
                             )}
                         >
@@ -596,6 +668,76 @@ export default function ItemList() {
                     </div>
                 </aside>
             )}
+
+            {/* Phone: change one item's stock */}
+            <Sheet
+                open={editing !== null}
+                onClose={() => setEditingId(null)}
+                title="Change stock"
+                footer={<button onClick={() => setEditingId(null)} className="brutalist-button btn-primary w-full h-12">Done</button>}
+            >
+                {editing && (() => {
+                    const delta = getAdjustmentDelta(editing.id);
+                    return (
+                        <div className="p-4 space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="border border-lijn bg-white w-16 h-16 overflow-hidden shrink-0">
+                                    <ImageDisplay imagePath={editing.image} alt={editing.name} width={64} height={64} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="font-bold text-base break-words">{editing.name}</p>
+                                    <MetaTags category={editing.category} location={editing.location} className="mt-1" />
+                                </div>
+                            </div>
+                            <div className="flex items-stretch border border-lijn">
+                                <button
+                                    onClick={() => addAdjustment(editing, -1)}
+                                    className="w-20 h-16 flex items-center justify-center bg-rose-400"
+                                    aria-label="Remove 1 from stock"
+                                >
+                                    <Minus size={24} />
+                                </button>
+                                <div className="flex-1 flex flex-col items-center justify-center">
+                                    <span className="text-2xl font-semibold tabular-nums">
+                                        {editing.quantity}{delta !== 0 && <> → {editing.quantity + delta}</>}
+                                    </span>
+                                    <span className="text-xs text-grafiet">
+                                        {delta === 0 ? 'in stock' : delta > 0 ? `+${delta}, not saved yet` : `${delta}, not saved yet`}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => addAdjustment(editing, 1)}
+                                    className="w-20 h-16 flex items-center justify-center bg-emerald-400"
+                                    aria-label="Add 1 to stock"
+                                >
+                                    <Plus size={24} />
+                                </button>
+                            </div>
+                            <p className="text-xs text-grafiet">Changes are saved together with Confirm at the bottom of the list.</p>
+                        </div>
+                    );
+                })()}
+            </Sheet>
+
+            {/* Phone: the pending changes */}
+            <Sheet open={pendingOpen && adjustments.length > 0} onClose={() => setPendingOpen(false)} title="Pending changes">
+                <ul className="divide-y divide-lijn-zacht">
+                    {adjustments.map(adj => (
+                        <li key={adj.item.id} className="flex items-center gap-3 px-4 py-3">
+                            <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-sm break-words">{adj.item.name}</div>
+                                <div className="text-xs text-grafiet">{adj.item.quantity} → {adj.item.quantity + adj.delta}</div>
+                            </div>
+                            <span className={cn('font-semibold text-sm px-2 py-1', adj.delta > 0 ? 'bg-emerald-400' : 'bg-rose-400')}>
+                                {adj.delta > 0 ? `+${adj.delta}` : adj.delta}
+                            </span>
+                            <button onClick={() => removeAdjustment(adj.item.id)} className="w-11 h-11 flex items-center justify-center text-brand-black/60" aria-label="Undo">
+                                <Trash2 size={18} />
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </Sheet>
 
             <StockConfirmationModal
                 open={isConfirmOpen}

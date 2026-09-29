@@ -68,3 +68,10 @@ export const PAYMENT = {
   IBAN: import.meta.env.VITE_PAYMENT_IBAN || 'BE00000000000000',
   PAYCONIQ_MERCHANT_ID: import.meta.env.VITE_PAYCONIQ_MERCHANT_ID || '',
 } as const;
+
+// Footer links; on a phone they are in the More sheet (BottomNav).
+export const FOOTER_LINKS = {
+  docs: import.meta.env.VITE_DOCS_URL || 'https://docs.inventree.org/en/stable/',
+  feedback: import.meta.env.VITE_FEEDBACK_URL || '',
+  github: import.meta.env.VITE_GITHUB_URL || 'https://github.com/maakleerplek/stock-management',
+};

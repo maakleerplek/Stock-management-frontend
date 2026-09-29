@@ -95,6 +95,13 @@
   ::selection {
     @apply bg-brand-black text-white;
   }
+
+  /* iOS zooms in on a field with text under 16 px when you tap it. */
+  @media (max-width: 767px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
 }
 
 @utility brutalist-border {
