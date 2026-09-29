@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import AddPartForm, { type PartFormData, type SelectOption } from './AddPartForm';
 import AddCategoryForm, { type CategoryFormData } from './AddCategoryForm';
 import AddLocationForm, { type LocationFormData } from './AddLocationForm';
@@ -34,7 +34,7 @@ import {
 import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2, Zap, Plus, Tag, MapPin, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
-import { TRACKING } from './lib/stockHistory';
+import { describeMovement, isShownMovement } from './lib/stockHistory';
 import './index.css';
 
 export type AppView = 'checkout' | 'browse' | 'laser' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
@@ -90,6 +90,11 @@ function AppContent() {
   const { addToast } = useToast();
   const { isVolunteerMode, sessionChecked } = useVolunteer();
   const { items: stockItems, loading: stockLoading, lastFetched: stockLastFetched } = useStock();
+  const partNames = useMemo(() => {
+    const names = new Map<number, string>();
+    stockItems.forEach(item => { if (item.part_id != null && !names.has(item.part_id)) names.set(item.part_id, item.name); });
+    return names;
+  }, [stockItems]);
 
   const totalParts = stockItems.length;
   const inStockCount = stockItems.filter(i => i.quantity > 0).length;
@@ -141,10 +146,10 @@ function AppContent() {
         console.log('[App] Fetching dashboard metrics...');
         const [lowStockResp, trackingResp] = await Promise.all([
           inventreeClient.getLowStockParts(),
-          inventreeClient.getStockTracking(5),
+          inventreeClient.getStockTracking(20),
         ]);
         setLowStockItems(lowStockResp.results || []);
-        setRecentMovements(trackingResp.results || []);
+        setRecentMovements((trackingResp.results || []).filter(isShownMovement).slice(0, 5));
       }
 
     } catch (error) {
@@ -624,10 +629,10 @@ function AppContent() {
                           {recentMovements.length > 0 ? (
                             <div className="divide-y divide-lijn">
                               {recentMovements.map((move) => {
-                                const isAdd = (move.deltas?.added ?? 0) > 0 || move.tracking_type === TRACKING.STOCK_ADD;
-                                const isRemove = (move.deltas?.removed ?? 0) > 0
-                                  || move.tracking_type === TRACKING.SHIPPED_AGAINST_SALES_ORDER
-                                  || move.tracking_type === TRACKING.SENT_TO_CUSTOMER;
+                                const { quantity, what, direction } = describeMovement(move);
+                                const isAdd = direction === 'in';
+                                const isRemove = direction === 'out';
+                                const name = partNames.get(move.part) ?? `Part #${move.part}`;
                                 return (
                                   <div key={move.pk} className={cn(
                                     "p-3 flex justify-between items-center",
@@ -642,8 +647,8 @@ function AppContent() {
                                         {isAdd ? "↑" : isRemove ? "↓" : "·"}
                                       </span>
                                       <div className="min-w-0">
-                                        <span className="text-xs font-bold">{move.label}</span>
-                                        {move.notes && <p className="text-[10px] text-brand-black/60 mt-0.5 truncate">{move.notes}</p>}
+                                        <span className="text-xs font-bold">{name}{quantity != null && ` ×${quantity}`}</span>
+                                        <p className="text-[10px] text-brand-black/60 mt-0.5 truncate">{what}</p>
                                       </div>
                                     </div>
                                     <span className="text-[10px] font-mono text-brand-black/50 flex-shrink-0 ml-2">{move.date}</span>

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 import { NOTES } from '../src/sendCodeHandler';
 import {
-  isSale, isVolunteerDrink, unitsGiven, stockLevels, levelAt, bucketStart, bucketRange, salesPerBucket, assignColors, SERIES_COLORS,
+  isSale, isVolunteerDrink, unitsGiven, describeMovement, stockLevels, levelAt, bucketStart, bucketRange, salesPerBucket, assignColors, SERIES_COLORS,
 } from '../src/lib/stockHistory';
 
 let pk = 0;
@@ -140,5 +140,18 @@ describe('assignColors', () => {
     const colors = assignColors(log, [1, 2]);
     expect(colors.get(2)).toBe(SERIES_COLORS[0]);
     expect(colors.get(1)).toBe(SERIES_COLORS[1]);
+  });
+});
+
+describe('recent activity', () => {
+  it('says in English what happened, with the amount', () => {
+    const at = '2026-09-29T18:22';
+    expect(describeMovement(entry(1, 1, at, 12, { removed: 1, quantity: 4 }, NOTES.DRINK)))
+      .toEqual({ quantity: 1, what: 'free volunteer drink', direction: 'out' });
+    expect(describeMovement(entry(1, 1, at, 12, { removed: 2, quantity: 4 }, 'Purchased via Interface-stock (Hightechlab/Maakleerplek)')))
+      .toEqual({ quantity: 2, what: 'bought at the kiosk', direction: 'out' });
+    expect(describeMovement(entry(1, 1, at, 11, { added: 6, quantity: 10 }, NOTES.ADD)))
+      .toEqual({ quantity: 6, what: 'restocked', direction: 'in' });
+    expect(describeMovement(entry(1, 1, at, 60, { quantity: 1 }, '')).what).toBe('bought in the app');
   });
 });
