@@ -118,14 +118,14 @@ def test_deleted_stock_item_closes_the_row(env):
     assert storage.open_rows() == []
 
 
-def test_extend_with_token_resets_the_reminder(env):
+def test_extend_resets_the_reminder(env):
     c, inv, _ = env
     store(c)
     storage.check(on=date.today() + timedelta(days=storage.DAYS))
     [row] = storage.open_rows()
     assert row['reminded_at']
     db.execute('UPDATE storage_items SET expires = ? WHERE stock_pk = 42', (date.today().isoformat(),))
-    r = c.post('/storage/api/extend', json={'token': row['token']})
+    r = c.post('/storage/api/extend', json={'code': row['code'], 'email': row['email']})
     assert r.status_code == 200
     [row] = storage.open_rows()
     assert row['reminded_at'] is None

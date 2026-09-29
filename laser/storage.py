@@ -9,7 +9,9 @@ SQLite (storage_items).
 
 Once an hour check() looks at every open item:
     - stock item gone, empty or moved elsewhere: closed, nothing to do.
-    - expiry date reached: one reminder mail with a link to extend.
+    - expiry date reached: one reminder mail. Extending needs a visit to
+      HTL, like a library: the Storage tab is only reachable on the
+      internal network.
     - STORAGE_GRACE_DAYS after that mail: status may_remove. Volunteers
       decide; nothing is thrown away by the server.
 
@@ -18,11 +20,10 @@ check_out_stored_item), after which the next check() closes the row, or fills
 in the code and e-mail on the Storage tab (/storage/api/checkout).
 
 Anyone may store and extend (nginx: /storage/api/). The list, pick-up and
-extend-without-link are volunteer-only (nginx: /storage/api/admin/).
+extend-for-someone are volunteer-only (nginx: /storage/api/admin/).
 """
 import os
 import re
-import secrets
 import threading
 import time
 from datetime import date, datetime, timedelta
@@ -38,7 +39,6 @@ LOCATION = os.environ.get('STORAGE_LOCATION') or 'Kelder - tijdelijke opslag'
 SPOT = os.environ.get('STORAGE_SPOT') or 'the shelf marked "Tijdelijke opslag" in the cellar'
 DAYS = int(os.environ.get('STORAGE_DAYS') or 90)
 GRACE_DAYS = int(os.environ.get('STORAGE_GRACE_DAYS') or 14)
-PUBLIC_URL = os.environ.get('PUBLIC_URL', '').rstrip('/')
 # Fixed, not a setting: the app hides this category from the stock list.
 CATEGORY = 'Tijdelijke opslag'
 PART = 'Tijdelijke opslag'
@@ -166,19 +166,18 @@ def mail_stored(row: dict):
                 f"Hi {row['first_name']},\n\n"
                 f"You stored this in the cellar:\n{row['content']}\n\n"
                 + instructions(row['code'], row['first_name'], row['last_name'], row['created']) +
-                f"\nWe keep it until {row['expires']}. Before then, take it home or extend it"
-                f" on the Storage tab with your code {row['code']}.\n")
+                f"\nWe keep it until {row['expires']}. Before then, take it home, or come to HTL"
+                f" and extend it on the Storage tab with your code {row['code']}.\n")
 
 
 def mail_reminder(row: dict):
-    link = f"{PUBLIC_URL}/#storage/extend/{row['token']}" if PUBLIC_URL else 'the Storage tab of the stock app'
     last_day = (today() + timedelta(days=GRACE_DAYS)).isoformat()
     mailer.send(row['email'], f"Your item in the cellar expires: {row['code']}",
                 f"Hi {row['first_name']},\n\n"
                 f"On {row['created']} you left this in the cellar:\n{row['content']}\n\n"
-                f"Its {DAYS} days are over. Take it home, or keep it longer:\n"
-                f"1. Extend it here: {link}\n"
-                f"2. Put new tape on it with today's date and the code {row['code']}.\n\n"
+                f"Its {DAYS} days are over. Come to HTL and take it home, or keep it longer:"
+                f" on the Storage tab of the stock app there, fill in {row['code']} and this"
+                f" e-mail address and press Extend.\n\n"
                 f"If it is still there and not extended after {last_day}, it may be removed.\n")
 
 
@@ -259,8 +258,8 @@ def store():
         print(f'[storage] storing failed: {e}')
         return {'error': 'InvenTree did not accept the item. Ask a volunteer.'}, 502
     db.execute('INSERT INTO storage_items (stock_pk, code, first_name, last_name, email, content, '
-               'created, expires, token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-               (pk, code, first, last, email, content, stored_on, expires, secrets.token_urlsafe(24)))
+               'created, expires) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+               (pk, code, first, last, email, content, stored_on, expires))
     [row] = db.query('SELECT * FROM storage_items WHERE stock_pk = ?', (pk,))
     try:
         mail_stored(row)
@@ -270,10 +269,7 @@ def store():
 
 
 def owned_row(b: dict) -> dict | None:
-    """The open row for the token from the reminder mail, or for code + e-mail."""
-    if b.get('token'):
-        rows = db.query('SELECT * FROM storage_items WHERE token = ? AND closed_at IS NULL', (str(b['token']),))
-        return rows[0] if rows else None
+    """The open row for this code, if the e-mail is the owner's."""
     if b.get('code') and b.get('email'):
         row = row_by_code(str(b['code']))
         if row and row['email'].lower() == str(b['email']).strip().lower():

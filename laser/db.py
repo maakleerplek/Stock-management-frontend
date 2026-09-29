@@ -77,7 +77,6 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
             content TEXT NOT NULL,
             created TEXT NOT NULL,
             expires TEXT NOT NULL,
-            token TEXT NOT NULL UNIQUE,
             reminded_at TEXT,
             closed_at TEXT,
             closed_reason TEXT

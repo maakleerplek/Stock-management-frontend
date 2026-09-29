@@ -42,7 +42,6 @@ export const storageApi = {
   config: () => call<{ spot: string; days: number; graceDays: number }>('/config'),
   store: (item: { firstName: string; lastName: string; email: string; content: string }) =>
     call<StoreResult>('/items', 'POST', item),
-  extendWithToken: (token: string) => call<{ code: string; expires: string }>('/extend', 'POST', { token }),
   extendWithCode: (code: string, email: string) =>
     call<{ code: string; expires: string }>('/extend', 'POST', { code, email }),
   checkout: (code: string, email: string) => call<{ code: string }>('/checkout', 'POST', { code, email }),
