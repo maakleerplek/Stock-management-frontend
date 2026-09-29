@@ -2,6 +2,9 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { inventreeClient, isHomeStock } from './api/inventreeClient';
 import type { ItemData, InvenTreeStockItem } from './api/types';
 
+/** Category of the cellar storage items (laser/storage.py CATEGORY). */
+const STORAGE_CATEGORY = 'Tijdelijke opslag';
+
 export interface Category {
   pk: number;
   name: string;
@@ -105,7 +108,11 @@ export function StockProvider({ children }: { children: ReactNode }) {
         stockByPart.set(item.part, list);
       }
 
-      const formattedItems: ItemData[] = (partsResp.results as PartRow[]).map(part => {
+      // Things people left in the cellar (Storage tab) are stock items too, but
+      // not for sale. laser/storage.py uses this category name.
+      const formattedItems: ItemData[] = (partsResp.results as PartRow[])
+        .filter(part => resolveCategory(part) !== STORAGE_CATEGORY)
+        .map(part => {
         const stock = (stockByPart.get(part.pk) ?? []).sort((a, b) => b.quantity - a.quantity);
         const main = stock[0];
         return {

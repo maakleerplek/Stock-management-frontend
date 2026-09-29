@@ -17,6 +17,7 @@ import AdminToolsBar from './components/AdminToolsBar';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import AnalyticsPage from './analytics/AnalyticsPage';
 import LaserCutterPage from './LaserCutterPage';
+import StoragePage from './StoragePage';
 import { laserApi, useLaserSocket } from './lib/laserApi';
 import {
   type InvenTreeTrackingEntry,
@@ -28,14 +29,14 @@ import {
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
-import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2, Zap } from 'lucide-react';
+import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2, Zap, Archive } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import { TRACKING } from './lib/stockHistory';
 import './index.css';
 
-export type AppView = 'checkout' | 'browse' | 'laser' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
-const VIEWS: AppView[] = ['checkout', 'browse', 'laser', 'volunteer', 'inventory', 'scan', 'orders', 'analytics'];
+export type AppView = 'checkout' | 'browse' | 'laser' | 'storage' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
+const VIEWS: AppView[] = ['checkout', 'browse', 'laser', 'storage', 'volunteer', 'inventory', 'scan', 'orders', 'analytics'];
 
 // The open tab lives in the URL hash (#laser), so a refresh stays on it. A
 // page may add its own sub-tab after a slash (#analytics/laser).
@@ -301,7 +302,7 @@ function AppContent() {
     if (isVolunteerMode && currentPage === 'checkout') {
       setCurrentPage('volunteer');
     }
-    if (!isVolunteerMode && currentPage !== 'checkout' && currentPage !== 'browse' && currentPage !== 'laser') {
+    if (!isVolunteerMode && !['checkout', 'browse', 'laser', 'storage'].includes(currentPage)) {
       setCurrentPage('checkout');
     }
   }, [isVolunteerMode, currentPage]);
@@ -327,6 +328,7 @@ function AppContent() {
         { id: 'scan', label: 'Scan', icon: ScanBarcode },
         { id: 'inventory', label: 'Stock list', icon: Package },
         { id: 'orders', label: 'Purchase orders', icon: ShoppingBag },
+        { id: 'storage', label: 'Storage', icon: Archive },
         { id: 'analytics', label: 'Analytics', icon: BarChart2 },
       ].map(tab => (
         <button
@@ -365,6 +367,7 @@ function AppContent() {
         { id: 'checkout', label: 'Checkout', icon: ScanBarcode },
         { id: 'browse', label: 'Stock list', icon: Package },
         { id: 'laser', label: 'Lasercutter', icon: Zap },
+        { id: 'storage', label: 'Storage', icon: Archive },
       ].map(tab => (
         <button
           key={tab.id}
@@ -401,6 +404,8 @@ function AppContent() {
         )}
 
         {currentPage === 'laser' && <LaserCutterPage live={laser} onCheckout={handleLaserCheckout} />}
+
+        {currentPage === 'storage' && <StoragePage />}
 
         {currentPage === 'checkout' && (
           <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">

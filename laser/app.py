@@ -7,7 +7,8 @@ change and {"type": "heartbeat"} every 10 s, which we answer with an ACK.
 Laser-on time adds up in a global counter until someone assigns it to their
 session. Settings advice comes from LaserLog (see recommend.py).
 
-Everything is under /laser/ because nginx proxies that path here.
+Everything is under /laser/ because nginx proxies that path here. The same
+service also runs the cellar storage under /storage/ (see storage.py).
 """
 import json
 import math
@@ -23,6 +24,7 @@ from flask_socketio import SocketIO
 
 import db
 import inventree
+import storage
 from recommend import MAX_POWER, Point, recommend
 
 COST_PER_MIN = float(os.environ.get('COST_PER_MIN', '0.50'))
@@ -37,6 +39,8 @@ socketio = SocketIO(app, path='/laser/socket.io', async_mode='threading', cors_a
 _inventree = None
 if os.environ.get('INVENTREE_BACKEND_URL') and os.environ.get('INVENTREE_TOKEN'):
     _inventree = inventree.InvenTree(os.environ['INVENTREE_BACKEND_URL'], os.environ['INVENTREE_TOKEN'])
+storage.init(_inventree)
+app.register_blueprint(storage.bp)
 
 # ---------------------------------------------------------------- laser state
 
@@ -425,4 +429,5 @@ if __name__ == '__main__':
     db.connect()
     threading.Thread(target=udp_server, daemon=True).start()
     threading.Thread(target=ticker, daemon=True).start()
+    threading.Thread(target=storage.checker, daemon=True).start()
     socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)

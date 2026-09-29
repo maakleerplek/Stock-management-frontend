@@ -1,8 +1,9 @@
-"""SQLite storage: laser sessions and logged attempts.
+"""SQLite storage: laser sessions, logged attempts and cellar storage.
 
 The material list with its baseline settings lives in InvenTree (see
 inventree.py), so it is part of the InvenTree backup. Only what users add
-here - sessions and "how did it go" reports - is in this file.
+here - sessions, "how did it go" reports and who stored what in the cellar
+(storage.py) - is in this file.
 """
 import os
 import sqlite3
@@ -63,6 +64,23 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
             submitted_by TEXT,
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Things people left in the cellar. The item itself is a stock item
+        -- in InvenTree (stock_pk); this row holds the owner and the reminder.
+        CREATE TABLE IF NOT EXISTS storage_items (
+            stock_pk INTEGER PRIMARY KEY,
+            code TEXT NOT NULL UNIQUE,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created TEXT NOT NULL,
+            expires TEXT NOT NULL,
+            token TEXT NOT NULL UNIQUE,
+            reminded_at TEXT,
+            closed_at TEXT,
+            closed_reason TEXT
         );
     ''')
     # Added later: a session is 'in checkout' once someone pressed Pay, and
