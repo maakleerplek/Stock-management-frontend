@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ShoppingBag, Plus, Loader2, CheckCircle, XCircle, Package, Trash2, Truck, AlertTriangle } from 'lucide-react';
 import inventreeClient from './api/inventreeClient';
-import type { PurchaseOrderLine } from './api/types';
+import type { PurchaseOrderLine, PurchaseOrderSummary } from './api/types';
+import PurchaseOrderDetail from './components/PurchaseOrderDetail';
 import { useStock } from './StockContext';
 import type { SelectOption } from './AddPartForm';
 import { cn } from './lib/utils';
@@ -28,16 +29,18 @@ interface OrderDraft {
     reference: string;
 }
 
-interface ExistingPO {
-    pk: number;
-    reference: string;
-    status: number;
-    status_text: string;
-    supplier: number;
-    supplier_detail: { name: string };
-    description: string;
-    creation_date: string;
-}
+type ExistingPO = PurchaseOrderSummary;
+
+// InvenTree PurchaseOrderStatus: 10 pending, 20 placed, 25 on hold, 30 complete,
+// 40 cancelled, 50 lost, 60 returned.
+const OPEN_STATUSES = [10, 20, 25];
+type OrderFilter = 'open' | 'done' | 'cancelled' | 'all';
+const ORDER_FILTERS: { id: OrderFilter; label: string; match: (status: number) => boolean }[] = [
+    { id: 'open', label: 'Open', match: s => OPEN_STATUSES.includes(s) },
+    { id: 'done', label: 'Completed', match: s => s === 30 },
+    { id: 'cancelled', label: 'Cancelled', match: s => s === 40 || s === 50 || s === 60 },
+    { id: 'all', label: 'All', match: () => true },
+];
 
 interface ConfirmModal {
     draftId: string;
@@ -108,13 +111,16 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
     const [submitResults, setSubmitResults] = useState<Record<string, { success?: string; error?: string }>>({});
     const [confirmModal, setConfirmModal] = useState<ConfirmModal | null>(null);
     const [confirming, setConfirming] = useState(false);
+    const [orderFilter, setOrderFilter] = useState<OrderFilter>('open');
+    const [detailPo, setDetailPo] = useState<ExistingPO | null>(null);
+    const shownOrders = existingOrders.filter(o => ORDER_FILTERS.find(f => f.id === orderFilter)!.match(o.status));
     const prefillApplied = useRef(false);
 
     const loadOrders = useCallback(async () => {
         setLoadingOrders(true);
         try {
             const orders = await inventreeClient.getPurchaseOrders();
-            setExistingOrders(orders.filter(o => o.status_text?.toLowerCase() !== 'cancelled'));
+            setExistingOrders(orders);
         } finally {
             setLoadingOrders(false);
         }
@@ -628,7 +634,25 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
 
             {/* Existing orders */}
             <div className="space-y-2">
-                <h2 className="text-[10px] font-semibold text-brand-black/60">Open orders</h2>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <h2 className="text-[10px] font-semibold text-brand-black/60">Orders</h2>
+                    <div className="flex border border-lijn" role="tablist">
+                        {ORDER_FILTERS.map(f => (
+                            <button
+                                key={f.id}
+                                role="tab"
+                                aria-selected={orderFilter === f.id}
+                                onClick={() => setOrderFilter(f.id)}
+                                className={cn(
+                                    'px-3 h-9 md:h-7 text-xs font-semibold border-l border-lijn first:border-l-0',
+                                    orderFilter === f.id ? 'bg-brand-black text-white' : 'bg-white text-brand-black',
+                                )}
+                            >
+                                {f.label} ({existingOrders.filter(o => f.match(o.status)).length})
+                            </button>
+                        ))}
+                    </div>
+                </div>
                 {actionError && !receiveModal && !completeModal && (
                     <div className="flex items-center gap-3 border border-red-500 bg-red-50 p-3">
                         <XCircle size={16} className="text-red-600 flex-shrink-0" />
@@ -640,22 +664,26 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                         <Loader2 size={14} className="animate-spin" /> Loading...
                     </div>
                 )}
-                {!loadingOrders && existingOrders.length === 0 && (
+                {!loadingOrders && shownOrders.length === 0 && (
                     <div className="border border-lijn bg-white p-6 text-center text-xs font-bold text-brand-black/40">
-                        No open purchase orders
+                        No {orderFilter === 'all' ? '' : ORDER_FILTERS.find(f => f.id === orderFilter)?.label.toLowerCase() + ' '}purchase orders
                     </div>
                 )}
-                {existingOrders.map(po => (
+                {shownOrders.map(po => (
                     <div key={po.pk} className="border border-lijn bg-white">
-                        <div className="flex items-center justify-between p-4">
-                            <div>
-                                <p className="text-sm font-semibold">{po.reference}</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+                            {/* A tap on the order shows its dates, cost and every line. */}
+                            <button onClick={() => setDetailPo(po)} className="text-left min-w-0 hover:opacity-80">
+                                <p className="text-sm font-semibold underline-offset-2 hover:underline">{po.reference}</p>
                                 <p className="text-[10px] font-bold text-brand-black/50">
-                                    {po.supplier_detail?.name} · {po.creation_date?.slice(0, 10)}
+                                    {po.supplier_detail?.name || po.supplier_name} · {po.creation_date?.slice(0, 10)}
                                 </p>
                                 {po.description && <p className="text-[10px] text-brand-black/40 mt-0.5">{po.description}</p>}
-                            </div>
-                            <div className="flex items-center gap-2">
+                                <p className="text-[10px] font-semibold text-brand-black/60 mt-1">
+                                    {po.line_items ?? '?'} {po.line_items === 1 ? 'line' : 'lines'} · details →
+                                </p>
+                            </button>
+                            <div className="flex items-center gap-2 flex-wrap">
                                 <span className={cn("text-[10px] font-semibold px-2 py-1", statusColor(po.status_text))}>
                                     {po.status_text}
                                 </span>
@@ -759,6 +787,10 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
                         </div>
                     </div>
                 </div>
+            )}
+
+            {detailPo && (
+                <PurchaseOrderDetail po={detailPo} statusClass={statusColor(detailPo.status_text)} onClose={() => setDetailPo(null)} />
             )}
 
             {/* Receive modal — record what actually turned up, line by line */}
