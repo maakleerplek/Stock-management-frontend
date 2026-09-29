@@ -125,8 +125,10 @@ server {
     location ^~ /__laser_volunteer/ {
         internal;
         auth_request /oauth/auth;
-        rewrite ^/__laser_volunteer(/.*)$ $1 break;
+        # set before rewrite: "break" also skips every set that follows it,
+        # which left the upstream empty (500 on every library save).
         set $laser_upstream http://laser:5000;
+        rewrite ^/__laser_volunteer(/.*)$ $1 break;
         proxy_pass $laser_upstream;
         proxy_set_header Host $host;
         proxy_set_header Authorization "";
