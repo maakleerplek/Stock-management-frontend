@@ -21,7 +21,9 @@ async function sendChangelogEvent(
 ): Promise<void> {
     if (!TV_URL) return;
     try {
-        await fetch(`${TV_URL}/api/changelog`, {
+        // Through our own nginx, which forwards it to TV_URL: a direct post from
+        // the HTTPS page to the TV's http address is blocked as mixed content.
+        await fetch('/tv/api/changelog', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action, source, item_name, quantity, ...(price != null ? { price } : {}) }),

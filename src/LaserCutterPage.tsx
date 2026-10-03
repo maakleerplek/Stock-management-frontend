@@ -290,12 +290,15 @@ function SettingsPanel() {
 
   useEffect(() => {
     if (!material || thickness === null || thickness <= 0 || !ops.length) { setResults([]); return; }
+    // A slower answer for the previous material must not land next to the new
+    // selection: that would show the wrong power and speed.
+    let stale = false;
     const id = window.setTimeout(() => {
       laserApi.recommend(material, thickness, ops, strength)
-        .then(d => { setResults(d.results); setReported({}); setUsed({}); })
-        .catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'));
+        .then(d => { if (stale) return; setResults(d.results); setReported({}); setUsed({}); })
+        .catch(e => { if (!stale) addToast(e instanceof Error ? e.message : String(e), 'error'); });
     }, 150);
-    return () => window.clearTimeout(id);
+    return () => { stale = true; window.clearTimeout(id); };
   }, [material, thickness, ops, strength, addToast]);
 
   const current = materials?.find(m => m.name === material);

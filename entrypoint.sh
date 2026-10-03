@@ -3,6 +3,8 @@ set -e
 
 export HOST_IP=${HOST_IP:-127.0.0.1}
 export INVENTREE_BACKEND_URL=${INVENTREE_BACKEND_URL:-http://127.0.0.1:8000}
+# Unset means no TV: proxy to a port nobody listens on, so nginx still starts.
+export TV_PRESENTATION_URL=${TV_PRESENTATION_URL:-http://127.0.0.1:9}
 
 # Secrets are runtime settings of this container, never part of the web bundle.
 # The VITE_ names are accepted so an existing .env keeps working.
@@ -61,7 +63,7 @@ else
     echo "Reusing existing SSL certificate."
 fi
 
-envsubst '${INVENTREE_BACKEND_URL} ${INVENTREE_TOKEN} ${PUBLIC_HTTPS_PORT} ${AUTH_MODE}' \
+envsubst '${INVENTREE_BACKEND_URL} ${INVENTREE_TOKEN} ${PUBLIC_HTTPS_PORT} ${AUTH_MODE} ${TV_PRESENTATION_URL}' \
     < /etc/nginx/templates/nginx.conf.template > /etc/nginx/conf.d/default.conf
 envsubst '${OIDC_LOGOUT_URL} ${VOLUNTEER_KEY}' \
     < "/etc/nginx/templates/auth-${AUTH_MODE}.conf.template" > /etc/nginx/auth.conf
