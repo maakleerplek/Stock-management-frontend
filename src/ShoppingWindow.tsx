@@ -139,6 +139,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                         addToast(`Failed to book "${item.name}" as a volunteer drink. Operation stopped.`, 'error');
                         return;
                     }
+                    // Booked: out of the cart, so a retry cannot book it twice.
+                    setCartItems(prev => prev.filter(i => i.id !== item.id));
                 }
                 setCartItems([]);
                 setCheckedOut(null);
@@ -158,6 +160,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                         addToast(`Failed to process "${item.name}". Operation stopped.`, 'error');
                         return;
                     }
+                    // Done: out of the cart, so a retry cannot apply it twice.
+                    setCartItems(prev => prev.filter(i => i.id !== item.id));
                 }
                 setCartItems([]);
                 setCheckedOut(null);

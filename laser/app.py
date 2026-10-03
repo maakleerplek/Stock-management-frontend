@@ -31,6 +31,9 @@ COST_PER_SECOND = COST_PER_MIN / 60
 UDP_PORT = int(os.environ.get('UDP_PORT', '5005'))
 SIMULATE = os.environ.get('LASER_SIMULATE', '') == '1'
 ESP_TIMEOUT = 30  # seconds without a packet before the ESP counts as gone
+# Comma-separated sender IPs accepted on the UDP port (the ESP32). Empty accepts
+# anyone on the network, who could then add or stop billed laser time.
+ESP_ALLOWED_IPS = {ip.strip() for ip in os.environ.get('ESP_ALLOWED_IPS', '').split(',') if ip.strip()}
 
 app = Flask(__name__)
 socketio = SocketIO(app, path='/laser/socket.io', async_mode='threading', cors_allowed_origins='*')  # only nginx reaches it
@@ -99,6 +102,8 @@ def udp_server():
     while True:
         try:
             data, addr = sock.recvfrom(1024)
+            if ESP_ALLOWED_IPS and addr[0] not in ESP_ALLOWED_IPS:
+                continue
             message = json.loads(data.decode())
             esp_ip, esp_last_seen = addr[0], time.time()
             if message.get('type') == 'heartbeat':
@@ -128,10 +133,15 @@ def stop_if_esp_silent(now: float | None = None):
 
 def ticker():
     while True:
-        stop_if_esp_silent()
-        with state_lock:
-            payload = time_payload()
-        socketio.emit('time_update', payload)
+        # One failed emit or DB call used to end this thread for good: no more
+        # live updates and no ESP timeout, while the health check stayed OK.
+        try:
+            stop_if_esp_silent()
+            with state_lock:
+                payload = time_payload()
+            socketio.emit('time_update', payload)
+        except Exception as e:
+            print(f'[ticker] {e}')
         time.sleep(0.5)
 
 # ---------------------------------------------------------------- sessions

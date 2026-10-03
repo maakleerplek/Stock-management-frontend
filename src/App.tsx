@@ -5,6 +5,7 @@ import AddLocationForm, { type LocationFormData } from './AddLocationForm';
 import AddSupplierForm, { type SupplierFormData } from './AddSupplierForm';
 import type { ScanEvent, ItemData } from './sendCodeHandler';
 import ShoppingWindow from './ShoppingWindow';
+import { useMediaQuery } from './hooks/useMediaQuery';
 import BarcodeScannerContainer from './BarcodeScannerContainer';
 import ItemList from './ItemList';
 import Footer from './components/Footer';
@@ -84,6 +85,9 @@ function AppContent() {
   const [recentMovements, setRecentMovements] = useState<InvenTreeTrackingEntry[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
   const [mobileCheckoutTab, setMobileCheckoutTab] = useState<'scan' | 'cart'>('scan');
+  // Only one checkout layout is mounted. Both used to be, hidden with CSS: two
+  // carts on the same localStorage key, and the hidden one wrote stale items back.
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
   // One connection to the laser service for the whole app: the Lasercutter
   // tab shows it, the checkout bills the sessions someone pressed Pay on.
   const laser = useLaserSocket();
@@ -436,6 +440,7 @@ function AppContent() {
 
         {currentPage === 'checkout' && (
           <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
+            {!isDesktop && (<>
             {/* ── Mobile: tab bar ── */}
             <div className="lg:hidden flex border-b border-lijn bg-brand-beige shrink-0">
               <button
@@ -482,8 +487,10 @@ function AppContent() {
               />
             </div>
 
-            {/* ── Desktop: side-by-side ── */}
-            <div className="hidden lg:flex flex-1 min-h-0">
+            </>)}
+
+            {isDesktop && (
+                        <div className="hidden lg:flex flex-1 min-h-0">
               <div className="flex-1 p-6 flex flex-col items-center justify-center bg-brand-beige">
                 <BarcodeScannerContainer onItemScanned={handleItemScanned} />
               </div>
@@ -495,6 +502,7 @@ function AppContent() {
                 />
               </aside>
             </div>
+            )}
           </div>
         )}
 
