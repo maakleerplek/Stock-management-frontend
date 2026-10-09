@@ -72,6 +72,10 @@ export function StockProvider({ children }: { children: ReactNode }) {
         inventreeClient.invalidateCache('/part/?active=true&virtual=false&limit=500');
         inventreeClient.invalidateCache('/part/category/');
         inventreeClient.invalidateCache('/stock/location/');
+        // Supplier and sale prices: cached an hour, so a price just entered
+        // in InvenTree would not show up on a refresh.
+        inventreeClient.invalidateCache('/company/');
+        inventreeClient.invalidateCache('/part/sale-price/');
       }
 
       // Fetch in parallel for speed

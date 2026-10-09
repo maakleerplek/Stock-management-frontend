@@ -165,6 +165,18 @@ export async function handleVolunteerDrink(
     }
 }
 
+/**
+ * Free items from the volunteer tab: a drink is drunk by the volunteer; anything
+ * else (filament for the open-lab 3D printers, wood, workshop material, ...) is
+ * used in the lab or a workshop and booked as internal use.
+ */
+export function isLabMaterial(item: Pick<ItemData, 'category'>): boolean {
+    return !/drink|drank/i.test(item.category ?? '');
+}
+
+export const isFilament = (item: Pick<ItemData, 'category' | 'ipn'>) =>
+    /filament/i.test(item.category ?? '') || /^FIL-/i.test(item.ipn ?? '');
+
 /** Volunteer: take items out for the lab itself (filament, materials). Out of stock, never paid. */
 export async function handleInternalUse(
     partId: number,

@@ -2,7 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { Sigma, Download, AlertTriangle } from 'lucide-react';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { itemAnalytics } from '../lib/itemAnalytics';
-import { serviceRevenue, lostLaserStats, type ServiceLine, type DiscardRow } from '../lib/services';
+import { serviceRevenue, laserLedger, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../lib/services';
 import { buildTotals } from '../lib/totals';
 import { PRICING } from '../constants';
 import { cn } from '../lib/utils';
@@ -17,10 +17,11 @@ const fmtMinutes = (m: number) => {
 };
 
 /** Revenue, costs and profit of everything in the period, in one table. */
-export default function TotalsTab({ trackingEntries, serviceLines, discarded, loading, trackingError, dateRange }: {
+export default function TotalsTab({ trackingEntries, serviceLines, discarded, laserSessions, loading, trackingError, dateRange }: {
   trackingEntries: InvenTreeTrackingEntry[];
   serviceLines: ServiceLine[];
   discarded: DiscardRow[];
+  laserSessions: { sessions: LaserSessionRow[]; unassignedSeconds: number };
   loading: boolean;
   trackingError: string | null;
   dateRange: DateRange;
@@ -31,8 +32,8 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, lo
   const totals = useMemo(() => buildTotals(
     itemAnalytics(trackingEntries, partLookup, 'all', days),
     serviceRevenue(serviceLines, days),
-    lostLaserStats(discarded, PRICING.LASER_PER_MINUTE, days),
-  ), [trackingEntries, partLookup, serviceLines, discarded, days]);
+    laserLedger(laserSessions.sessions, discarded, serviceLines, laserSessions.unassignedSeconds, PRICING.LASER_PER_MINUTE, days),
+  ), [trackingEntries, partLookup, serviceLines, discarded, laserSessions, days]);
 
   const period = dateRange.days ? `Last ${dateRange.days} days` : 'All time';
 
@@ -45,8 +46,9 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, lo
       ['Source', 'Revenue (€)', 'Costs (€)', 'Profit (€)'],
       ...[...totals.rows, totals.total].map(r => [r.label, r.revenue.toFixed(2), r.costs.toFixed(2), r.profit.toFixed(2)]),
       [],
-      ['Internal use for the open labs (not in total)', '', totals.internalUse.cost.toFixed(2), `${totals.internalUse.units} units`],
-      ['Laser time not paid via a session (not in total)', totals.notViaSession.value.toFixed(2), `${Math.round(totals.notViaSession.minutes)} min`],
+      ['Laser time assigned, not paid (not in total)', totals.laserUnpaid.value.toFixed(2), '', '', `${Math.round(totals.laserUnpaid.minutes)} min`],
+      ['Laser time not verified (not in total)', totals.laserUnverified.value.toFixed(2), '', '', `${Math.round(totals.laserUnverified.minutes)} min`],
+      ['Profit if the assigned laser time gets paid', '', '', totals.profitWithUnpaidLaser.toFixed(2)],
       ...totals.notes.map(n => [n]),
     ];
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
@@ -123,25 +125,36 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, lo
           </table>
         </div>
 
-        {totals.internalUse.units > 0 && (
-          <div className="mt-4 border border-lijn bg-brand-beige-dark px-3 py-2 flex flex-wrap justify-between gap-2 text-xs">
-            <span className="font-semibold">Internal use (filament, ... for the open labs)</span>
-            <span className="tabular-nums font-mono">{totals.internalUse.units} units · {eur(totals.internalUse.cost)}</span>
-            <span className="w-full text-[10px] text-brand-black/60">
-              Taken out of stock for the lab itself: not a loss, so not in the profit.
-            </span>
-          </div>
-        )}
-
-        {totals.notViaSession.minutes > 0 && (
-          <div className="mt-4 border border-lijn bg-rose-50 px-3 py-2 flex flex-wrap justify-between gap-2 text-xs">
-            <span className="font-semibold">Laser time not paid via a session</span>
-            <span className="tabular-nums font-mono">
-              {fmtMinutes(totals.notViaSession.minutes)} · {eur(totals.notViaSession.value)}
-            </span>
-            <span className="w-full text-[10px] text-brand-black/60">
-              Maybe paid some other way, maybe not: not in the total. Details on the Laser tab.
-            </span>
+        {(totals.laserUnpaid.count > 0 || totals.laserUnverified.count > 0) && (
+          <div className="mt-4 border border-lijn">
+            <div className="px-3 py-1.5 bg-brand-beige-dark text-[10px] font-semibold text-brand-black/60">
+              Laser time not on a paid sale (not in the total, details on the Laser tab)
+            </div>
+            <table className="w-full text-xs">
+              <tbody>
+                <tr className="border-b border-lijn-zacht bg-amber-50">
+                  <td className="py-2 px-3 font-semibold">Assigned, not paid</td>
+                  <td className="py-2 text-right tabular-nums">{fmtMinutes(totals.laserUnpaid.minutes)}</td>
+                  <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(totals.laserUnpaid.value)}</td>
+                </tr>
+                <tr className="border-b border-lijn-zacht bg-rose-50">
+                  <td className="py-2 px-3 font-semibold">Not verified</td>
+                  <td className="py-2 text-right tabular-nums">{fmtMinutes(totals.laserUnverified.minutes)}</td>
+                  <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(totals.laserUnverified.value)}</td>
+                </tr>
+                <tr>
+                  <td className="py-2 px-3 font-semibold">Profit if the assigned time gets paid</td>
+                  <td />
+                  <td className={cn('py-2 px-3 text-right tabular-nums font-mono font-semibold', totals.profitWithUnpaidLaser < 0 && 'text-red-600')}>
+                    {eur(totals.profitWithUnpaidLaser)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="px-3 py-1.5 text-[10px] text-brand-black/60">
+              Assigned: open or deleted sessions with a name. Not verified: time reset without a session, the counter now,
+              or a session whose sales order was cancelled.
+            </p>
           </div>
         )}
 

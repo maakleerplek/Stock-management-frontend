@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 import { itemAnalytics, type PartPrice } from '../src/lib/itemAnalytics';
-import { serviceRevenue, lostLaserStats, type ServiceLine } from '../src/lib/services';
+import { serviceRevenue, laserLedger, type ServiceLine } from '../src/lib/services';
 import { buildTotals } from '../src/lib/totals';
 import { TRACKING } from '../src/lib/stockHistory';
 
@@ -59,39 +59,45 @@ describe('serviceRevenue', () => {
   });
 });
 
+const noLaser = laserLedger([], [], [], 0, 0.5, 30, now);
+
 describe('buildTotals', () => {
-  it('adds the rows up to the total and keeps laser time without a session out of it', () => {
+  it('adds the rows up to the total and keeps unpaid and unverified laser time out of it', () => {
     const items = itemAnalytics(entries, parts, 'all', 30, now);
-    const lost = lostLaserStats([
-      { seconds: 900, source: 'unassigned', session_name: null, reason: null, discarded_at: '2026-09-27T10:00:00' },
-    ], 0.5, 30, now);
-    const t = buildTotals(items, serviceRevenue([line({})], 30, now), lost);
+    const laser = laserLedger(
+      [{ name: 'Wolf', created: '2026-09-27T09:00:00', total_time: 600, paid_at: null, order_ref: null }],
+      [{ seconds: 900, source: 'unassigned', session_name: null, reason: null, discarded_at: '2026-09-27T10:00:00' }],
+      [], 0, 0.5, 30, now);
+    const t = buildTotals(items, serviceRevenue([line({})], 30, now), laser);
 
     expect(t.rows.map(r => r.label)).toEqual(['Items sold · Drinks', 'Items sold · Misc', 'Volunteer drinks', 'Laser time']);
     expect(t.total.revenue).toBeCloseTo(15);                // 10 items + 5 laser
     expect(t.total.costs).toBeCloseTo(4);                   // 2.4 + 1.6
     expect(t.total.profit).toBeCloseTo(11);
     expect(t.total.profit).toBeCloseTo(t.rows.reduce((s, r) => s + r.profit, 0));
-    expect(t.notViaSession).toEqual({ minutes: 15, value: 7.5 });
+    expect(t.laserUnverified).toEqual({ minutes: 15, value: 7.5, count: 1 });
+    expect(t.laserUnpaid).toEqual({ minutes: 10, value: 5, count: 1 });
+    expect(t.profitWithUnpaidLaser).toBeCloseTo(16);
     expect(t.notes).toHaveLength(2);                        // uncosted stickers, machine costs
   });
 
-  it('keeps internal use (filament for the open labs) apart: not a sale, not a loss', () => {
+  it('counts lab use (filament for the open-lab printers) as a cost', () => {
     const filament = new Map(parts).set(3, { name: 'PLA 1 kg', sellingPrice: 25, costPrice: 20, category: 'Filament' });
     const withUse = [...entries, entry(3, '2026-09-27', TRACKING.STOCK_REMOVE, { removed: 2 }, 'Internal use via Stock App')];
     const items = itemAnalytics(withUse, filament, 'all', 30, now);
-    const t = buildTotals(items, [], lostLaserStats([], 0.5, 30, now));
+    const t = buildTotals(items, [], noLaser);
 
-    expect(t.internalUse).toEqual({ units: 2, cost: 40 });
+    expect(t.rows.find(r => r.label.startsWith('Lab & workshop use'))).toMatchObject({ revenue: 0, costs: 40, profit: -40 });
     expect(t.rows.map(r => r.label)).not.toContain('Items sold · Filament');
     expect(t.total.revenue).toBeCloseTo(10);                // the items only
-    expect(t.total.profit).toBeCloseTo(10 - 2.4 - 1.6);     // filament not taken off
+    expect(t.total.profit).toBeCloseTo(10 - 2.4 - 1.6 - 40);
+    expect(t.notes.some(n => /3D printing is not measured/.test(n))).toBe(true);
     expect(items.totalRemoved).toBe(3 + 2 + 4 + 2);         // paid, drinks and internal use
   });
 
   it('leaves rows with only zeros out', () => {
     const empty = itemAnalytics([], parts, 'all', 30, now);
-    const t = buildTotals(empty, [], lostLaserStats([], 0.5, 30, now));
+    const t = buildTotals(empty, [], noLaser);
     expect(t.rows).toEqual([]);
     expect(t.total).toEqual({ label: 'Total', revenue: 0, costs: 0, profit: 0 });
     expect(t.notes).toEqual([]);
