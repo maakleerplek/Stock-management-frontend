@@ -16,3 +16,10 @@ yarn-debug.log*
 yarn-error.log*
 frontend-caddy-config/
 frontend-caddy-data/
+
+# Not part of the web build: changes here should not rebuild the frontend
+laser/
+tests/
+.github/
+**/__pycache__
+**/.pytest_cache

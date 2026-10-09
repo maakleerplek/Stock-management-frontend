@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Laser timer</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body {
+    display: flex; align-items: flex-start; gap: 8px; padding: 16px; box-sizing: border-box;
+    font: 600 15px system-ui, sans-serif; background: #F1F0EC; color: #5B5C55;
+    border-left: 1px solid #D8D7D1; user-select: none; cursor: default;
+  }
+  .dot { width: 12px; height: 12px; margin-top: 3px; border-radius: 50%; background: #D8D7D1; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<span class="dot"></span><span id="msg">Connecting to laser server…</span>
+<script>
+  // Shown until the stock server answers; the Rust side sets window.LASER_SERVER.
+  // no-cors: an answer of any kind means the server is up, a network error means it isn't.
+  const server = window.LASER_SERVER;
+  async function connect() {
+    try {
+      await fetch(server + '/laser/api/health', { mode: 'no-cors', cache: 'no-store' });
+      location.replace(server + '/#laser');
+      return;
+    } catch {
+      document.getElementById('msg').textContent = 'Laser server offline, retrying…';
+    }
+    setTimeout(connect, 10000);
+  }
+  connect();
+</script>
+</body>
+</html>

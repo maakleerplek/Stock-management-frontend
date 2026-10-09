@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { type ItemData } from './sendCodeHandler';
+import { type ItemData, isLabMaterial, isFilament } from './sendCodeHandler';
 import ImageDisplay from './ImageDisplay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, Plus, Minus, ShoppingCart as ShoppingCartIcon, Heart, CheckCircle, Loader2, MapPin, Tag, Package, X } from 'lucide-react';
@@ -10,6 +10,15 @@ import { useToast } from './ToastContext';
 export interface CartItem extends ItemData {
     cartQuantity: number;
 }
+
+/** What a volunteer's cart does: add/remove stock, set it, or take items out for free. */
+export type VolunteerCartMode = 'adjust' | 'set' | 'drink';
+
+const MODE_LABELS: Record<VolunteerCartMode, { tab: string; title: string; action: string }> = {
+    adjust: { tab: 'Add / remove', title: 'Add to stock', action: 'Add to stock' },
+    set: { tab: 'Set absolute', title: 'Set stock', action: 'Set stock' },
+    drink: { tab: 'Free (drink / lab / workshop)', title: 'Take out for free', action: 'Take out of stock' },
+};
 interface ShoppingCartProps {
     cartItems: CartItem[];
     onUpdateQuantity: (itemId: number, newQuantity: number) => void;
@@ -20,8 +29,8 @@ interface ShoppingCartProps {
     onClearCheckout?: () => void;
     extraCosts: number;
     isVolunteerMode: boolean;
-    isSetMode?: boolean;
-    onSetModeChange?: (isSet: boolean) => void;
+    mode?: VolunteerCartMode;
+    onModeChange?: (mode: VolunteerCartMode) => void;
     isCheckingOut?: boolean;
 }
 
@@ -35,8 +44,8 @@ function ShoppingCart({
     onClearCheckout,
     extraCosts,
     isVolunteerMode,
-    isSetMode = false,
-    onSetModeChange,
+    mode = 'adjust',
+    onModeChange,
     isCheckingOut = false,
 }: ShoppingCartProps) {
     const { addToast } = useToast();
@@ -73,42 +82,32 @@ function ShoppingCart({
                     ) : (
                         <ShoppingCartIcon className="w-4 h-4" />
                     )}
-                    {isVolunteerMode ? (isSetMode ? "Set stock" : "Add to stock") : "Shopping cart"}
+                    {isVolunteerMode ? MODE_LABELS[mode].title : "Shopping cart"}
                 </h2>
             </div>
 
             {/* Volunteer Mode Toggle */}
-            {isVolunteerMode && onSetModeChange && (
+            {isVolunteerMode && onModeChange && (
                 <div className="px-4 py-3 border-b border-lijn bg-brand-beige-dark">
-                    <div className="grid grid-cols-2 gap-0">
-                        <button
-                            onClick={() => {
-                                if ('vibrate' in navigator) navigator.vibrate(20);
-                                onSetModeChange(false);
-                            }}
-                            className={cn(
-                                "py-2.5 text-[10px] font-semibold cursor-pointer border border-lijn flex items-center justify-center gap-1.5 transition-colors",
-                                !isSetMode
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-brand-beige text-brand-black hover:bg-blue-100"
-                            )}
-                        >
-                            Add / remove
-                        </button>
-                        <button
-                            onClick={() => {
-                                if ('vibrate' in navigator) navigator.vibrate(20);
-                                onSetModeChange(true);
-                            }}
-                            className={cn(
-                                "py-2.5 text-[10px] font-semibold cursor-pointer border border-l-0 border-lijn flex items-center justify-center gap-1.5 transition-colors",
-                                isSetMode
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-brand-beige text-brand-black hover:bg-blue-100"
-                            )}
-                        >
-                            Set absolute
-                        </button>
+                    <div className="grid grid-cols-3 gap-0">
+                        {(Object.keys(MODE_LABELS) as VolunteerCartMode[]).map((m, i) => (
+                            <button
+                                key={m}
+                                onClick={() => {
+                                    if ('vibrate' in navigator) navigator.vibrate(20);
+                                    onModeChange(m);
+                                }}
+                                className={cn(
+                                    "py-2.5 text-[10px] font-semibold cursor-pointer border border-lijn flex items-center justify-center gap-1.5 transition-colors",
+                                    i > 0 && "border-l-0",
+                                    mode === m
+                                        ? "bg-blue-600 text-white"
+                                        : "bg-brand-beige text-brand-black hover:bg-blue-100"
+                                )}
+                            >
+                                {MODE_LABELS[m].tab}
+                            </button>
+                        ))}
                     </div>
                 </div>
             )}
@@ -168,8 +167,13 @@ function ShoppingCart({
                                             let stockChangeText: string;
                                             let stockChangeColor: string;
                                             
-                                            if (isVolunteerMode) {
-                                                if (isSetMode) {
+                                            if (isVolunteerMode && mode === 'drink') {
+                                                // Free drink: stock goes down, like a sale.
+                                                newStock = currentStock - item.cartQuantity;
+                                                stockChangeText = `-${item.cartQuantity} free`;
+                                                stockChangeColor = 'text-red-600';
+                                            } else if (isVolunteerMode) {
+                                                if (mode === 'set') {
                                                     // Set mode: stock will be set to cartQuantity
                                                     newStock = item.cartQuantity;
                                                     stockChangeText = `SET TO ${newStock}`;
@@ -238,6 +242,11 @@ function ShoppingCart({
                                                                 <span className="flex items-center gap-1 text-[10px] text-brand-black/60">
                                                                     <Tag size={10} />
                                                                     {item.category}
+                                                                </span>
+                                                            )}
+                                                            {isVolunteerMode && mode === 'drink' && (
+                                                                <span className="text-[10px] font-semibold px-1.5 border border-lijn bg-white">
+                                                                    {!isLabMaterial(item) ? 'Volunteer drink' : isFilament(item) ? 'Lab rack (3D printers)' : 'Lab / workshop'}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -317,10 +326,11 @@ function ShoppingCart({
                         {/* Footer: Total & Checkout */}
                         {(cartItems.length > 0 || extraCosts > 0) && (
                             <div className="mt-auto border-t border-lijn bg-brand-beige p-4">
-                                {!isVolunteerMode && (
+                                {/* Volunteers only pay the extra services (laser time, ...); the items are stock work. */}
+                                {(!isVolunteerMode || extraCosts > 0) && (
                                     <div className="flex justify-between items-center mb-3">
-                                        <span className="text-sm font-semibold text-brand-black/60">Total</span>
-                                        <span className="font-semibold text-2xl">€{(totalPrice + extraCosts).toFixed(2)}</span>
+                                        <span className="text-sm font-semibold text-brand-black/60">{isVolunteerMode ? 'To pay (extra services)' : 'Total'}</span>
+                                        <span className="font-semibold text-2xl">€{(isVolunteerMode ? extraCosts : totalPrice + extraCosts).toFixed(2)}</span>
                                     </div>
                                 )}
                                 <button
@@ -343,7 +353,7 @@ function ShoppingCart({
                                             Processing...
                                         </>
                                     ) : (
-                                        isVolunteerMode ? (isSetMode ? 'Set stock' : 'Add to stock') : 'Checkout'
+                                        isVolunteerMode && cartItems.length > 0 ? MODE_LABELS[mode].action : 'Checkout'
                                     )}
                                 </button>
                             </div>

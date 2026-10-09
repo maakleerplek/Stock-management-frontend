@@ -181,6 +181,14 @@ server {
         proxy_set_header Authorization "";
     }
 
+    # TV changelog: the page is HTTPS and the TV plain http, so the browser
+    # blocked the direct post as mixed content and the TV never heard of sales.
+    location = /tv/api/changelog {
+        limit_except POST { deny all; }
+        proxy_pass ${TV_PRESENTATION_URL}/api/changelog;
+        proxy_set_header Authorization "";
+    }
+
     # Everything else (users, settings, admin, ...) is volunteers only.
     location /api/ {
         auth_request /oauth/auth;

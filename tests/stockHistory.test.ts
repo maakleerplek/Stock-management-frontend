@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
+import { NOTES } from '../src/sendCodeHandler';
 import {
-  isSale, isVolunteerDrink, unitsGiven, stockLevels, levelAt, bucketStart, bucketRange, salesPerBucket, assignColors, SERIES_COLORS,
+  isSale, isVolunteerDrink, isInternalUse, unitsUsed, unitsGiven, describeMovement, stockLevels, levelAt, bucketStart, bucketRange, salesPerBucket, assignColors, SERIES_COLORS,
 } from '../src/lib/stockHistory';
 
 let pk = 0;
@@ -32,6 +33,12 @@ describe('volunteer drinks', () => {
     expect(isSale(log[1])).toBe(false);
     expect(isVolunteerDrink(log[1])).toBe(true);
     expect(unitsGiven(log[1])).toBe(3);
+  });
+
+  it('include the ones taken in the app\'s volunteer mode', () => {
+    const app = entry(1, 1, '2026-09-24T10:00', 12, { removed: 1, quantity: 16 }, NOTES.DRINK);
+    expect(isVolunteerDrink(app)).toBe(true);
+    expect(isSale(app)).toBe(false);
   });
 
   it('are not mistaken for paid kiosk sales or volunteer-mode corrections', () => {
@@ -133,5 +140,28 @@ describe('assignColors', () => {
     const colors = assignColors(log, [1, 2]);
     expect(colors.get(2)).toBe(SERIES_COLORS[0]);
     expect(colors.get(1)).toBe(SERIES_COLORS[1]);
+  });
+});
+
+describe('recent activity', () => {
+  it('says in English what happened, with the amount', () => {
+    const at = '2026-09-29T18:22';
+    expect(describeMovement(entry(1, 1, at, 12, { removed: 1, quantity: 4 }, NOTES.DRINK)))
+      .toEqual({ quantity: 1, what: 'free volunteer drink', direction: 'out' });
+    expect(describeMovement(entry(1, 1, at, 12, { removed: 2, quantity: 4 }, 'Purchased via Interface-stock (Hightechlab/Maakleerplek)')))
+      .toEqual({ quantity: 2, what: 'bought at the kiosk', direction: 'out' });
+    expect(describeMovement(entry(1, 1, at, 11, { added: 6, quantity: 10 }, NOTES.ADD)))
+      .toEqual({ quantity: 6, what: 'restocked', direction: 'in' });
+    expect(describeMovement(entry(1, 1, at, 60, { quantity: 1 }, '')).what).toBe('bought in the app');
+  });
+});
+
+describe('internal use', () => {
+  const used = entry(1, 1, '2026-10-09T10:00', 12, { removed: 2, quantity: 8 }, 'Internal use via Stock App');
+  it('is not a sale and not a drink', () => {
+    expect(isSale(used)).toBe(false);
+    expect(isVolunteerDrink(used)).toBe(false);
+    expect(isInternalUse(used)).toBe(true);
+    expect(unitsUsed(used)).toBe(2);
   });
 });

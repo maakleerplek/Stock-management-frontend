@@ -38,6 +38,9 @@ import { hasVolunteerSession, markSignedOut, VOLUNTEER_AUTH_FAILED } from '../au
 import { DEFAULTS } from '../constants';
 import type { ServiceLine } from '../lib/services';
 
+/** Per InvenTree call; uploads included, so not too tight. */
+const REQUEST_TIMEOUT_MS = 30_000;
+
 const CURRENCY = DEFAULTS.CURRENCY;
 
 /** Name of the InvenTree customer that till sales are booked on. */
@@ -130,10 +133,18 @@ export class InvenTreeClient {
         }
 
         try {
+            // A hung InvenTree otherwise kept the checkout spinner up for nginx's
+            // full 60 s on each of the ~10 calls a sale makes.
             const response = await fetch(url, {
                 method,
                 headers,
                 body: isFormData ? (body as BodyInit) : (body ? JSON.stringify(body) : undefined),
+                signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+            }).catch((err: unknown) => {
+                if (err instanceof DOMException && err.name === 'TimeoutError') {
+                    throw new Error(`InvenTree did not answer within ${REQUEST_TIMEOUT_MS / 1000} s`);
+                }
+                throw err;
             });
 
             if (!response.ok) {
@@ -194,6 +205,30 @@ export class InvenTreeClient {
     /**
      * Invalidate cached data for an endpoint
      */
+    /**
+     * GET every page of a list endpoint. `endpoint` already carries
+     * `limit=500`; one page used to be all the app read, so past 500 rows
+     * parts went missing and sale prices fell back to 0.
+     */
+    private async requestAll<R>(
+        endpoint: string,
+        useCache: boolean = true,
+        cacheTTL: number = CACHE_TTL.MEDIUM
+    ): Promise<{ count: number; results: R[] }> {
+        const pageSize = 500;
+        const results: R[] = [];
+        for (let offset = 0; ; offset += pageSize) {
+            const page = await this.request<{ count: number; results: R[] }>(
+                `${endpoint}&offset=${offset}`, 'GET', undefined, false, useCache, cacheTTL
+            );
+            const rows = page.results || [];
+            results.push(...rows);
+            if (rows.length < pageSize || results.length >= page.count) {
+                return { count: results.length, results };
+            }
+        }
+    }
+
     invalidateCache(endpoint: string, method: string = 'GET'): void {
         // Prefix match: '/stock/' also clears '/stock/?part=8&...'.
         ApiCache.removePrefix(`${method}_${endpoint}`);
@@ -594,14 +629,9 @@ export class InvenTreeClient {
     // ==================== Part Management ====================
 
     async getAllParts(): Promise<InvenTreePartListResponse> {
-        return this.request(
-            '/part/?active=true&virtual=false&limit=500',
-            'GET',
-            undefined,
-            false,
-            true,
-            CACHE_TTL.MEDIUM
-        );
+        return this.requestAll<InvenTreePartListResponse['results'][number]>(
+            '/part/?active=true&virtual=false&limit=500'
+        ) as Promise<InvenTreePartListResponse>;
     }
 
     /**
@@ -811,12 +841,8 @@ export class InvenTreeClient {
     }
 
     async getAllSupplierParts(): Promise<{ pk: number; part: number; supplier: number; SKU: string }[]> {
-        const result = await this.request<{ results: { pk: number; part: number; supplier: number; SKU: string }[] }>(
-            '/company/part/?limit=500',
-            'GET',
-            undefined,
-            false,
-            false
+        const result = await this.requestAll<{ pk: number; part: number; supplier: number; SKU: string }>(
+            '/company/part/?limit=500', false
         );
         return result.results;
     }
@@ -982,13 +1008,15 @@ export class InvenTreeClient {
         const existing = await this.request<{ results: { pk: number; part: number; quantity: number }[] }>(
             `/part/sale-price/?part=${partPk}&limit=100`, 'GET', undefined, false, false
         );
+        // New break first, old ones after: deleting first left the part with no
+        // price (sold at €0) whenever the POST failed.
+        const created = await this.request<{ pk: number }>('/part/sale-price/', 'POST',
+            { part: partPk, quantity: 1, price: String(price), price_currency: currency }, false, false);
         for (const b of existing.results || []) {
-            if (b.quantity === 1) {
+            if (b.quantity === 1 && b.pk !== created?.pk) {
                 await this.request(`/part/sale-price/${b.pk}/`, 'DELETE', undefined, false, false);
             }
         }
-        await this.request('/part/sale-price/', 'POST',
-            { part: partPk, quantity: 1, price: String(price), price_currency: currency }, false, false);
         this.invalidateCache('/part/sale-price/?limit=500');
     }
 
@@ -1001,8 +1029,8 @@ export class InvenTreeClient {
      * of goods and left every margin figure wrong.
      */
     async getSalePricePerPart(): Promise<Record<number, number>> {
-        const resp = await this.request<{ results: { part: number; quantity: number; price: string | number }[] }>(
-            '/part/sale-price/?limit=500', 'GET', undefined, false, true, CACHE_TTL.MEDIUM
+        const resp = await this.requestAll<{ part: number; quantity: number; price: string | number }>(
+            '/part/sale-price/?limit=500'
         );
         // Lowest break quantity is the single-unit price.
         const best = new Map<number, { qty: number; price: number }>();
@@ -1029,11 +1057,11 @@ export class InvenTreeClient {
      */
     async getSupplierCostPerPart(): Promise<Record<number, number>> {
         const [breaksResp, partsResp] = await Promise.all([
-            this.request<{ results: { part: number; quantity: number; price: string | number }[] }>(
-                '/company/price-break/?limit=500', 'GET', undefined, false, true, CACHE_TTL.LONG
+            this.requestAll<{ part: number; quantity: number; price: string | number }>(
+                '/company/price-break/?limit=500', true, CACHE_TTL.LONG
             ),
-            this.request<{ results: { pk: number; part: number; pack_quantity: string }[] }>(
-                '/company/part/?limit=500', 'GET', undefined, false, true, CACHE_TTL.LONG
+            this.requestAll<{ pk: number; part: number; pack_quantity: string }>(
+                '/company/part/?limit=500', true, CACHE_TTL.LONG
             ),
         ]);
 
@@ -1121,7 +1149,7 @@ export class InvenTreeClient {
     async getAllServiceLines(pageSize: number = 500): Promise<ServiceLine[]> {
         type Row = {
             reference: string; description: string; quantity: number | string; price: number | string | null;
-            order_detail?: { status: number; creation_date?: string | null; issue_date?: string | null; shipment_date?: string | null };
+            order_detail?: { reference?: string; status: number; creation_date?: string | null; issue_date?: string | null; shipment_date?: string | null };
         };
         const all: ServiceLine[] = [];
         for (let offset = 0; ; offset += pageSize) {
@@ -1136,6 +1164,7 @@ export class InvenTreeClient {
                     price: Number(r.price) || 0,
                     date: o?.shipment_date || o?.issue_date || o?.creation_date || '',
                     orderStatus: o?.status ?? 0,
+                    order: o?.reference ?? '',
                 });
             }
             if (page.results.length < pageSize || all.length >= page.count) return all;

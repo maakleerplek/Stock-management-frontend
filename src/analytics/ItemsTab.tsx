@@ -154,7 +154,10 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
     {
       label: 'Units out',
       value: analytics.totalRemoved,
-      sub: hasGiven ? `incl. ${analytics.totalGiven} volunteer drink${analytics.totalGiven === 1 ? '' : 's'}` : undefined,
+      sub: [
+        hasGiven && `${analytics.totalGiven} volunteer drink${analytics.totalGiven === 1 ? '' : 's'}`,
+        analytics.totalUsed > 0 && `${analytics.totalUsed} internal use`,
+      ].filter(Boolean).join(' · ') || undefined,
       icon: TrendingDown,
       bg: 'bg-rose-50',
     },

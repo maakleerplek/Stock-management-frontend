@@ -33,6 +33,9 @@ COST_PER_SECOND = COST_PER_MIN / 60
 UDP_PORT = int(os.environ.get('UDP_PORT', '5005'))
 SIMULATE = os.environ.get('LASER_SIMULATE', '') == '1'
 ESP_TIMEOUT = 30  # seconds without a packet before the ESP counts as gone
+# Comma-separated sender IPs accepted on the UDP port (the ESP32). Empty accepts
+# anyone on the network, who could then add or stop billed laser time.
+ESP_ALLOWED_IPS = {ip.strip() for ip in os.environ.get('ESP_ALLOWED_IPS', '').split(',') if ip.strip()}
 
 app = Flask(__name__)
 socketio = SocketIO(app, path='/laser/socket.io', async_mode='threading', cors_allowed_origins='*')  # only nginx reaches it
@@ -103,6 +106,8 @@ def udp_server():
     while True:
         try:
             data, addr = sock.recvfrom(1024)
+            if ESP_ALLOWED_IPS and addr[0] not in ESP_ALLOWED_IPS:
+                continue
             message = json.loads(data.decode())
             esp_ip, esp_last_seen = addr[0], time.time()
             if message.get('type') == 'heartbeat':
@@ -132,10 +137,15 @@ def stop_if_esp_silent(now: float | None = None):
 
 def ticker():
     while True:
-        stop_if_esp_silent()
-        with state_lock:
-            payload = time_payload()
-        socketio.emit('time_update', payload)
+        # One failed emit or DB call used to end this thread for good: no more
+        # live updates and no ESP timeout, while the health check stayed OK.
+        try:
+            stop_if_esp_silent()
+            with state_lock:
+                payload = time_payload()
+            socketio.emit('time_update', payload)
+        except Exception as e:
+            print(f'[ticker] {e}')
         time.sleep(0.5)
 
 # ---------------------------------------------------------------- sessions
@@ -176,6 +186,15 @@ def get_sessions():
     return {'sessions': all_sessions()}
 
 
+@app.get('/laser/api/sessions/all')
+def get_all_sessions():
+    """For the analytics: every session, open and paid, and the unassigned time now on the counter."""
+    rows = db.query('SELECT id, name, created, total_time, checkout_at, paid_at, order_ref FROM sessions ORDER BY created DESC')
+    with state_lock:
+        unassigned = current_time()
+    return {'sessions': rows, 'unassigned_seconds': unassigned}
+
+
 @app.post('/laser/api/sessions')
 def create_session():
     name = ((request.json or {}).get('name') or '').strip()
@@ -193,6 +212,8 @@ def reason_from_body() -> str | None:
 
 
 def log_discard(seconds: float, source: str, session_name: str | None, reason: str | None):
+    if seconds < db.MIN_LOGGED_SECONDS:
+        return
     db.execute('INSERT INTO discarded_time (seconds, source, session_name, reason, discarded_at) VALUES (?, ?, ?, ?, ?)',
                (seconds, source, session_name, reason, datetime.now().isoformat()))
 
@@ -215,8 +236,11 @@ def delete_session(sid):
 def checkout_session(sid):
     """Put the session in the checkout (Pay), or take it back out."""
     on = bool((request.json or {}).get('on', True))
-    if not db.query('SELECT id FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,)):
+    rows = db.query('SELECT total_time FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,))
+    if not rows:
         return {'error': 'Session not found'}, 404
+    if on and rows[0]['total_time'] <= 0:
+        return {'error': 'No laser time on this session yet'}, 400
     db.execute('UPDATE sessions SET checkout_at = ? WHERE id = ?', (datetime.now().isoformat() if on else None, sid))
     broadcast_sessions()
     return {'ok': True}
@@ -226,9 +250,15 @@ def checkout_session(sid):
 def paid_session(sid):
     """The checkout went through: keep the session as history with its order."""
     order = ((request.json or {}).get('order') or '')[:40] or None
-    if not db.query('SELECT id FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,)):
+    rows = db.query('SELECT total_time FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,))
+    if not rows:
         return {'error': 'Session not found'}, 404
-    db.execute('UPDATE sessions SET paid_at = ?, order_ref = ? WHERE id = ?', (datetime.now().isoformat(), order, sid))
+    if rows[0]['total_time'] <= 0:
+        # Nothing was lasered: not a session worth keeping, it would only skew the analytics.
+        db.execute('DELETE FROM time_blocks WHERE session_id = ?', (sid,))
+        db.execute('DELETE FROM sessions WHERE id = ?', (sid,))
+    else:
+        db.execute('UPDATE sessions SET paid_at = ?, order_ref = ? WHERE id = ?', (datetime.now().isoformat(), order, sid))
     broadcast_sessions()
     return {'ok': True}
 

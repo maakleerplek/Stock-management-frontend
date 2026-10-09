@@ -47,7 +47,7 @@ export function isSale(e: InvenTreeTrackingEntry): boolean {
   return (
     e.tracking_type === TRACKING.STOCK_REMOVE &&
     (e.deltas?.removed ?? 0) > 0 &&
-    !/^stock set|volunteer mode|volunteer drink/i.test(e.notes ?? '')
+    !/^stock set|volunteer mode|volunteer drink|internal use/i.test(e.notes ?? '')
   );
 }
 
@@ -61,6 +61,23 @@ export function isVolunteerDrink(e: InvenTreeTrackingEntry): boolean {
     (e.deltas?.removed ?? 0) > 0 &&
     /volunteer drink/i.test(e.notes ?? '')
   );
+}
+
+/**
+ * Taken out for the lab itself, e.g. filament for the printers in the open labs.
+ * Not a sale and not a drink; the material is used, not lost.
+ */
+export function isInternalUse(e: InvenTreeTrackingEntry): boolean {
+  return (
+    e.tracking_type === TRACKING.STOCK_REMOVE &&
+    (e.deltas?.removed ?? 0) > 0 &&
+    /internal use/i.test(e.notes ?? '')
+  );
+}
+
+/** Units taken out for internal use by an entry, 0 for anything else. */
+export function unitsUsed(e: InvenTreeTrackingEntry): number {
+  return isInternalUse(e) ? e.deltas.removed ?? 0 : 0;
 }
 
 /** Units given away as volunteer drinks by an entry, 0 for anything else. */
@@ -173,4 +190,53 @@ export function assignColors(entries: InvenTreeTrackingEntry[], partIds: number[
   for (const e of entries) sold.set(e.part, (sold.get(e.part) ?? 0) + unitsSold(e));
   const order = [...partIds].sort((a, b) => (sold.get(b) ?? 0) - (sold.get(a) ?? 0) || a - b);
   return new Map(order.map((p, i) => [p, SERIES_COLORS[i] ?? OTHER_COLOR]));
+}
+
+/** One line in "Recent activity": how many of the part, and what happened. */
+export interface MovementSummary {
+  quantity: number | null;
+  what: string;
+  direction: 'in' | 'out' | 'none';
+}
+
+/** Where a removal happened, from the note the kiosk or app left on it. */
+function where(notes: string): string {
+  if (/interface-stock/i.test(notes)) return 'at the kiosk';
+  if (/stock app/i.test(notes)) return 'in the app';
+  return '';
+}
+
+/**
+ * Plain English for a tracking entry. InvenTree's own label follows the
+ * server language and says nothing about sales or volunteer drinks.
+ */
+export function describeMovement(e: InvenTreeTrackingEntry): MovementSummary {
+  const notes = e.notes ?? '';
+  const d = e.deltas ?? {};
+  const join = (...parts: string[]) => parts.filter(Boolean).join(' ');
+  switch (e.tracking_type) {
+    case TRACKING.SHIPPED_AGAINST_SALES_ORDER:
+    case TRACKING.SENT_TO_CUSTOMER:
+      return { quantity: d.quantity ?? null, what: 'bought in the app', direction: 'out' };
+    case TRACKING.STOCK_REMOVE:
+      if (isVolunteerDrink(e)) return { quantity: d.removed ?? null, what: 'free volunteer drink', direction: 'out' };
+      if (/volunteer mode/i.test(notes)) return { quantity: d.removed ?? null, what: 'removed by a volunteer', direction: 'out' };
+      if (/purchased/i.test(notes)) return { quantity: d.removed ?? null, what: join('bought', where(notes)), direction: 'out' };
+      return { quantity: d.removed ?? null, what: 'removed', direction: 'out' };
+    case TRACKING.STOCK_ADD:
+      return { quantity: d.added ?? null, what: 'restocked', direction: 'in' };
+    case TRACKING.STOCK_COUNT:
+      return { quantity: null, what: `stock set to ${d.quantity ?? '?'}`, direction: 'none' };
+    case 70: // RECEIVED_AGAINST_PURCHASE_ORDER
+      return { quantity: d.quantity ?? d.added ?? null, what: 'received from a purchase order', direction: 'in' };
+    case 1: // CREATED
+      return { quantity: d.quantity ?? null, what: 'new stock', direction: 'in' };
+    default:
+      return { quantity: null, what: 'stock changed', direction: 'none' };
+  }
+}
+
+/** Entries worth showing in "Recent activity": no split bookkeeping around a shipment. */
+export function isShownMovement(e: InvenTreeTrackingEntry): boolean {
+  return e.tracking_type !== TRACKING.SPLIT_FROM_PARENT && e.tracking_type !== TRACKING.SPLIT_CHILD_ITEM;
 }

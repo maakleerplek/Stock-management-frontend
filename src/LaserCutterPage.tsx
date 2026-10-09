@@ -92,8 +92,8 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
       </div>
 
       <div className="flex flex-row items-end justify-between gap-3 px-4 py-3 border border-lijn bg-white">
-        {/* The animation needs room; on a phone the status and time are enough. */}
-        <div className="hidden sm:block w-full max-w-[304px]">
+        {/* Phone (and the laser PC's side bar): time left, a smaller animation right. */}
+        <div className="order-last sm:order-first min-w-0 w-full max-w-[160px] sm:max-w-[304px]">
           <LaserAnimation active={laserOn} />
         </div>
         <div className="text-left sm:text-right shrink-0">
@@ -290,12 +290,15 @@ function SettingsPanel() {
 
   useEffect(() => {
     if (!material || thickness === null || thickness <= 0 || !ops.length) { setResults([]); return; }
+    // A slower answer for the previous material must not land next to the new
+    // selection: that would show the wrong power and speed.
+    let stale = false;
     const id = window.setTimeout(() => {
       laserApi.recommend(material, thickness, ops, strength)
-        .then(d => { setResults(d.results); setReported({}); setUsed({}); })
-        .catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'));
+        .then(d => { if (stale) return; setResults(d.results); setReported({}); setUsed({}); })
+        .catch(e => { if (!stale) addToast(e instanceof Error ? e.message : String(e), 'error'); });
     }, 150);
-    return () => window.clearTimeout(id);
+    return () => { stale = true; window.clearTimeout(id); };
   }, [material, thickness, ops, strength, addToast]);
 
   const current = materials?.find(m => m.name === material);
