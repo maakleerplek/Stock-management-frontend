@@ -20,17 +20,8 @@ if (-not $exe) { throw "Installed, but no exe found in $installDir." }
 $config = Join-Path $here 'config.json'
 if (Test-Path $config) { Copy-Item $config (Join-Path $installDir 'config.json') -Force }
 
-# Watchdog: every minute, start it again if someone killed it in Task Manager.
-# The app adds itself to the startup apps; this also covers that being turned off.
-$check = "if (-not (Get-Process -Name '$($exe.BaseName)' -ErrorAction SilentlyContinue)) { Start-Process '$($exe.FullName)' }"
-$action = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument "--headless powershell -NoProfile -WindowStyle Hidden -Command `"$check`""
-$triggers = @(
-    New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-    New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1)
-)
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName 'Laser Timer watchdog' -Action $action -Trigger $triggers -Settings $settings -Force | Out-Null
+# Older versions had a watchdog task that restarted it; ending the process now really stops it.
+Unregister-ScheduledTask -TaskName 'Laser Timer watchdog' -Confirm:$false -ErrorAction SilentlyContinue
 
 Start-Process $exe.FullName
-Write-Host "Laser Timer installed in $installDir and running. Quit: Ctrl+Alt+Shift+Q (the watchdog starts it again within a minute)."
-Write-Host "Remove the watchdog: Unregister-ScheduledTask -TaskName 'Laser Timer watchdog'"
+Write-Host "Laser Timer installed in $installDir and running. It starts again at every login; to stop it now, end laser-timer.exe in Task Manager."
