@@ -1,4 +1,4 @@
-//! Laser Timer: a small always-on-top window in the top-right corner of the
+//! Laser Timer: an always-on-top bar along the right edge of the
 //! lasercutter PC. It shows the stock app's #laser-widget page, can't be closed,
 //! starts at login, and opens the full #laser page when you click it.
 //!
@@ -25,21 +25,18 @@ const DEFAULT_SERVER: &str = "https://10.72.1.246:8086";
 const BROWSER_ARGS: &str =
     "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --ignore-certificate-errors";
 
-/// config.json next to the exe, e.g. `{ "server": "https://10.72.1.246:8086", "width": 440 }`.
-/// Sizes are logical pixels; margins are the gap to the top-right corner.
+/// config.json next to the exe, e.g. `{ "server": "https://10.72.1.246:8086", "width": 260 }`.
+/// `width` is the bar's width in logical pixels.
 #[derive(Deserialize)]
 #[serde(default)]
 struct Config {
     server: String,
     width: f64,
-    height: f64,
-    margin_top: f64,
-    margin_right: f64,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config { server: DEFAULT_SERVER.into(), width: 440.0, height: 120.0, margin_top: 0.0, margin_right: 0.0 }
+        Config { server: DEFAULT_SERVER.into(), width: 260.0 }
     }
 }
 
@@ -53,15 +50,56 @@ fn load_config() -> Config {
     config
 }
 
-fn place_top_right(w: &WebviewWindow, c: &Config) -> tauri::Result<()> {
+/// The bar takes the right edge of the primary monitor, top to taskbar. On Windows
+/// it is an app bar: the screen strip is reserved, so maximized windows stop next to it.
+fn dock_right(w: &WebviewWindow, c: &Config) -> tauri::Result<()> {
     let Some(monitor) = w.primary_monitor()? else { return Ok(()) };
-    let scale = monitor.scale_factor();
     let area = monitor.work_area();
-    let size = PhysicalSize::new((c.width * scale) as u32, (c.height * scale) as u32);
-    w.set_size(size)?;
-    let x = area.position.x + area.size.width as i32 - size.width as i32 - (c.margin_right * scale) as i32;
-    let y = area.position.y + (c.margin_top * scale) as i32;
-    w.set_position(PhysicalPosition::new(x, y))
+    let width = (c.width * monitor.scale_factor()) as i32;
+    let (top, bottom, right) = (area.position.y, area.position.y + area.size.height as i32, area.position.x + area.size.width as i32);
+    #[cfg(windows)]
+    let (left, top, right, bottom) = appbar::register(w.hwnd()?.0 as _, right - width, top, right, bottom);
+    #[cfg(not(windows))]
+    let left = right - width;
+    w.set_size(PhysicalSize::new((right - left) as u32, (bottom - top) as u32))?;
+    w.set_position(PhysicalPosition::new(left, top))
+}
+
+#[cfg(windows)]
+mod appbar {
+    use std::mem::{size_of, zeroed};
+    use windows_sys::Win32::{
+        Foundation::{HWND, RECT},
+        UI::Shell::{SHAppBarMessage, ABE_RIGHT, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS, APPBARDATA},
+    };
+
+    fn data(hwnd: HWND) -> APPBARDATA {
+        let mut abd: APPBARDATA = unsafe { zeroed() };
+        abd.cbSize = size_of::<APPBARDATA>() as u32;
+        abd.hWnd = hwnd;
+        abd
+    }
+
+    /// Reserve the strip and return the rectangle Windows gave us.
+    pub fn register(hwnd: HWND, left: i32, top: i32, right: i32, bottom: i32) -> (i32, i32, i32, i32) {
+        let width = right - left;
+        let mut abd = data(hwnd);
+        unsafe {
+            SHAppBarMessage(ABM_NEW, &mut abd);
+            abd.uEdge = ABE_RIGHT;
+            abd.rc = RECT { left, top, right, bottom };
+            SHAppBarMessage(ABM_QUERYPOS, &mut abd);
+            abd.rc.left = abd.rc.right - width;
+            SHAppBarMessage(ABM_SETPOS, &mut abd);
+        }
+        (abd.rc.left, abd.rc.top, abd.rc.right, abd.rc.bottom)
+    }
+
+    /// Give the strip back to the other windows.
+    pub fn remove(hwnd: HWND) {
+        let mut abd = data(hwnd);
+        unsafe { SHAppBarMessage(ABM_REMOVE, &mut abd) };
+    }
 }
 
 /// The full laser page in a normal window that people can close. Async: creating
@@ -134,7 +172,7 @@ fn main() {
             // loader/index.html waits until the server answers, then goes to #laser-widget.
             let widget = WebviewWindowBuilder::new(app, "widget", WebviewUrl::App("index.html".into()))
                 .title("Laser timer")
-                .inner_size(config.width, config.height)
+                .inner_size(config.width, 600.0)
                 .decorations(false)
                 .always_on_top(true)
                 .skip_taskbar(true)
@@ -147,7 +185,7 @@ fn main() {
                 .initialization_script(&format!("window.LASER_SERVER = {};", serde_json::to_string(&server)?))
                 .additional_browser_args(BROWSER_ARGS)
                 .build()?;
-            place_top_right(&widget, &config)?;
+            dock_right(&widget, &config)?;
             widget.show()?;
             app.manage(config);
 
@@ -161,6 +199,14 @@ fn main() {
             });
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("laser timer failed to start");
+        .build(tauri::generate_context!())
+        .expect("laser timer failed to start")
+        .run(|_app, _event| {
+            #[cfg(windows)]
+            if let tauri::RunEvent::Exit = _event {
+                if let Some(Ok(hwnd)) = _app.get_webview_window("widget").map(|w| w.hwnd()) {
+                    appbar::remove(hwnd.0 as _);
+                }
+            }
+        });
 }
