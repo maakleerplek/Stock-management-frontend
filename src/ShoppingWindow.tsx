@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import ShoppingCart, { type CartItem, type FreeKind, type VolunteerCartMode } from './ShoppingCart';
+import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingCart';
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
 import { laserApi, markPaidReliably, pendingPaidIds, type LaserSession } from './lib/laserApi';
 import { PRICING } from './constants';
-import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, type CheckoutLine } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import ModalFrame from './components/ModalFrame';
@@ -49,7 +49,6 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     ];
     const extraCosts = extraTotal(extras);
     const [mode, setMode] = useState<VolunteerCartMode>('adjust');
-    const [freeKind, setFreeKind] = useState<FreeKind>('drink');
     const modeRef = useRef(mode);
     modeRef.current = mode;
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
@@ -166,8 +165,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
             // Volunteers: the items are stock work, item by item; the extra services are still paid.
             for (const item of cartItems) {
                 const totalPrice = item.price > 0 ? parseFloat((item.price * Math.abs(item.cartQuantity)).toFixed(2)) : undefined;
+                // Free tab: a drink is the volunteer's own; the rest (filament, wood, workshop material) is for the lab.
                 const success = mode === 'drink'
-                    ? freeKind === 'internal'
+                    ? isLabMaterial(item)
                         ? await handleInternalUse(item.id, item.cartQuantity, item.name)
                         : await handleVolunteerDrink(item.id, item.cartQuantity, item.name)
                     : mode === 'set'
@@ -183,14 +183,14 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                 setCartItems(prev => prev.filter(i => i.id !== item.id));
             }
             if (cartItems.length) {
+                const lab = cartItems.filter(isLabMaterial).length;
+                const drinks = cartItems.length - lab;
                 addToast(
                     mode !== 'drink' ? 'Stock updated successfully!'
-                        : freeKind === 'internal' ? 'Taken out of stock for internal use.'
-                            : 'Enjoy your drink! Booked as a free volunteer drink.',
+                        : [drinks && 'Enjoy your drink! Booked as a free volunteer drink.', lab && `${lab} item${lab > 1 ? 's' : ''} booked for the lab / workshop.`].filter(Boolean).join(' '),
                     'success',
                 );
             }
-            setFreeKind('drink');
             if (extras.length) await sell([]);
             else setCheckedOut(null);
         } catch (error) {
@@ -216,8 +216,6 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                     isVolunteerMode={isVolunteerMode}
                     mode={mode}
                     onModeChange={handleModeChange}
-                    freeKind={freeKind}
-                    onFreeKindChange={setFreeKind}
                     isCheckingOut={isCheckingOut}
                 />
 

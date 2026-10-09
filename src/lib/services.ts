@@ -11,6 +11,7 @@ export interface ServiceLine {
   price: number;        // per unit
   date: string;         // of the order (shipped, else issued, else created)
   orderStatus: number;
+  order?: string;       // sales order reference, e.g. SO-0042
 }
 
 // InvenTree SalesOrderStatus: 20 shipped, 30 complete. Pending, cancelled,
@@ -111,4 +112,83 @@ export function serviceRevenue(lines: ServiceLine[], days?: number, now: Date = 
     byRef.set(reference, r);
   }
   return [...byRef.values()].sort((a, b) => b.revenue - a.revenue);
+}
+
+/** A laser session as the laser service keeps it (GET /sessions/all). */
+export interface LaserSessionRow { name: string; created: string; total_time: number; paid_at: string | null; order_ref: string | null }
+
+export interface LaserBucket { minutes: number; value: number; count: number }
+
+/**
+ * All laser time that is not on a paid sales order, in two buckets.
+ * - unpaid: assigned to someone, not paid (open sessions and deleted sessions).
+ * - unverified: never assigned (reset counter, the counter now), or marked paid
+ *   on a sales order that does not count (cancelled, ...).
+ * Paid time itself comes from the sales orders (laserStats).
+ */
+export interface LaserLedger {
+  unpaid: LaserBucket;
+  unverified: LaserBucket;
+  /** Unpaid minutes per person, lower-cased name as key. */
+  unpaidPerPerson: Map<string, { name: string; minutes: number }>;
+}
+
+export function laserLedger(
+  sessions: LaserSessionRow[],
+  discarded: DiscardRow[],
+  lines: ServiceLine[],
+  unassignedSeconds: number,
+  pricePerMinute: number,
+  days?: number,
+  now: Date = new Date(),
+): LaserLedger {
+  const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
+  const inPeriod = (iso: string | null) => !since || (!!iso && new Date(iso) >= since);
+  const bucket = (): LaserBucket => ({ minutes: 0, value: 0, count: 0 });
+  const unpaid = bucket(), unverified = bucket();
+  const unpaidPerPerson = new Map<string, { name: string; minutes: number }>();
+  const add = (b: LaserBucket, seconds: number) => {
+    b.minutes += seconds / 60;
+    b.value += (seconds / 60) * pricePerMinute;
+    b.count++;
+  };
+  const addPerson = (name: string, seconds: number) => {
+    const key = name.trim().toLowerCase().replace(/\s+/g, ' ');
+    const p = unpaidPerPerson.get(key) ?? { name: name.trim(), minutes: 0 };
+    p.minutes += seconds / 60;
+    unpaidPerPerson.set(key, p);
+  };
+
+  // Orders whose laser line counts as money in.
+  const countedOrders = new Set(lines.filter(l => isLaser(l) && COUNTED.has(l.orderStatus) && l.order).map(l => l.order));
+  const paidRefs = new Set<string>();
+
+  for (const s of sessions) {
+    if (s.total_time <= 0) continue;
+    if (!s.paid_at) {
+      if (!inPeriod(s.created)) continue;
+      add(unpaid, s.total_time);
+      addPerson(s.name, s.total_time);
+      continue;
+    }
+    if (s.order_ref) paidRefs.add(s.order_ref);
+    if (s.order_ref && countedOrders.has(s.order_ref)) continue;   // on a counted sales order: paid
+    if (inPeriod(s.paid_at)) add(unverified, s.total_time);
+  }
+
+  for (const r of discarded) {
+    if (!inPeriod(r.discarded_at)) continue;
+    // Time already booked on a paid session's order (a fix by hand): not twice.
+    const ref = /SO-\d+/.exec(r.reason ?? '')?.[0];
+    if (ref && paidRefs.has(ref)) continue;
+    if (r.source === 'session' && r.session_name) {
+      add(unpaid, r.seconds);
+      addPerson(r.session_name, r.seconds);
+    } else {
+      add(unverified, r.seconds);
+    }
+  }
+
+  if (unassignedSeconds > 0) add(unverified, unassignedSeconds);
+  return { unpaid, unverified, unpaidPerPerson };
 }

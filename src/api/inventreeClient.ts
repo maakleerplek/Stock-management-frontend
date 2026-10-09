@@ -1149,7 +1149,7 @@ export class InvenTreeClient {
     async getAllServiceLines(pageSize: number = 500): Promise<ServiceLine[]> {
         type Row = {
             reference: string; description: string; quantity: number | string; price: number | string | null;
-            order_detail?: { status: number; creation_date?: string | null; issue_date?: string | null; shipment_date?: string | null };
+            order_detail?: { reference?: string; status: number; creation_date?: string | null; issue_date?: string | null; shipment_date?: string | null };
         };
         const all: ServiceLine[] = [];
         for (let offset = 0; ; offset += pageSize) {
@@ -1164,6 +1164,7 @@ export class InvenTreeClient {
                     price: Number(r.price) || 0,
                     date: o?.shipment_date || o?.issue_date || o?.creation_date || '',
                     orderStatus: o?.status ?? 0,
+                    order: o?.reference ?? '',
                 });
             }
             if (page.results.length < pageSize || all.length >= page.count) return all;

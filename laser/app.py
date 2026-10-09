@@ -182,6 +182,15 @@ def get_sessions():
     return {'sessions': all_sessions()}
 
 
+@app.get('/laser/api/sessions/all')
+def get_all_sessions():
+    """For the analytics: every session, open and paid, and the unassigned time now on the counter."""
+    rows = db.query('SELECT id, name, created, total_time, checkout_at, paid_at, order_ref FROM sessions ORDER BY created DESC')
+    with state_lock:
+        unassigned = current_time()
+    return {'sessions': rows, 'unassigned_seconds': unassigned}
+
+
 @app.post('/laser/api/sessions')
 def create_session():
     name = ((request.json or {}).get('name') or '').strip()

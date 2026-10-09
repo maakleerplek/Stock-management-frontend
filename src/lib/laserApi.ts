@@ -18,6 +18,17 @@ export interface LaserSession {
   checkout_at: string | null;
 }
 
+/** Every session, open and paid, for the analytics (GET /sessions/all). */
+export interface LaserSessionRecord {
+  id: string;
+  name: string;
+  created: string;
+  total_time: number;
+  checkout_at: string | null;
+  paid_at: string | null;
+  order_ref: string | null;
+}
+
 /** Laser time cleared without a paid session (it may have been paid some other way). */
 export interface DiscardedTime {
   id: number;
@@ -144,6 +155,7 @@ export const laserApi = {
   flush: (sessionId: string) => call<{ flushed_time: number }>('/flush', 'POST', { session_id: sessionId }),
   reset: (reason?: string) => call('/reset', 'POST', { reason }),
   discarded: () => call<{ rows: DiscardedTime[] }>('/discarded'),
+  allSessions: () => call<{ sessions: LaserSessionRecord[]; unassigned_seconds: number }>('/sessions/all'),
   simulate: (on: boolean) => call('/simulate', 'POST', { state: on ? 'ON' : 'OFF' }),
   materials: () => call<{ materials: LaserMaterial[] }>('/materials'),
   library: () => call<{ rows: LibraryRow[]; minPower: number; maxPower: number }>('/library'),

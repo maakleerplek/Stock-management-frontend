@@ -3,12 +3,13 @@ import { Package, RefreshCw, Sigma, Zap } from 'lucide-react';
 import inventreeClient from '../api/inventreeClient';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { laserApi } from '../lib/laserApi';
-import type { ServiceLine, DiscardRow } from '../lib/services';
+import type { ServiceLine, DiscardRow, LaserSessionRow } from '../lib/services';
 import { cn } from '../lib/utils';
 import { SegmentedButtons } from './ui';
 import ItemsTab from './ItemsTab';
 import LaserTab from './LaserTab';
 import TotalsTab from './TotalsTab';
+import { useStock } from '../StockContext';
 
 const DATE_RANGES = [
   { label: '7D', days: 7 },
@@ -38,12 +39,14 @@ export default function AnalyticsPage() {
   const [tab, setTab] = useState<TabId>(tabFromHash);
   const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGES[1]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { refreshInventory } = useStock();
 
   const [trackingEntries, setTrackingEntries] = useState<InvenTreeTrackingEntry[]>([]);
   const [trackingLoading, setTrackingLoading] = useState(true);
   const [trackingError, setTrackingError] = useState<string | null>(null);
   const [serviceLines, setServiceLines] = useState<ServiceLine[]>([]);
   const [discarded, setDiscarded] = useState<DiscardRow[]>([]);
+  const [laserSessions, setLaserSessions] = useState<{ sessions: LaserSessionRow[]; unassignedSeconds: number }>({ sessions: [], unassignedSeconds: 0 });
   const [laserLoading, setLaserLoading] = useState(true);
 
   useEffect(() => {
@@ -73,6 +76,9 @@ export default function AnalyticsPage() {
       laserApi.discarded()
         .then(d => { if (!cancelled) setDiscarded(d.rows); })
         .catch(err => console.warn('[Analytics] Could not load laser time without a session:', err)),
+      laserApi.allSessions()
+        .then(d => { if (!cancelled) setLaserSessions({ sessions: d.sessions, unassignedSeconds: d.unassigned_seconds }); })
+        .catch(err => console.warn('[Analytics] Could not load laser sessions:', err)),
     ]).finally(() => { if (!cancelled) setLaserLoading(false); });
     return () => { cancelled = true; };
   }, [refreshKey]);
@@ -98,7 +104,7 @@ export default function AnalyticsPage() {
                 onChange={label => setDateRange(DATE_RANGES.find(r => r.label === label)!)}
               />
               <button
-                onClick={() => setRefreshKey(k => k + 1)}
+                onClick={() => { setRefreshKey(k => k + 1); void refreshInventory(); }}
                 className="border border-lijn p-1.5 hover:bg-brand-beige-dark transition-colors"
                 title="Refresh"
               >
@@ -131,6 +137,7 @@ export default function AnalyticsPage() {
             trackingEntries={trackingEntries}
             serviceLines={serviceLines}
             discarded={discarded}
+            laserSessions={laserSessions}
             loading={trackingLoading || laserLoading}
             trackingError={trackingError}
             dateRange={dateRange}
@@ -146,7 +153,7 @@ export default function AnalyticsPage() {
           />
         )}
         {tab === 'laser' && (
-          <LaserTab serviceLines={serviceLines} discarded={discarded} loading={laserLoading} dateRange={dateRange} refreshKey={refreshKey} />
+          <LaserTab serviceLines={serviceLines} discarded={discarded} laserSessions={laserSessions} loading={laserLoading} dateRange={dateRange} refreshKey={refreshKey} />
         )}
 
       </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { type ItemData } from './sendCodeHandler';
+import { type ItemData, isLabMaterial, isFilament } from './sendCodeHandler';
 import ImageDisplay from './ImageDisplay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, Plus, Minus, ShoppingCart as ShoppingCartIcon, Heart, CheckCircle, Loader2, MapPin, Tag, Package, X } from 'lucide-react';
@@ -13,13 +13,11 @@ export interface CartItem extends ItemData {
 
 /** What a volunteer's cart does: add/remove stock, set it, or take items out for free. */
 export type VolunteerCartMode = 'adjust' | 'set' | 'drink';
-/** In the free tab: a volunteer drink, or materials for the lab (filament into the printers, ...). */
-export type FreeKind = 'drink' | 'internal';
 
 const MODE_LABELS: Record<VolunteerCartMode, { tab: string; title: string; action: string }> = {
     adjust: { tab: 'Add / remove', title: 'Add to stock', action: 'Add to stock' },
     set: { tab: 'Set absolute', title: 'Set stock', action: 'Set stock' },
-    drink: { tab: 'Free drink / checkout', title: 'Take out of stock', action: 'Take out of stock' },
+    drink: { tab: 'Free (drink / lab / workshop)', title: 'Take out for free', action: 'Take out of stock' },
 };
 interface ShoppingCartProps {
     cartItems: CartItem[];
@@ -33,15 +31,8 @@ interface ShoppingCartProps {
     isVolunteerMode: boolean;
     mode?: VolunteerCartMode;
     onModeChange?: (mode: VolunteerCartMode) => void;
-    freeKind?: FreeKind;
-    onFreeKindChange?: (kind: FreeKind) => void;
     isCheckingOut?: boolean;
 }
-
-const FREE_KINDS: { value: FreeKind; label: string }[] = [
-    { value: 'drink', label: 'Volunteer drink' },
-    { value: 'internal', label: 'Internal use (filament, ...)' },
-];
 
 function ShoppingCart({
     cartItems = [],
@@ -55,8 +46,6 @@ function ShoppingCart({
     isVolunteerMode,
     mode = 'adjust',
     onModeChange,
-    freeKind = 'drink',
-    onFreeKindChange,
     isCheckingOut = false,
 }: ShoppingCartProps) {
     const { addToast } = useToast();
@@ -120,25 +109,6 @@ function ShoppingCart({
                             </button>
                         ))}
                     </div>
-                    {mode === 'drink' && onFreeKindChange && (
-                        <div className="grid grid-cols-2 gap-0 mt-2" role="radiogroup" aria-label="What is it for">
-                            {FREE_KINDS.map((k, i) => (
-                                <button
-                                    key={k.value}
-                                    role="radio"
-                                    aria-checked={freeKind === k.value}
-                                    onClick={() => onFreeKindChange(k.value)}
-                                    className={cn(
-                                        "py-2 text-[10px] font-semibold cursor-pointer border border-lijn transition-colors",
-                                        i > 0 && "border-l-0",
-                                        freeKind === k.value ? "bg-brand-black text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
-                                    )}
-                                >
-                                    {k.label}
-                                </button>
-                            ))}
-                        </div>
-                    )}
                 </div>
             )}
 
@@ -272,6 +242,11 @@ function ShoppingCart({
                                                                 <span className="flex items-center gap-1 text-[10px] text-brand-black/60">
                                                                     <Tag size={10} />
                                                                     {item.category}
+                                                                </span>
+                                                            )}
+                                                            {isVolunteerMode && mode === 'drink' && (
+                                                                <span className="text-[10px] font-semibold px-1.5 border border-lijn bg-white">
+                                                                    {!isLabMaterial(item) ? 'Volunteer drink' : isFilament(item) ? 'Lab rack (3D printers)' : 'Lab / workshop'}
                                                                 </span>
                                                             )}
                                                         </div>

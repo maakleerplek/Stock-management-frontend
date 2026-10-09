@@ -112,3 +112,15 @@ def test_old_tiny_discards_are_cleaned_up(tmp_path):
         db.execute("INSERT INTO discarded_time (seconds, source, discarded_at) VALUES (?, 'unassigned', '2026-09-29')", (seconds,))
     db.connect(str(tmp_path / 'laser.db'))
     assert [r['seconds'] for r in db.query('SELECT seconds FROM discarded_time')] == [120]
+
+
+def test_all_sessions_for_analytics(tmp_path):
+    c = client(tmp_path)
+    paid = c.post('/laser/api/sessions', json={'name': 'Ruben'}).json['id']
+    db.execute('UPDATE sessions SET total_time = 120 WHERE id = ?', (paid,))
+    c.post(f'/laser/api/sessions/{paid}/paid', json={'order': 'SO-0042'})
+    c.post('/laser/api/sessions', json={'name': 'Wolf'})
+
+    body = c.get('/laser/api/sessions/all').json
+    assert {s['name']: s['order_ref'] for s in body['sessions']} == {'Ruben': 'SO-0042', 'Wolf': None}
+    assert 'unassigned_seconds' in body
