@@ -11,6 +11,8 @@ export interface TotalsRow { label: string; revenue: number; costs: number; prof
 export interface Totals {
   rows: TotalsRow[];        // rows with only zeros left out
   total: TotalsRow;
+  /** Taken out for the open labs (filament, ...): what it cost, not a loss, so not in the total. */
+  internalUse: { units: number; cost: number };
   /** Laser time cleared without a paid session: maybe paid some other way, so not in the total. */
   notViaSession: { minutes: number; value: number };
   notes: string[];
@@ -20,7 +22,8 @@ const SERVICE_LABEL: Record<string, string> = { Lasertime: 'Laser time' };
 
 export function buildTotals(items: ItemAnalytics, services: ServiceRevenue[], lost: LostLaserStats): Totals {
   const all: TotalsRow[] = [
-    { label: 'Items sold', revenue: items.totalRevenue, costs: items.paidCost, profit: items.totalRevenue - items.paidCost },
+    // Items sold, one row per stock category.
+    ...items.byCategory.map(c => ({ label: `Items sold · ${c.category}`, revenue: c.revenue, costs: c.paidCost, profit: c.revenue - c.paidCost })),
     { label: 'Volunteer drinks', revenue: 0, costs: items.givenCost, profit: -items.givenCost },
     // Machine costs (power, wear, material) are not tracked.
     ...services.map(s => ({ label: SERVICE_LABEL[s.reference] ?? s.reference, revenue: s.revenue, costs: 0, profit: s.revenue })),
@@ -38,5 +41,10 @@ export function buildTotals(items: ItemAnalytics, services: ServiceRevenue[], lo
   if (services.some(s => s.revenue > 0)) {
     notes.push('Machine costs (power, wear, material) are not tracked: machine revenue counts as profit.');
   }
-  return { rows, total, notViaSession: { minutes: lost.minutes, value: lost.value }, notes };
+  return {
+    rows, total,
+    internalUse: { units: items.totalUsed, cost: items.usedCost },
+    notViaSession: { minutes: lost.minutes, value: lost.value },
+    notes,
+  };
 }

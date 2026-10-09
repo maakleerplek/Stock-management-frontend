@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 import { NOTES } from '../src/sendCodeHandler';
 import {
-  isSale, isVolunteerDrink, unitsGiven, describeMovement, stockLevels, levelAt, bucketStart, bucketRange, salesPerBucket, assignColors, SERIES_COLORS,
+  isSale, isVolunteerDrink, isInternalUse, unitsUsed, unitsGiven, describeMovement, stockLevels, levelAt, bucketStart, bucketRange, salesPerBucket, assignColors, SERIES_COLORS,
 } from '../src/lib/stockHistory';
 
 let pk = 0;
@@ -153,5 +153,15 @@ describe('recent activity', () => {
     expect(describeMovement(entry(1, 1, at, 11, { added: 6, quantity: 10 }, NOTES.ADD)))
       .toEqual({ quantity: 6, what: 'restocked', direction: 'in' });
     expect(describeMovement(entry(1, 1, at, 60, { quantity: 1 }, '')).what).toBe('bought in the app');
+  });
+});
+
+describe('internal use', () => {
+  const used = entry(1, 1, '2026-10-09T10:00', 12, { removed: 2, quantity: 8 }, 'Internal use via Stock App');
+  it('is not a sale and not a drink', () => {
+    expect(isSale(used)).toBe(false);
+    expect(isVolunteerDrink(used)).toBe(false);
+    expect(isInternalUse(used)).toBe(true);
+    expect(unitsUsed(used)).toBe(2);
   });
 });

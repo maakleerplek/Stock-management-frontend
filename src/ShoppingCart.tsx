@@ -11,13 +11,15 @@ export interface CartItem extends ItemData {
     cartQuantity: number;
 }
 
-/** What a volunteer's cart does: add/remove stock, set it, or take a free drink. */
+/** What a volunteer's cart does: add/remove stock, set it, or take items out for free. */
 export type VolunteerCartMode = 'adjust' | 'set' | 'drink';
+/** In the free tab: a volunteer drink, or materials for the lab (filament into the printers, ...). */
+export type FreeKind = 'drink' | 'internal';
 
 const MODE_LABELS: Record<VolunteerCartMode, { tab: string; title: string; action: string }> = {
     adjust: { tab: 'Add / remove', title: 'Add to stock', action: 'Add to stock' },
     set: { tab: 'Set absolute', title: 'Set stock', action: 'Set stock' },
-    drink: { tab: 'Free drink', title: 'Volunteer drink', action: 'Take for free' },
+    drink: { tab: 'Free drink / checkout', title: 'Take out of stock', action: 'Take out of stock' },
 };
 interface ShoppingCartProps {
     cartItems: CartItem[];
@@ -31,8 +33,15 @@ interface ShoppingCartProps {
     isVolunteerMode: boolean;
     mode?: VolunteerCartMode;
     onModeChange?: (mode: VolunteerCartMode) => void;
+    freeKind?: FreeKind;
+    onFreeKindChange?: (kind: FreeKind) => void;
     isCheckingOut?: boolean;
 }
+
+const FREE_KINDS: { value: FreeKind; label: string }[] = [
+    { value: 'drink', label: 'Volunteer drink' },
+    { value: 'internal', label: 'Internal use (filament, ...)' },
+];
 
 function ShoppingCart({
     cartItems = [],
@@ -46,6 +55,8 @@ function ShoppingCart({
     isVolunteerMode,
     mode = 'adjust',
     onModeChange,
+    freeKind = 'drink',
+    onFreeKindChange,
     isCheckingOut = false,
 }: ShoppingCartProps) {
     const { addToast } = useToast();
@@ -109,6 +120,25 @@ function ShoppingCart({
                             </button>
                         ))}
                     </div>
+                    {mode === 'drink' && onFreeKindChange && (
+                        <div className="grid grid-cols-2 gap-0 mt-2" role="radiogroup" aria-label="What is it for">
+                            {FREE_KINDS.map((k, i) => (
+                                <button
+                                    key={k.value}
+                                    role="radio"
+                                    aria-checked={freeKind === k.value}
+                                    onClick={() => onFreeKindChange(k.value)}
+                                    className={cn(
+                                        "py-2 text-[10px] font-semibold cursor-pointer border border-lijn transition-colors",
+                                        i > 0 && "border-l-0",
+                                        freeKind === k.value ? "bg-brand-black text-white" : "bg-white text-brand-black hover:bg-brand-beige-dark"
+                                    )}
+                                >
+                                    {k.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -321,10 +351,11 @@ function ShoppingCart({
                         {/* Footer: Total & Checkout */}
                         {(cartItems.length > 0 || extraCosts > 0) && (
                             <div className="mt-auto border-t border-lijn bg-brand-beige p-4">
-                                {!isVolunteerMode && (
+                                {/* Volunteers only pay the extra services (laser time, ...); the items are stock work. */}
+                                {(!isVolunteerMode || extraCosts > 0) && (
                                     <div className="flex justify-between items-center mb-3">
-                                        <span className="text-sm font-semibold text-brand-black/60">Total</span>
-                                        <span className="font-semibold text-2xl">€{(totalPrice + extraCosts).toFixed(2)}</span>
+                                        <span className="text-sm font-semibold text-brand-black/60">{isVolunteerMode ? 'To pay (extra services)' : 'Total'}</span>
+                                        <span className="font-semibold text-2xl">€{(isVolunteerMode ? extraCosts : totalPrice + extraCosts).toFixed(2)}</span>
                                     </div>
                                 )}
                                 <button
@@ -347,7 +378,7 @@ function ShoppingCart({
                                             Processing...
                                         </>
                                     ) : (
-                                        isVolunteerMode ? MODE_LABELS[mode].action : 'Checkout'
+                                        isVolunteerMode && cartItems.length > 0 ? MODE_LABELS[mode].action : 'Checkout'
                                     )}
                                 </button>
                             </div>

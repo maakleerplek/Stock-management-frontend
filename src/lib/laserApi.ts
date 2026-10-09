@@ -109,19 +109,29 @@ export interface LaserSetting {
   capped: boolean;
 }
 
+/** An answer from the laser service that was not OK; `status` 0 means it could not be reached. */
+export class LaserApiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
+
 async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
   if (body) headers['Content-Type'] = 'application/json';
   // Library writes: nginx checks the Authentik session cookie, which the
   // browser sends along by itself.
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new LaserApiError('Laser service unreachable', 0);
+  }
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401) throw new Error('Only volunteers can do this. Sign in as volunteer.');
-  if (!res.ok) throw new Error(data.error || `Laser service: ${res.status}`);
+  if (res.status === 401) throw new LaserApiError('Only volunteers can do this. Sign in as volunteer.', 401);
+  if (!res.ok) throw new LaserApiError(data.error || `Laser service: ${res.status}`, res.status);
   return data as T;
 }
 
@@ -155,6 +165,64 @@ export const laserApi = {
     call<{ reports: FeedbackReport[]; groups: FeedbackGroup[] }>(`/admin/feedback${days ? `?days=${days}` : ''}`),
   deleteReport: (id: number) => call(`/admin/attempts/${id}`, 'DELETE'),
 };
+
+// Sessions that are sold but could not be marked paid yet. They stay out of the
+// checkout until that works, so nobody pays them twice. Lives in this browser.
+const PENDING_PAID_KEY = 'laserPendingPaid.v1';
+type PendingPaid = { id: string; order: string };
+
+function readPending(): PendingPaid[] {
+  try {
+    const list = JSON.parse(localStorage.getItem(PENDING_PAID_KEY) ?? '[]');
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePending(list: PendingPaid[]) {
+  try {
+    if (list.length) localStorage.setItem(PENDING_PAID_KEY, JSON.stringify(list));
+    else localStorage.removeItem(PENDING_PAID_KEY);
+  } catch { /* storage blocked: the retries below are all we have */ }
+}
+
+/** Session IDs that are sold but not marked paid on the server yet. */
+export const pendingPaidIds = () => new Set(readPending().map(p => p.id));
+
+const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/** Mark paid, a few tries. A 404 means it is already paid (or was empty and is gone): done. */
+async function tryMarkPaid(id: string, order: string, tries: number, delayMs: number): Promise<boolean> {
+  for (let i = 0; i < tries; i++) {
+    try {
+      await laserApi.markPaid(id, order);
+      return true;
+    } catch (e) {
+      if (e instanceof LaserApiError && e.status === 404) return true;
+      if (i < tries - 1) await wait(delayMs * (i + 1));
+    }
+  }
+  return false;
+}
+
+/**
+ * After a sale: mark the laser session paid. If the laser service stays
+ * unreachable, keep it in a queue that flushPendingPaid() works off later.
+ * Returns false when it is queued.
+ */
+export async function markPaidReliably(id: string, order: string, delayMs = 1000): Promise<boolean> {
+  if (await tryMarkPaid(id, order, 3, delayMs)) return true;
+  writePending([...readPending().filter(p => p.id !== id), { id, order }]);
+  return false;
+}
+
+/** Retry the queued sessions; call on load and whenever the laser service is back. */
+export async function flushPendingPaid(): Promise<void> {
+  for (const p of readPending()) {
+    if (await tryMarkPaid(p.id, p.order, 1, 0)) writePending(readPending().filter(q => q.id !== p.id));
+  }
+}
 
 /** Live laser state and sessions over Socket.IO. */
 export function useLaserSocket() {

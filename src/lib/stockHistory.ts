@@ -47,7 +47,7 @@ export function isSale(e: InvenTreeTrackingEntry): boolean {
   return (
     e.tracking_type === TRACKING.STOCK_REMOVE &&
     (e.deltas?.removed ?? 0) > 0 &&
-    !/^stock set|volunteer mode|volunteer drink/i.test(e.notes ?? '')
+    !/^stock set|volunteer mode|volunteer drink|internal use/i.test(e.notes ?? '')
   );
 }
 
@@ -61,6 +61,23 @@ export function isVolunteerDrink(e: InvenTreeTrackingEntry): boolean {
     (e.deltas?.removed ?? 0) > 0 &&
     /volunteer drink/i.test(e.notes ?? '')
   );
+}
+
+/**
+ * Taken out for the lab itself, e.g. filament for the printers in the open labs.
+ * Not a sale and not a drink; the material is used, not lost.
+ */
+export function isInternalUse(e: InvenTreeTrackingEntry): boolean {
+  return (
+    e.tracking_type === TRACKING.STOCK_REMOVE &&
+    (e.deltas?.removed ?? 0) > 0 &&
+    /internal use/i.test(e.notes ?? '')
+  );
+}
+
+/** Units taken out for internal use by an entry, 0 for anything else. */
+export function unitsUsed(e: InvenTreeTrackingEntry): number {
+  return isInternalUse(e) ? e.deltas.removed ?? 0 : 0;
 }
 
 /** Units given away as volunteer drinks by an entry, 0 for anything else. */

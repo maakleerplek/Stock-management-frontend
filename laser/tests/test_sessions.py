@@ -87,3 +87,28 @@ def test_thrown_away_time_is_logged(tmp_path):
         ('unassigned', 902.0, None, 'test cut'),
         ('session', 120.0, 'Ruben', None),
     ]
+
+
+def test_empty_session_is_never_billed_or_kept(tmp_path):
+    c = client(tmp_path)
+    sid = c.post('/laser/api/sessions', json={'name': 'Nobody'}).json['id']
+    assert c.post(f'/laser/api/sessions/{sid}/checkout', json={'on': True}).status_code == 400
+    assert c.post(f'/laser/api/sessions/{sid}/paid', json={'order': 'SO-9'}).status_code == 200
+    assert db.query('SELECT id FROM sessions') == []
+    assert db.query('SELECT id FROM discarded_time') == []
+
+
+def test_seconds_of_laser_time_are_not_logged(tmp_path):
+    c = client(tmp_path)
+    sid = c.post('/laser/api/sessions', json={'name': 'Test'}).json['id']
+    db.execute('UPDATE sessions SET total_time = 5 WHERE id = ?', (sid,))
+    c.delete(f'/laser/api/sessions/{sid}')
+    assert db.query('SELECT id FROM discarded_time') == []
+
+
+def test_old_tiny_discards_are_cleaned_up(tmp_path):
+    db.connect(str(tmp_path / 'laser.db'))
+    for seconds in (5, 120):
+        db.execute("INSERT INTO discarded_time (seconds, source, discarded_at) VALUES (?, 'unassigned', '2026-09-29')", (seconds,))
+    db.connect(str(tmp_path / 'laser.db'))
+    assert [r['seconds'] for r in db.query('SELECT seconds FROM discarded_time')] == [120]

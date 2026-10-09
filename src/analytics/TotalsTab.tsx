@@ -45,6 +45,7 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, lo
       ['Source', 'Revenue (€)', 'Costs (€)', 'Profit (€)'],
       ...[...totals.rows, totals.total].map(r => [r.label, r.revenue.toFixed(2), r.costs.toFixed(2), r.profit.toFixed(2)]),
       [],
+      ['Internal use for the open labs (not in total)', '', totals.internalUse.cost.toFixed(2), `${totals.internalUse.units} units`],
       ['Laser time not paid via a session (not in total)', totals.notViaSession.value.toFixed(2), `${Math.round(totals.notViaSession.minutes)} min`],
       ...totals.notes.map(n => [n]),
     ];
@@ -121,6 +122,16 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, lo
             </tbody>
           </table>
         </div>
+
+        {totals.internalUse.units > 0 && (
+          <div className="mt-4 border border-lijn bg-brand-beige-dark px-3 py-2 flex flex-wrap justify-between gap-2 text-xs">
+            <span className="font-semibold">Internal use (filament, ... for the open labs)</span>
+            <span className="tabular-nums font-mono">{totals.internalUse.units} units · {eur(totals.internalUse.cost)}</span>
+            <span className="w-full text-[10px] text-brand-black/60">
+              Taken out of stock for the lab itself: not a loss, so not in the profit.
+            </span>
+          </div>
+        )}
 
         {totals.notViaSession.minutes > 0 && (
           <div className="mt-4 border border-lijn bg-rose-50 px-3 py-2 flex flex-wrap justify-between gap-2 text-xs">
