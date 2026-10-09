@@ -5,7 +5,7 @@
   "identifier": "be.maakleerplek.lasertimer",
   "build": { "frontendDist": "../loader" },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [],
     "security": { "csp": null }
   },

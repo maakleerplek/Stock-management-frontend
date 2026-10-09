@@ -22,7 +22,7 @@
   async function connect() {
     try {
       await fetch(server + '/laser/api/health', { mode: 'no-cors', cache: 'no-store' });
-      location.replace(server + '/#laser-widget');
+      location.replace(server + '/#laser');
       return;
     } catch {
       document.getElementById('msg').textContent = 'Laser server offline, retrying…';

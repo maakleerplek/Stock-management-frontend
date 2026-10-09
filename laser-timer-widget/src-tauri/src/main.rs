@@ -1,31 +1,23 @@
-//! Laser Timer: an always-on-top bar along the right edge of the
-//! lasercutter PC. It shows the stock app's #laser-widget page, can't be closed,
-//! starts at login, and opens the full #laser page when you click it.
-//!
-//! Quit (volunteers): Ctrl+Alt+Shift+Q.
+//! Laser Timer: the stock app's Lasercutter page (#laser) in an always-on-top bar
+//! along the right edge of the lasercutter PC. It can't be closed (only by ending
+//! the process) and starts at login. Everything else is the website.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{fs, thread, time::Duration};
 
 use serde::Deserialize;
-use tauri::{
-    ipc::CapabilityBuilder, AppHandle, Manager, PhysicalPosition, PhysicalSize, Url, WebviewUrl,
-    WebviewWindow, WebviewWindowBuilder, WindowEvent,
-};
+use tauri::{Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
-use tauri_plugin_global_shortcut::ShortcutState;
 
 /// Fullscreen apps and some laser software take the top spot; take it back this often.
 const ON_TOP_EVERY: Duration = Duration::from_secs(2);
-const QUIT_SHORTCUT: &str = "ctrl+alt+shift+q";
 const DEFAULT_SERVER: &str = "https://10.72.1.246:8086";
 
-// All webviews share one WebView2 environment, so they need the same args:
-// Tauri's defaults, plus the stock server's self-signed certificate.
+// Tauri's default WebView2 args, plus the stock server's self-signed certificate.
 const BROWSER_ARGS: &str =
     "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --ignore-certificate-errors";
 
-/// config.json next to the exe, e.g. `{ "server": "https://10.72.1.246:8086", "width": 260 }`.
+/// config.json next to the exe, e.g. `{ "server": "https://10.72.1.246:8086", "width": 400 }`.
 /// `width` is the bar's width in logical pixels.
 #[derive(Deserialize)]
 #[serde(default)]
@@ -36,7 +28,7 @@ struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Config { server: DEFAULT_SERVER.into(), width: 260.0 }
+        Config { server: DEFAULT_SERVER.into(), width: 400.0 }
     }
 }
 
@@ -106,27 +98,6 @@ mod appbar {
     }
 }
 
-/// The full laser page in a normal window that people can close. Async: creating
-/// a window from a sync command deadlocks on Windows.
-#[tauri::command]
-async fn open_full(app: AppHandle) -> Result<(), String> {
-    if let Some(w) = app.get_webview_window("full") {
-        let _ = w.unminimize();
-        let _ = w.show();
-        let _ = w.set_focus();
-        return Ok(());
-    }
-    let url = Url::parse(&format!("{}/#laser", app.state::<Config>().server)).map_err(|e| e.to_string())?;
-    WebviewWindowBuilder::new(&app, "full", WebviewUrl::External(url))
-        .title("Lasercutter")
-        .inner_size(1100.0, 800.0)
-        .center()
-        .additional_browser_args(BROWSER_ARGS)
-        .build()
-        .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 fn main() {
     tauri::Builder::default()
         // Starting it again only brings the widget back.
@@ -135,7 +106,6 @@ fn main() {
                 let _ = w.show();
             }
         }))
-        .invoke_handler(tauri::generate_handler![open_full])
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "widget" {
@@ -154,26 +124,8 @@ fn main() {
                     let _ = autostart.enable();
                 }
             }
-            app.handle().plugin(
-                tauri_plugin_global_shortcut::Builder::new()
-                    .with_shortcuts([QUIT_SHORTCUT])?
-                    .with_handler(|app, _, event| {
-                        if event.state == ShortcutState::Pressed {
-                            app.exit(0);
-                        }
-                    })
-                    .build(),
-            )?;
 
-            // The remote widget page may call open_full, nothing else.
-            app.add_capability(
-                CapabilityBuilder::new("widget-remote")
-                    .remote(format!("{server}/*"))
-                    .window("widget")
-                    .permission("core:default"),
-            )?;
-
-            // loader/index.html waits until the server answers, then goes to #laser-widget.
+            // loader/index.html waits until the server answers, then goes to #laser.
             let widget = WebviewWindowBuilder::new(app, "widget", WebviewUrl::App("index.html".into()))
                 .title("Laser timer")
                 .inner_size(config.width, 600.0)
@@ -191,7 +143,6 @@ fn main() {
                 .build()?;
             dock_right(&widget, &config)?;
             widget.show()?;
-            app.manage(config);
 
             let handle = app.handle().clone();
             thread::spawn(move || loop {
