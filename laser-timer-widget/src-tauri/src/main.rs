@@ -56,7 +56,9 @@ fn dock_right(w: &WebviewWindow, c: &Config) -> tauri::Result<()> {
     let Some(monitor) = w.primary_monitor()? else { return Ok(()) };
     let area = monitor.work_area();
     let width = (c.width * monitor.scale_factor()) as i32;
-    let (top, bottom, right) = (area.position.y, area.position.y + area.size.height as i32, area.position.x + area.size.width as i32);
+    // Right edge of the monitor itself: the work area already leaves out other app bars.
+    let right = monitor.position().x + monitor.size().width as i32;
+    let (top, bottom) = (area.position.y, area.position.y + area.size.height as i32);
     #[cfg(windows)]
     let (left, top, right, bottom) = appbar::register(w.hwnd()?.0 as _, right - width, top, right, bottom);
     #[cfg(not(windows))]
@@ -80,19 +82,21 @@ mod appbar {
         abd
     }
 
-    /// Reserve the strip and return the rectangle Windows gave us.
+    /// Reserve the strip against the screen edge. Windows would move us left of
+    /// other right-edge bars, and a killed Laser Timer leaves its bar behind until
+    /// Explorer restarts, so we keep our own left/right and only take its top/bottom.
     pub fn register(hwnd: HWND, left: i32, top: i32, right: i32, bottom: i32) -> (i32, i32, i32, i32) {
-        let width = right - left;
         let mut abd = data(hwnd);
         unsafe {
             SHAppBarMessage(ABM_NEW, &mut abd);
             abd.uEdge = ABE_RIGHT;
             abd.rc = RECT { left, top, right, bottom };
             SHAppBarMessage(ABM_QUERYPOS, &mut abd);
-            abd.rc.left = abd.rc.right - width;
+            abd.rc.left = left;
+            abd.rc.right = right;
             SHAppBarMessage(ABM_SETPOS, &mut abd);
         }
-        (abd.rc.left, abd.rc.top, abd.rc.right, abd.rc.bottom)
+        (left, abd.rc.top, right, abd.rc.bottom)
     }
 
     /// Give the strip back to the other windows.
