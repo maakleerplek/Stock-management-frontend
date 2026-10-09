@@ -24,14 +24,14 @@ const MARGIN_TOP: f64 = 44.0;
 /// Fullscreen apps and some laser software take the top spot; take it back this often.
 const ON_TOP_EVERY: Duration = Duration::from_secs(2);
 const QUIT_SHORTCUT: &str = "ctrl+alt+shift+q";
-const DEFAULT_SERVER: &str = "https://10.72.3.68:8086";
+const DEFAULT_SERVER: &str = "https://10.72.1.246:8086";
 
 // All webviews share one WebView2 environment, so they need the same args:
 // Tauri's defaults, plus the stock server's self-signed certificate.
 const BROWSER_ARGS: &str =
     "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --ignore-certificate-errors";
 
-/// config.json next to the exe, e.g. `{ "server": "https://10.72.3.68:8086" }`.
+/// config.json next to the exe, e.g. `{ "server": "https://10.72.1.246:8086" }`.
 #[derive(Deserialize)]
 struct Config {
     server: String,
