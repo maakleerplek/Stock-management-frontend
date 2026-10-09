@@ -15,12 +15,6 @@ use tauri::{
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_global_shortcut::ShortcutState;
 
-/// Widget size in logical pixels.
-const WIDTH: f64 = 270.0;
-const HEIGHT: f64 = 64.0;
-const MARGIN_RIGHT: f64 = 12.0;
-/// Below the title bar, so it doesn't cover the minimize/close buttons of a maximized LightBurn.
-const MARGIN_TOP: f64 = 44.0;
 /// Fullscreen apps and some laser software take the top spot; take it back this often.
 const ON_TOP_EVERY: Duration = Duration::from_secs(2);
 const QUIT_SHORTCUT: &str = "ctrl+alt+shift+q";
@@ -31,30 +25,42 @@ const DEFAULT_SERVER: &str = "https://10.72.1.246:8086";
 const BROWSER_ARGS: &str =
     "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --ignore-certificate-errors";
 
-/// config.json next to the exe, e.g. `{ "server": "https://10.72.1.246:8086" }`.
+/// config.json next to the exe, e.g. `{ "server": "https://10.72.1.246:8086", "width": 440 }`.
+/// Sizes are logical pixels; margins are the gap to the top-right corner.
 #[derive(Deserialize)]
+#[serde(default)]
 struct Config {
     server: String,
+    width: f64,
+    height: f64,
+    margin_top: f64,
+    margin_right: f64,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config { server: DEFAULT_SERVER.into(), width: 440.0, height: 120.0, margin_top: 0.0, margin_right: 0.0 }
+    }
 }
 
 fn load_config() -> Config {
-    let server = std::env::current_exe()
+    let mut config: Config = std::env::current_exe()
         .ok()
         .and_then(|exe| fs::read_to_string(exe.with_file_name("config.json")).ok())
-        .and_then(|text| serde_json::from_str::<Config>(&text).ok())
-        .map(|c| c.server)
-        .unwrap_or_else(|| DEFAULT_SERVER.into());
-    Config { server: server.trim_end_matches('/').into() }
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default();
+    config.server = config.server.trim_end_matches('/').into();
+    config
 }
 
-fn place_top_right(w: &WebviewWindow) -> tauri::Result<()> {
+fn place_top_right(w: &WebviewWindow, c: &Config) -> tauri::Result<()> {
     let Some(monitor) = w.primary_monitor()? else { return Ok(()) };
     let scale = monitor.scale_factor();
     let area = monitor.work_area();
-    let size = PhysicalSize::new((WIDTH * scale) as u32, (HEIGHT * scale) as u32);
+    let size = PhysicalSize::new((c.width * scale) as u32, (c.height * scale) as u32);
     w.set_size(size)?;
-    let x = area.position.x + area.size.width as i32 - size.width as i32 - (MARGIN_RIGHT * scale) as i32;
-    let y = area.position.y + (MARGIN_TOP * scale) as i32;
+    let x = area.position.x + area.size.width as i32 - size.width as i32 - (c.margin_right * scale) as i32;
+    let y = area.position.y + (c.margin_top * scale) as i32;
     w.set_position(PhysicalPosition::new(x, y))
 }
 
@@ -98,7 +104,6 @@ fn main() {
         .setup(|app| {
             let config = load_config();
             let server = config.server.clone();
-            app.manage(config);
 
             app.handle().plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))?;
             if !cfg!(debug_assertions) {
@@ -129,7 +134,7 @@ fn main() {
             // loader/index.html waits until the server answers, then goes to #laser-widget.
             let widget = WebviewWindowBuilder::new(app, "widget", WebviewUrl::App("index.html".into()))
                 .title("Laser timer")
-                .inner_size(WIDTH, HEIGHT)
+                .inner_size(config.width, config.height)
                 .decorations(false)
                 .always_on_top(true)
                 .skip_taskbar(true)
@@ -142,8 +147,9 @@ fn main() {
                 .initialization_script(&format!("window.LASER_SERVER = {};", serde_json::to_string(&server)?))
                 .additional_browser_args(BROWSER_ARGS)
                 .build()?;
-            place_top_right(&widget)?;
+            place_top_right(&widget, &config)?;
             widget.show()?;
+            app.manage(config);
 
             let handle = app.handle().clone();
             thread::spawn(move || loop {

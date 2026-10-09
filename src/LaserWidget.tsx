@@ -55,21 +55,21 @@ export default function LaserWidget() {
     <button
       type="button"
       onClick={openFull}
-      className={cn('w-screen h-screen flex items-center gap-3 px-3 text-left select-none border border-lijn', look.box)}
+      className={cn('w-screen h-screen flex items-center gap-[8vh] px-[10vh] text-left select-none border border-lijn', look.box)}
     >
       <span
-        className={cn('w-3 h-3 rounded-full shrink-0',
+        className={cn('w-[14vh] h-[14vh] rounded-full shrink-0',
           state === 'running' ? 'bg-red-500 animate-pulse' : state === 'offline' ? 'bg-lijn' : 'bg-emerald-500')}
       />
       <span className="flex flex-col leading-tight min-w-0">
-        {state !== 'offline' && <span className="font-mono text-2xl font-bold tabular-nums">{formatDuration(seconds)}</span>}
-        <span className="text-xs font-semibold truncate">
+        {state !== 'offline' && <span className="font-mono text-[40vh] leading-none font-bold tabular-nums">{formatDuration(seconds)}</span>}
+        <span className="text-[15vh] font-semibold truncate mt-[3vh]">
           {look.label}
           {state === 'unpaid' && ` (${unpaid.length})`}
         </span>
       </span>
       {time && !time.esp_connected && state !== 'offline' && (
-        <WifiOff className="w-4 h-4 ml-auto shrink-0" aria-label="Laser sensor not connected" />
+        <WifiOff className="w-[18vh] h-[18vh] ml-auto shrink-0" aria-label="Laser sensor not connected" />
       )}
     </button>
   );
