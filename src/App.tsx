@@ -21,7 +21,7 @@ import ModalFrame from './components/ModalFrame';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import AnalyticsPage from './analytics/AnalyticsPage';
 import LaserCutterPage from './LaserCutterPage';
-import { laserApi, useLaserSocket } from './lib/laserApi';
+import { flushPendingPaid, laserApi, useLaserSocket } from './lib/laserApi';
 import {
   type InvenTreeTrackingEntry,
   type InvenTreePartListResponse
@@ -91,6 +91,10 @@ function AppContent() {
   // One connection to the laser service for the whole app: the Lasercutter
   // tab shows it, the checkout bills the sessions someone pressed Pay on.
   const laser = useLaserSocket();
+  // Sold sessions the laser service missed: mark them paid once it is back.
+  useEffect(() => {
+    if (laser.connected) void flushPendingPaid();
+  }, [laser.connected]);
   const { addToast } = useToast();
   const { isVolunteerMode, sessionChecked } = useVolunteer();
   const { items: stockItems, loading: stockLoading, lastFetched: stockLastFetched } = useStock();

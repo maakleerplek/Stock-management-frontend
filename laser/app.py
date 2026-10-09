@@ -199,6 +199,8 @@ def reason_from_body() -> str | None:
 
 
 def log_discard(seconds: float, source: str, session_name: str | None, reason: str | None):
+    if seconds < db.MIN_LOGGED_SECONDS:
+        return
     db.execute('INSERT INTO discarded_time (seconds, source, session_name, reason, discarded_at) VALUES (?, ?, ?, ?, ?)',
                (seconds, source, session_name, reason, datetime.now().isoformat()))
 
@@ -221,8 +223,11 @@ def delete_session(sid):
 def checkout_session(sid):
     """Put the session in the checkout (Pay), or take it back out."""
     on = bool((request.json or {}).get('on', True))
-    if not db.query('SELECT id FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,)):
+    rows = db.query('SELECT total_time FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,))
+    if not rows:
         return {'error': 'Session not found'}, 404
+    if on and rows[0]['total_time'] <= 0:
+        return {'error': 'No laser time on this session yet'}, 400
     db.execute('UPDATE sessions SET checkout_at = ? WHERE id = ?', (datetime.now().isoformat() if on else None, sid))
     broadcast_sessions()
     return {'ok': True}
@@ -232,9 +237,15 @@ def checkout_session(sid):
 def paid_session(sid):
     """The checkout went through: keep the session as history with its order."""
     order = ((request.json or {}).get('order') or '')[:40] or None
-    if not db.query('SELECT id FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,)):
+    rows = db.query('SELECT total_time FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,))
+    if not rows:
         return {'error': 'Session not found'}, 404
-    db.execute('UPDATE sessions SET paid_at = ?, order_ref = ? WHERE id = ?', (datetime.now().isoformat(), order, sid))
+    if rows[0]['total_time'] <= 0:
+        # Nothing was lasered: not a session worth keeping, it would only skew the analytics.
+        db.execute('DELETE FROM time_blocks WHERE session_id = ?', (sid,))
+        db.execute('DELETE FROM sessions WHERE id = ?', (sid,))
+    else:
+        db.execute('UPDATE sessions SET paid_at = ?, order_ref = ? WHERE id = ?', (datetime.now().isoformat(), order, sid))
     broadcast_sessions()
     return {'ok': True}
 

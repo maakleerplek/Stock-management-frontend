@@ -60,6 +60,8 @@ export const NOTES = {
     SET: 'Stock set via App - Volunteer Mode',
     // Analytics finds free drinks by "Volunteer drink", like the kiosk's note.
     DRINK: 'Volunteer drink via Stock App',
+    // Taken out for the lab itself (filament into the printers, ...): not sold, not a drink.
+    INTERNAL: 'Internal use via Stock App',
 } as const;
 
 /** A machine service on the bill: laser minutes, CNC minutes, printed grams. */
@@ -159,6 +161,24 @@ export async function handleVolunteerDrink(
         return true;
     } catch (error) {
         console.error(`Failed to book volunteer drink for part ${partId}:`, error);
+        return false;
+    }
+}
+
+/** Volunteer: take items out for the lab itself (filament, materials). Out of stock, never paid. */
+export async function handleInternalUse(
+    partId: number,
+    quantity: number,
+    itemName?: string,
+    source = 'volunteer-scanner',
+): Promise<boolean> {
+    try {
+        await inventreeClient.removeStockFromPart(partId, quantity, NOTES.INTERNAL);
+        // The TV changelog knows no 'internal': it is stock going out, like a removal.
+        if (itemName) void sendChangelogEvent('remove', itemName, quantity, source);
+        return true;
+    } catch (error) {
+        console.error(`Failed to book internal use for part ${partId}:`, error);
         return false;
     }
 }

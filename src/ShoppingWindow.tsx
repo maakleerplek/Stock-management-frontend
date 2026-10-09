@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingCart';
+import ShoppingCart, { type CartItem, type FreeKind, type VolunteerCartMode } from './ShoppingCart';
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
-import { laserApi, type LaserSession } from './lib/laserApi';
+import { laserApi, markPaidReliably, pendingPaidIds, type LaserSession } from './lib/laserApi';
 import { PRICING } from './constants';
-import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem, handleVolunteerDrink } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, type CheckoutLine } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import ModalFrame from './components/ModalFrame';
@@ -37,7 +37,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const checkedOutResultRef = useRef(checkedOutResult);
     checkedOutResultRef.current = checkedOutResult;
     const [typedExtras, setTypedExtras] = useState<ExtraLine[]>([]);
-    const laserInCheckout = laserSessions.filter(s => s.checkout_at);
+    // Sold but not marked paid yet (laser service was away): never bill those again.
+    const pendingPaid = pendingPaidIds();
+    const laserInCheckout = laserSessions.filter(s => s.checkout_at && s.total_time > 0 && !pendingPaid.has(s.id));
     const extras: ExtraLine[] = [
         ...laserInCheckout.map(s => ({
             name: 'Lasertime', person: s.name, quantity: s.minutes, unit: 'min',
@@ -47,6 +49,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     ];
     const extraCosts = extraTotal(extras);
     const [mode, setMode] = useState<VolunteerCartMode>('adjust');
+    const [freeKind, setFreeKind] = useState<FreeKind>('drink');
     const modeRef = useRef(mode);
     modeRef.current = mode;
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
@@ -128,65 +131,68 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
         setConfirmOpen(true);
     };
 
+    /**
+     * One sales order for the paid lines and the extra services, then the QR
+     * code. Laser sessions on it are marked paid; if the laser service is away,
+     * that is retried later (markPaidReliably), the sale stands.
+     */
+    const sell = async (lines: CheckoutLine[]) => {
+        const reference = await bookSale(lines, extras);
+        for (const extra of extras) {
+            if (!extra.laserSessionId) continue;
+            void markPaidReliably(extra.laserSessionId, reference).then(ok => {
+                if (!ok) addToast(`Sold, but laser session "${extra.person}" could not be marked paid yet. It is retried automatically.`, 'warning');
+            });
+        }
+        localStorage.removeItem(EXTRAS_STORAGE_KEY);
+        const total = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0) + extraCosts;
+        let desc = lines.map(l => `${l.name} x${l.quantity}`).join(', ');
+        if (extras.length) desc += (desc ? ', ' : '') + extras.map(describeExtra).join(', ');
+        if (desc.length > 135) desc = desc.substring(0, 132) + '...';
+        setCheckedOut({ total, description: desc });
+    };
+
     const handleConfirmedCheckout = async () => {
         setConfirmOpen(false);
         setIsCheckingOut(true);
         try {
-            if (isVolunteerMode && mode === 'drink') {
-                // Free volunteer drinks: out of stock, no sale.
-                for (const item of cartItems) {
-                    if (!await handleVolunteerDrink(item.id, item.cartQuantity, item.name)) {
-                        addToast(`Failed to book "${item.name}" as a volunteer drink. Operation stopped.`, 'error');
-                        return;
-                    }
-                    // Booked: out of the cart, so a retry cannot book it twice.
-                    setCartItems(prev => prev.filter(i => i.id !== item.id));
-                }
+            if (!isVolunteerMode) {
+                // A sale: one sales order for the whole cart.
+                await sell(cartItems.map(item => ({ partId: item.id, name: item.name, quantity: item.cartQuantity, unitPrice: item.price })));
                 setCartItems([]);
-                setCheckedOut(null);
-                addToast('Enjoy your drink! Booked as a free volunteer drink.', 'success');
                 return;
             }
-            if (isVolunteerMode) {
-                // Volunteer corrections, item by item.
-                for (const item of cartItems) {
-                    const totalPrice = item.price > 0 ? parseFloat((item.price * Math.abs(item.cartQuantity)).toFixed(2)) : undefined;
-                    const success = mode === 'set'
+
+            // Volunteers: the items are stock work, item by item; the extra services are still paid.
+            for (const item of cartItems) {
+                const totalPrice = item.price > 0 ? parseFloat((item.price * Math.abs(item.cartQuantity)).toFixed(2)) : undefined;
+                const success = mode === 'drink'
+                    ? freeKind === 'internal'
+                        ? await handleInternalUse(item.id, item.cartQuantity, item.name)
+                        : await handleVolunteerDrink(item.id, item.cartQuantity, item.name)
+                    : mode === 'set'
                         ? await handleSetItem(item.id, item.cartQuantity, item.name, totalPrice)
                         : item.cartQuantity < 0
                             ? await removeStock(item.id, Math.abs(item.cartQuantity), item.name, totalPrice)
                             : await handleAddItem(item.id, item.cartQuantity, item.name, totalPrice);
-                    if (!success) {
-                        addToast(`Failed to process "${item.name}". Operation stopped.`, 'error');
-                        return;
-                    }
-                    // Done: out of the cart, so a retry cannot apply it twice.
-                    setCartItems(prev => prev.filter(i => i.id !== item.id));
+                if (!success) {
+                    addToast(`Failed to process "${item.name}". Operation stopped.`, 'error');
+                    return;
                 }
-                setCartItems([]);
-                setCheckedOut(null);
-                addToast('Stock updated successfully!', 'success');
-                return;
+                // Done: out of the cart, so a retry cannot apply it twice.
+                setCartItems(prev => prev.filter(i => i.id !== item.id));
             }
-
-            // A sale: one sales order for the whole cart.
-            const checkoutTotal = cartItems.reduce((total, item) => total + item.price * item.cartQuantity, 0) + extraCosts;
-            const reference = await bookSale(
-                cartItems.map(item => ({ partId: item.id, name: item.name, quantity: item.cartQuantity, unitPrice: item.price })),
-                extras,
-            );
-            // The sale stands; a laser session that cannot be marked paid is a warning, not a failure.
-            for (const extra of extras) {
-                if (!extra.laserSessionId) continue;
-                laserApi.markPaid(extra.laserSessionId, reference).catch(() =>
-                    addToast(`Sold, but laser session "${extra.person}" is still open. Delete it in the Lasercutter tab.`, 'warning'));
+            if (cartItems.length) {
+                addToast(
+                    mode !== 'drink' ? 'Stock updated successfully!'
+                        : freeKind === 'internal' ? 'Taken out of stock for internal use.'
+                            : 'Enjoy your drink! Booked as a free volunteer drink.',
+                    'success',
+                );
             }
-            localStorage.removeItem(EXTRAS_STORAGE_KEY);
-            setCartItems([]);
-            let desc = cartItems.map(item => `${item.name} x${item.cartQuantity}`).join(', ');
-            if (extras.length) desc += (desc ? ', ' : '') + extras.map(describeExtra).join(', ');
-            if (desc.length > 135) desc = desc.substring(0, 132) + '...';
-            setCheckedOut({ total: checkoutTotal, description: desc });
+            setFreeKind('drink');
+            if (extras.length) await sell([]);
+            else setCheckedOut(null);
         } catch (error) {
             console.error('[Checkout] Failed:', error);
             addToast(error instanceof Error ? `Checkout failed: ${error.message}` : 'Checkout failed', 'error');
@@ -210,11 +216,13 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                     isVolunteerMode={isVolunteerMode}
                     mode={mode}
                     onModeChange={handleModeChange}
+                    freeKind={freeKind}
+                    onFreeKindChange={setFreeKind}
                     isCheckingOut={isCheckingOut}
                 />
 
-                {/* Extras — shown inline below cart when not in volunteer mode and not checked out */}
-                {!isVolunteerMode && checkedOutResult === null && (
+                {/* Extras (laser time, machine time) below the cart, also for volunteers: those are always paid. */}
+                {checkedOutResult === null && (
                     <div className="border-t border-lijn">
                         <div className="px-4 sm:px-6 py-3 border-b border-lijn bg-brand-beige shrink-0">
                             <h2 className="text-brand-black text-base font-semibold flex items-center gap-2">
@@ -225,7 +233,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                             <Extras
                                 onExtrasChange={setTypedExtras}
                                 laserSessions={laserInCheckout}
-                                openLaserSessions={laserSessions.filter(s => !s.checkout_at)}
+                                openLaserSessions={laserSessions.filter(s => !s.checkout_at && s.total_time > 0)}
                                 onAddLaserSession={(id) => laserApi.setCheckout(id, true).catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'))}
                                 onRemoveLaserSession={(id) => laserApi.setCheckout(id, false).catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'))}
                             />
@@ -276,8 +284,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                             <div className="border-t-[3px] border-lijn pt-6 flex flex-col items-end">
                                 <span className="text-[10px] font-semibold text-brand-black/50">Total amount</span>
                                 <span className="text-5xl font-semibold text-brand-black tracking-tight">
-                                    {isVolunteerMode && mode === 'drink'
-                                        ? 'Free'
+                                    {isVolunteerMode
+                                        ? (extraCosts > 0 || mode !== 'drink' ? `€${extraCosts.toFixed(2)}` : 'Free')
                                         : `€${(cartItems.reduce((acc, i) => acc + i.price * i.cartQuantity, 0) + extraCosts).toFixed(2)}`}
                                 </span>
                             </div>

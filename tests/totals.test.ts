@@ -67,13 +67,26 @@ describe('buildTotals', () => {
     ], 0.5, 30, now);
     const t = buildTotals(items, serviceRevenue([line({})], 30, now), lost);
 
-    expect(t.rows.map(r => r.label)).toEqual(['Items sold', 'Volunteer drinks', 'Laser time']);
+    expect(t.rows.map(r => r.label)).toEqual(['Items sold · Drinks', 'Items sold · Misc', 'Volunteer drinks', 'Laser time']);
     expect(t.total.revenue).toBeCloseTo(15);                // 10 items + 5 laser
     expect(t.total.costs).toBeCloseTo(4);                   // 2.4 + 1.6
     expect(t.total.profit).toBeCloseTo(11);
     expect(t.total.profit).toBeCloseTo(t.rows.reduce((s, r) => s + r.profit, 0));
     expect(t.notViaSession).toEqual({ minutes: 15, value: 7.5 });
     expect(t.notes).toHaveLength(2);                        // uncosted stickers, machine costs
+  });
+
+  it('keeps internal use (filament for the open labs) apart: not a sale, not a loss', () => {
+    const filament = new Map(parts).set(3, { name: 'PLA 1 kg', sellingPrice: 25, costPrice: 20, category: 'Filament' });
+    const withUse = [...entries, entry(3, '2026-09-27', TRACKING.STOCK_REMOVE, { removed: 2 }, 'Internal use via Stock App')];
+    const items = itemAnalytics(withUse, filament, 'all', 30, now);
+    const t = buildTotals(items, [], lostLaserStats([], 0.5, 30, now));
+
+    expect(t.internalUse).toEqual({ units: 2, cost: 40 });
+    expect(t.rows.map(r => r.label)).not.toContain('Items sold · Filament');
+    expect(t.total.revenue).toBeCloseTo(10);                // the items only
+    expect(t.total.profit).toBeCloseTo(10 - 2.4 - 1.6);     // filament not taken off
+    expect(items.totalRemoved).toBe(3 + 2 + 4 + 2);         // paid, drinks and internal use
   });
 
   it('leaves rows with only zeros out', () => {

@@ -10,6 +10,10 @@ import threading
 DATA_DIR = os.environ.get('DATA_DIR', os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(DATA_DIR, 'laser.db')
 
+# Less laser time than this (it shows as "0 min") is no real use of the laser,
+# just a test pulse. It is not logged as thrown away and not kept as a session.
+MIN_LOGGED_SECONDS = 30
+
 _lock = threading.Lock()
 _conn: sqlite3.Connection | None = None
 
@@ -72,6 +76,9 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
     for column in ('checkout_at', 'paid_at', 'order_ref'):
         if column not in have:
             _conn.execute(f'ALTER TABLE sessions ADD COLUMN {column} TEXT')
+    # Rows from before MIN_LOGGED_SECONDS existed: they only skew the analytics.
+    _conn.execute('DELETE FROM discarded_time WHERE seconds < ?', (MIN_LOGGED_SECONDS,))
+    _conn.execute('DELETE FROM sessions WHERE paid_at IS NOT NULL AND total_time <= 0')
     _conn.commit()
     return _conn
 
