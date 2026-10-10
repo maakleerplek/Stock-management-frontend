@@ -46,6 +46,7 @@ function fakeInvenTree(stock: Record<number, { pk: number; quantity: number }[]>
         if (path === '/order/so/5/' && method === 'GET') return ok({ status });
         if (path === '/order/so/5/complete/') { status = status === 20 ? 30 : 20; return ok({}); }
         if (path === '/order/so/5/cancel/') return ok({});
+        if (path === '/stock/remove/') return ok({});
         return { ok: false, status: 404, text: async () => `unexpected ${method} ${path}` } as Response;
     }));
     return calls;
@@ -110,5 +111,24 @@ describe('checkout as a sales order', () => {
         const calls = fakeInvenTree({ 8: [{ pk: 1, quantity: 5 }] }, { failAt: '/order/so/5/allocate/' });
         await expect(new InvenTreeClient({ baseUrl: '' }).sellParts([{ partId: 8, quantity: 1, unitPrice: 2 }], [], 'x')).rejects.toThrow();
         expect(calls.at(-1)!.path).toBe('/order/so/5/cancel/');
+    });
+});
+
+describe('volunteer stock removal', () => {
+    beforeEach(() => store.clear());
+
+    it('removes across stock items in one request', async () => {
+        const calls = fakeInvenTree({ 8: [{ pk: 1, quantity: 2 }, { pk: 2, quantity: 5 }] });
+
+        await new InvenTreeClient({ baseUrl: '' }).removeStockFromPart(8, 6, 'test');
+        const removes = calls.filter(c => c.path === '/stock/remove/');
+        expect(removes).toHaveLength(1);
+        expect(removes[0].body).toEqual({ items: [{ pk: 2, quantity: 5 }, { pk: 1, quantity: 1 }], notes: 'test' });
+    });
+
+    it('removes nothing when there is not enough stock', async () => {
+        const calls = fakeInvenTree({ 8: [{ pk: 1, quantity: 2 }] });
+        await expect(new InvenTreeClient({ baseUrl: '' }).removeStockFromPart(8, 3, 'test')).rejects.toThrow('Only 2 in stock');
+        expect(calls.some(c => c.path === '/stock/remove/')).toBe(false);
     });
 });
