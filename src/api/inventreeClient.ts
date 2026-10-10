@@ -378,14 +378,19 @@ export class InvenTreeClient {
 
     /** Remove from the part's stock items, largest first. For corrections, not sales. */
     async removeStockFromPart(partId: number, quantity: number, notes: string): Promise<void> {
+        // One request for all stock items: InvenTree applies it in full or not at
+        // all. One call per item could fail halfway, and a retry removed the first part twice.
+        const items: { pk: number; quantity: number }[] = [];
         let left = quantity;
         for (const item of await this.getHomeStockItems(partId)) {
             if (left <= 0) break;
             const take = Math.min(left, item.quantity);
-            if (take > 0) await this.removeStock(item.pk, take, notes);
+            if (take > 0) items.push({ pk: item.pk, quantity: take });
             left -= take;
         }
         if (left > 0) throw new Error(`Only ${quantity - left} in stock, could not remove ${quantity}.`);
+        await this.request('/stock/remove/', 'POST', { items, notes }, false, false);
+        this.invalidateCache('/stock/');
     }
 
     /** Set the part's total stock. */
