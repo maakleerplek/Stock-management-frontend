@@ -186,7 +186,7 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
           </div>
         )}
 
-        {totals.printing.byMaterial.length > 0 && (() => {
+        {(() => {
           const p = totals.printing;
           const g = (n: number) => n >= 1000 ? `${(n / 1000).toLocaleString('nl-BE', { maximumFractionDigits: 1 })} kg` : `${Math.round(n)} g`;
           const row = (m: typeof p, label: string, bold = false) => (
@@ -214,6 +214,12 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
                   </tr>
                 </thead>
                 <tbody>
+                  {p.byMaterial.length === 0 && (
+                    <tr><td colSpan={5} className="py-3 px-3 text-brand-black/60">
+                      No filament taken for the printers and no 3D prints paid in this period. Prints are paid in the
+                      checkout under 3D printing (filament + grams); filament for the printers is taken out in the Free tab.
+                    </td></tr>
+                  )}
                   {p.byMaterial.map(m => row(m, m.material))}
                   {p.byMaterial.length > 1 && row(p, 'Total', true)}
                 </tbody>
