@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { laserStats, lostLaserStats, laserLedger, type ServiceLine, type DiscardRow } from '../src/lib/services';
+import { laserStats, lostLaserStats, laserLedger, laserSessionList, sessionUse, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../src/lib/services';
 
 const line = (over: Partial<ServiceLine>): ServiceLine => ({
   reference: 'Lasertime', description: '', quantity: 10, price: 0.5, date: '2026-09-20', orderStatus: 30, ...over,
@@ -64,7 +64,7 @@ describe('laserLedger', () => {
   });
   const paidLine: ServiceLine = { reference: 'Lasertime', description: 'Ruben', quantity: 5, price: 0.5, date: '2026-10-09', orderStatus: 30, order: 'SO-0010' };
 
-  it('puts open sessions in unpaid and deleted ones under their kind, per person', () => {
+  it('puts open sessions in unpaid and deleted ones under their kind', () => {
     const del = (session_name: string, kind: DiscardRow['kind'], seconds = 1200): DiscardRow =>
       ({ seconds, source: 'session', session_name, reason: null, kind, discarded_at: '2026-10-09T16:12:00' });
     const l = laserLedger(
@@ -75,9 +75,7 @@ describe('laserLedger', () => {
     expect(l.deleted.none.minutes).toBe(20);
     expect(l.deleted.workshop.minutes).toBe(10);
     expect(l.deleted.paid.value).toBe(2.5);
-    expect(l.perPerson.get('wolf')).toEqual({ name: 'Wolf', paidOutside: 5, usage: 0, unpaid: 15 });
-    expect(l.perPerson.get('htl')).toEqual({ name: 'HTL', paidOutside: 0, usage: 10, unpaid: 20 });
-    expect(l.perPerson.get('ivo')?.usage).toBe(1);
+    expect(l.deleted.volunteer.minutes).toBe(1);
     expect(l.unverified.count).toBe(0);
   });
 
@@ -103,5 +101,26 @@ describe('laserLedger', () => {
   it('leaves time outside the period out', () => {
     const l = laserLedger([session({ created: '2026-08-01T10:00:00' })], [], [], 0, 0.5, 7, today);
     expect(l.unpaid.count).toBe(0);
+  });
+});
+
+describe('laserSessionList', () => {
+  const now = new Date('2026-10-12T18:00:00');
+  const row = (over: Partial<LaserSessionRow>): LaserSessionRow =>
+    ({ name: 'Art Piece', created: '2026-10-10T10:00:00', total_time: 420, paid_at: null, order_ref: null, ...over });
+  const del = (session_name: string, seconds: number, kind: DiscardRow['kind']): DiscardRow =>
+    ({ seconds, source: 'session', session_name, reason: null, kind, discarded_at: '2026-10-09T16:00:00' });
+
+  it('lists open, paid and deleted sessions with their status, newest first, without counter resets', () => {
+    const list = laserSessionList(
+      [row({}), row({ name: 'Nerf Gun', total_time: 180, paid_at: '2026-10-11T12:00:00', order_ref: 'SO-0040' })],
+      [del('Workshop HTL', 6600, 'workshop'), del('Robbert', 1980, 'paid'),
+       { seconds: 900, source: 'unassigned', session_name: null, reason: null, discarded_at: '2026-10-09T17:00:00' }],
+      [{ reference: 'Lasertime', description: 'Nerf Gun', quantity: 3, price: 0.5, date: '2026-10-11', orderStatus: 30, order: 'SO-0040' }],
+      30, now);
+    expect(list.map(s => [s.name, s.status])).toEqual([
+      ['Nerf Gun', 'paid'], ['Art Piece', 'open'], ['Workshop HTL', 'workshop'], ['Robbert', 'paid'],
+    ]);
+    expect(sessionUse(list)).toEqual({ count: 3, avgMinutes: (3 + 7 + 33) / 3 });   // workshop left out
   });
 });

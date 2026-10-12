@@ -14,6 +14,8 @@ export INVENTREE_TOKEN=${INVENTREE_TOKEN:-$VITE_INVENTREE_TOKEN}
 export OIDC_LOGOUT_URL=${OIDC_LOGOUT_URL:-}
 # The host port the HTTPS side is published on, for the http -> https redirect.
 export PUBLIC_HTTPS_PORT=${PUBLIC_HTTPS_PORT:-443}
+# InvenTree parameter template of the 3D-print price per gram; 0 = none (nothing public).
+export PRINT_PRICE_TEMPLATE=${PRINT_PRICE_TEMPLATE:-0}
 
 # Volunteer sign-in: authentik (oauth2-proxy, the default) or password (one
 # shared password, for a server that cannot reach Authentik).
@@ -63,7 +65,7 @@ else
     echo "Reusing existing SSL certificate."
 fi
 
-envsubst '${INVENTREE_BACKEND_URL} ${INVENTREE_TOKEN} ${PUBLIC_HTTPS_PORT} ${AUTH_MODE} ${TV_PRESENTATION_URL}' \
+envsubst '${INVENTREE_BACKEND_URL} ${INVENTREE_TOKEN} ${PUBLIC_HTTPS_PORT} ${AUTH_MODE} ${TV_PRESENTATION_URL} ${PRINT_PRICE_TEMPLATE}' \
     < /etc/nginx/templates/nginx.conf.template > /etc/nginx/conf.d/default.conf
 envsubst '${OIDC_LOGOUT_URL} ${VOLUNTEER_KEY}' \
     < "/etc/nginx/templates/auth-${AUTH_MODE}.conf.template" > /etc/nginx/auth.conf
