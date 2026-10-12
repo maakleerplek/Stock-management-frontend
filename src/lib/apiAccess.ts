@@ -15,7 +15,9 @@ export const CHECKOUT_WRITE =
   /^\/api\/(barcode\/|order\/so\/(shipment\/(\d+\/ship\/)?|\d+\/(issue|allocate|complete|cancel)\/)?|order\/so-line\/|order\/so-extra-line\/)$/;
 
 /** Catalogue anyone may read. */
-export const PUBLIC_READ = /^\/api\/(part|stock|company|order|barcode)\//;
+export const PUBLIC_READ = /^\/api\/(part|stock|company|order|barcode)\/|^\/api\/parameter\/template\/$/;
+// /api/parameter/ itself: in production only the 3D-print price template is public
+// (nginx, PRINT_PRICE_TEMPLATE); here it stays volunteer-only, prices then fall back to the default.
 
 export const VOLUNTEER_CHECK_PATH = '/api/auth/check/';
 /** Answers {"mode": "authentik" | "password"}: which sign-in the server uses. */

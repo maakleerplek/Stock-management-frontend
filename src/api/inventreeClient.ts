@@ -1033,6 +1033,30 @@ export class InvenTreeClient {
      * purchase_price, which made InvenTree report the selling price as the cost
      * of goods and left every margin figure wrong.
      */
+    /**
+     * 3D-print price per gram per filament part, from the InvenTree parameter
+     * "3D-print prijs per gram". Parts without one use the default price.
+     */
+    async getPrintPricePerGram(): Promise<Record<number, number>> {
+        try {
+            const templates = await this.request<{ pk: number; name: string }[] | { results: { pk: number; name: string }[] }>(
+                '/parameter/template/?search=3D-print%20prijs', 'GET');
+            const list = Array.isArray(templates) ? templates : templates.results;
+            const template = list.find(t => t.name === '3D-print prijs per gram');
+            if (!template) return {};
+            const rows = await this.requestAll<{ model_id: number; data: string }>(
+                `/parameter/?model_type=part.part&template=${template.pk}&limit=500`);
+            const out: Record<number, number> = {};
+            for (const r of rows.results || []) {
+                const price = parseFloat(String(r.data).replace(',', '.'));
+                if (isFinite(price) && price > 0) out[r.model_id] = price;
+            }
+            return out;
+        } catch {
+            return {};   // not readable (dev, not signed in) or not set up: the default price
+        }
+    }
+
     async getSalePricePerPart(): Promise<Record<number, number>> {
         const resp = await this.requestAll<{ part: number; quantity: number; price: string | number }>(
             '/part/sale-price/?limit=500'

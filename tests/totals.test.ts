@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 import { itemAnalytics, type PartPrice } from '../src/lib/itemAnalytics';
-import { serviceRevenue, laserLedger, type ServiceLine } from '../src/lib/services';
-import { buildTotals } from '../src/lib/totals';
+import { serviceRevenue, laserLedger, printsByMaterial, type ServiceLine, type DiscardRow } from '../src/lib/services';
+import { buildTotals, spoolGrams } from '../src/lib/totals';
+import { PRICING } from '../src/constants';
 import { TRACKING } from '../src/lib/stockHistory';
 
 const now = new Date('2026-09-28T12:00:00');
@@ -74,7 +75,7 @@ describe('buildTotals', () => {
     const t = buildTotals(items, serviceRevenue([line({})], 30, now), laser);
 
     expect(t.rows.map(r => r.label)).toEqual(['Items sold · Drinks', 'Items sold · Misc', 'Volunteer drinks', 'Laser time', 'Laser time · paid outside checkout']);
-    expect(t.total.revenue).toBeCloseTo(17);                // 10 items + 5 laser + 2 paid in cash
+    expect(t.total.revenue).toBeCloseTo(17);                // a deleted session counts as paid                // 10 items + 5 laser + 2 paid in cash
     expect(t.total.costs).toBeCloseTo(4);                   // 2.4 + 1.6
     expect(t.total.profit).toBeCloseTo(13);
     expect(t.total.profit).toBeCloseTo(t.rows.reduce((s, r) => s + r.profit, 0));
@@ -90,12 +91,23 @@ describe('buildTotals', () => {
     const items = itemAnalytics(withUse, filament, 'all', 30, now);
     const t = buildTotals(items, [], noLaser);
 
-    expect(t.rows.find(r => r.label.startsWith('Lab & workshop use'))).toMatchObject({ revenue: 0, costs: 40, profit: -40 });
+    expect(t.rows.find(r => r.label === 'Lab filament (3D printers)')).toMatchObject({ revenue: 0, costs: 40, profit: -40 });
+    expect(t.rows.map(r => r.label)).not.toContain('Lab & workshop use (wood, ...)');   // only filament used
+    // 2 spools of 1 kg (from the name); nothing printed at the till yet.
+    expect(t.printing).toMatchObject({ grams: 2000, cost: 40, paidGrams: 0, paidRevenue: 0 });
+    expect(t.printing.potentialRevenue).toBeCloseTo(2000 * PRICING.PRINTING_PER_GRAM);
     expect(t.rows.map(r => r.label)).not.toContain('Items sold · Filament');
     expect(t.total.revenue).toBeCloseTo(10);                // the items only
     expect(t.total.profit).toBeCloseTo(10 - 2.4 - 1.6 - 40);
-    expect(t.notes.some(n => /3D printing is not measured/.test(n))).toBe(true);
     expect(items.totalRemoved).toBe(3 + 2 + 4 + 2);         // paid, drinks and internal use
+  });
+
+  it('counts deleted sessions as paid, except workshop / HTL and volunteer use', () => {
+    const del = (seconds: number, kind: DiscardRow['kind']): DiscardRow =>
+      ({ seconds, source: 'session', session_name: 'X', reason: null, kind, discarded_at: '2026-09-27T11:00:00' });
+    const laser = laserLedger([], [del(600, null), del(120, 'other'), del(6000, 'workshop'), del(60, 'volunteer')], [], 0, 0.5, 30, now);
+    const t = buildTotals(itemAnalytics([], parts, 'all', 30, now), [], laser);
+    expect(t.rows).toEqual([{ label: 'Laser time · paid outside checkout', revenue: 6, costs: 0, profit: 6 }]);
   });
 
   it('leaves rows with only zeros out', () => {
@@ -104,5 +116,34 @@ describe('buildTotals', () => {
     expect(t.rows).toEqual([]);
     expect(t.total).toEqual({ label: 'Total', revenue: 0, costs: 0, profit: 0 });
     expect(t.notes).toEqual([]);
+  });
+});
+
+describe('spoolGrams', () => {
+  it('reads the spool weight from the name, 1 kg when it does not say', () => {
+    expect(spoolGrams('PLA White (1 kg)')).toBe(1000);
+    expect(spoolGrams('PETG Black 750g')).toBe(750);
+    expect(spoolGrams('TPU 0,5 kg')).toBe(500);
+    expect(spoolGrams('PLA Blue')).toBe(1000);
+  });
+});
+
+describe('3D printing per filament', () => {
+  it('sets the filament taken against the prints paid at the till, at the price per material', () => {
+    const filament = new Map(parts).set(3, { name: 'PLA 1 kg', sellingPrice: 25, costPrice: 20, category: 'Filament' });
+    const withUse = [...entries, entry(3, '2026-09-27', TRACKING.STOCK_REMOVE, { removed: 1 }, 'Internal use via Stock App')];
+    const prints = printsByMaterial([
+      line({ reference: '3D printing', description: 'PLA 1 kg', quantity: 50, price: 0.12, order: 'SO-0050' }),
+      line({ reference: '3D printing', description: 'PLA 1 kg', quantity: 30, price: 0.12, order: 'SO-0051' }),
+      line({ reference: '3D printing', description: '', quantity: 10, price: 0.1, order: 'SO-0052' }),
+    ], 30, now);
+    const t = buildTotals(itemAnalytics(withUse, filament, 'all', 30, now), [], noLaser, prints, { 'PLA 1 kg': 0.12 });
+
+    const pla = t.printing.byMaterial.find(m => m.material === 'PLA 1 kg')!;
+    expect(pla).toMatchObject({ grams: 1000, cost: 20, paidGrams: 80, prints: 2 });
+    expect(pla.paidRevenue).toBeCloseTo(9.6);
+    expect(pla.potentialRevenue).toBeCloseTo(120);                 // 1000 g × €0.12
+    expect(t.printing.byMaterial.find(m => m.material === 'Unknown material')).toMatchObject({ grams: 0, paidGrams: 10 });
+    expect(t.printing.prints).toBe(3);
   });
 });
