@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 import { itemAnalytics, type PartPrice } from '../src/lib/itemAnalytics';
-import { serviceRevenue, laserLedger, type ServiceLine } from '../src/lib/services';
+import { serviceRevenue, laserLedger, type ServiceLine, type DiscardRow } from '../src/lib/services';
 import { buildTotals } from '../src/lib/totals';
 import { TRACKING } from '../src/lib/stockHistory';
 
@@ -74,7 +74,7 @@ describe('buildTotals', () => {
     const t = buildTotals(items, serviceRevenue([line({})], 30, now), laser);
 
     expect(t.rows.map(r => r.label)).toEqual(['Items sold · Drinks', 'Items sold · Misc', 'Volunteer drinks', 'Laser time', 'Laser time · paid outside checkout']);
-    expect(t.total.revenue).toBeCloseTo(17);                // 10 items + 5 laser + 2 paid in cash
+    expect(t.total.revenue).toBeCloseTo(17);                // a deleted session counts as paid                // 10 items + 5 laser + 2 paid in cash
     expect(t.total.costs).toBeCloseTo(4);                   // 2.4 + 1.6
     expect(t.total.profit).toBeCloseTo(13);
     expect(t.total.profit).toBeCloseTo(t.rows.reduce((s, r) => s + r.profit, 0));
@@ -96,6 +96,14 @@ describe('buildTotals', () => {
     expect(t.total.profit).toBeCloseTo(10 - 2.4 - 1.6 - 40);
     expect(t.notes.some(n => /3D printing is not measured/.test(n))).toBe(true);
     expect(items.totalRemoved).toBe(3 + 2 + 4 + 2);         // paid, drinks and internal use
+  });
+
+  it('counts deleted sessions as paid, except workshop / HTL and volunteer use', () => {
+    const del = (seconds: number, kind: DiscardRow['kind']): DiscardRow =>
+      ({ seconds, source: 'session', session_name: 'X', reason: null, kind, discarded_at: '2026-09-27T11:00:00' });
+    const laser = laserLedger([], [del(600, null), del(120, 'other'), del(6000, 'workshop'), del(60, 'volunteer')], [], 0, 0.5, 30, now);
+    const t = buildTotals(itemAnalytics([], parts, 'all', 30, now), [], laser);
+    expect(t.rows).toEqual([{ label: 'Laser time · paid outside checkout', revenue: 6, costs: 0, profit: 6 }]);
   });
 
   it('leaves rows with only zeros out', () => {

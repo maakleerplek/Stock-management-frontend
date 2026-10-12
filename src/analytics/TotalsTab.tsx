@@ -17,9 +17,9 @@ const fmtMinutes = (m: number) => {
 };
 
 /** Revenue, costs and profit of everything in the period, in one table. */
-/** Deleted laser time per kind for the box under the table; paid-outside time is already a row in the total. */
+/** Deleted laser time that is usage (workshop / HTL, volunteer), for the box under the table; the rest counts as paid. */
 const laserDeletedRows = (t: Totals) =>
-  (Object.entries(t.laserDeleted) as [keyof Totals['laserDeleted'], LaserBucket][]).filter(([k, b]) => k !== 'paid' && b.count > 0);
+  (Object.entries(t.laserDeleted) as [keyof Totals['laserDeleted'], LaserBucket][]).filter(([k, b]) => (k === 'workshop' || k === 'volunteer') && b.count > 0);
 
 export default function TotalsTab({ trackingEntries, serviceLines, discarded, laserSessions, loading, trackingError, dateRange }: {
   trackingEntries: InvenTreeTrackingEntry[];
@@ -164,7 +164,7 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
               </tbody>
             </table>
             <p className="px-3 py-1.5 text-[10px] text-brand-black/60">
-              Deleted: sessions removed with time on them, by the reason picked (paid outside checkout is in the total above).
+              Deleted sessions count as paid outside the checkout (in the total above), except workshop / HTL and volunteer use.
               Not verified: time reset without a session, the counter now, or a session whose sales order was cancelled.
             </p>
           </div>

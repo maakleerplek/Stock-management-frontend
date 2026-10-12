@@ -13,7 +13,7 @@ export interface Totals {
   total: TotalsRow;
   /** Laser time not on a paid sales order: not in the total. */
   laserUnpaid: LaserBucket;       // open sessions, not paid yet
-  /** Deleted sessions per kind; 'paid' is also a row in the total. */
+  /** Deleted sessions per kind; all but workshop and volunteer are counted as paid in the total. */
   laserDeleted: LaserLedger['deleted'];
   laserUnverified: LaserBucket;   // never assigned, or its order did not count
   /** Total profit if all assigned, unpaid laser time gets paid. */
@@ -24,6 +24,8 @@ export interface Totals {
 const SERVICE_LABEL: Record<string, string> = { Lasertime: 'Laser time' };
 
 export function buildTotals(items: ItemAnalytics, services: ServiceRevenue[], laser: LaserLedger): Totals {
+  const { paid, other, none } = laser.deleted;
+  const deletedPaid = paid.value + other.value + none.value;
   const all: TotalsRow[] = [
     // Items sold, one row per stock category.
     ...items.byCategory.map(c => ({ label: `Items sold · ${c.category}`, revenue: c.revenue, costs: c.paidCost, profit: c.revenue - c.paidCost })),
@@ -32,7 +34,9 @@ export function buildTotals(items: ItemAnalytics, services: ServiceRevenue[], la
     { label: 'Lab & workshop use (filament, wood, ...)', revenue: 0, costs: items.usedCost, profit: -items.usedCost },
     // Machine costs (power, wear, material) are not tracked.
     ...services.map(s => ({ label: SERVICE_LABEL[s.reference] ?? s.reference, revenue: s.revenue, costs: 0, profit: s.revenue })),
-    { label: 'Laser time · paid outside checkout', revenue: laser.deleted.paid.value, costs: 0, profit: laser.deleted.paid.value },
+    // Deleted sessions count as paid outside the checkout (cash, transfer, ...), unless
+    // they were workshop / HTL or volunteer use. Counter resets are not on anyone: not counted.
+    { label: 'Laser time · paid outside checkout', revenue: deletedPaid, costs: 0, profit: deletedPaid },
   ];
   const rows = all.filter(r => r.revenue !== 0 || r.costs !== 0);
   const total = rows.reduce(

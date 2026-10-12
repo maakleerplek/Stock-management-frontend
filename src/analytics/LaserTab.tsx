@@ -37,8 +37,10 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
   );
   const use = sessionUse(sessions);
   const resets = lost.rows.filter(r => r.source === 'unassigned');
-  const { paid: paidOutside, workshop, volunteer, other, none } = ledger.deleted;
-  const notPaid = { minutes: ledger.unpaid.minutes + other.minutes + none.minutes, value: ledger.unpaid.value + other.value + none.value };
+  // Deleted sessions count as paid outside the checkout, except workshop / HTL and volunteer use.
+  const { paid, workshop, volunteer, other, none } = ledger.deleted;
+  const paidOutside = { minutes: paid.minutes + other.minutes + none.minutes, value: paid.value + other.value + none.value };
+  const notPaid = ledger.unpaid;
 
   if (loading) {
     return (
@@ -56,7 +58,7 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
         { label: 'Paid', value: fmtMinutes(laser.minutes + paidOutside.minutes), sub: `€${(laser.revenue + paidOutside.value).toFixed(2)}`, icon: Euro, bg: 'bg-green-50' },
         { label: 'Workshop / HTL', value: fmtMinutes(workshop.minutes), sub: `€${workshop.value.toFixed(2)}`, icon: Wrench, bg: 'bg-brand-beige-dark' },
         { label: 'Volunteer (own credit)', value: fmtMinutes(volunteer.minutes), sub: `€${volunteer.value.toFixed(2)}`, icon: Users, bg: 'bg-brand-beige-dark' },
-        { label: 'Open / not paid', value: fmtMinutes(notPaid.minutes), sub: `€${notPaid.value.toFixed(2)}`, icon: Clock, bg: notPaid.minutes ? 'bg-amber-50' : 'bg-brand-beige-dark' },
+        { label: 'Open sessions', value: fmtMinutes(notPaid.minutes), sub: `€${notPaid.value.toFixed(2)}`, icon: Clock, bg: notPaid.minutes ? 'bg-amber-50' : 'bg-brand-beige-dark' },
         { label: 'Not verified', value: fmtMinutes(ledger.unverified.minutes), sub: `€${ledger.unverified.value.toFixed(2)}`, icon: Trash2, bg: ledger.unverified.count ? 'bg-rose-50' : 'bg-brand-beige-dark' },
         {
           label: 'All laser time',
@@ -82,7 +84,7 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
               </thead>
               <tbody>
                 {sessions.map((s, i) => (
-                  <tr key={i} className={cn('border-b border-lijn-zacht', (s.status === 'open' || s.status === 'none' || s.status === 'other') && 'bg-amber-50')}>
+                  <tr key={i} className={cn('border-b border-lijn-zacht', s.status === 'open' && 'bg-amber-50')}>
                     <td className="py-1.5 tabular-nums whitespace-nowrap">{fmtDate(s.date)}</td>
                     <td className="py-1.5 font-semibold">{s.name}</td>
                     <td className="py-1.5 text-right tabular-nums">{fmtMinutes(s.minutes)}</td>
