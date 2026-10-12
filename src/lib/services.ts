@@ -77,7 +77,7 @@ export function laserStats(lines: ServiceLine[], days?: number, now: Date = new 
 /** Why a session was deleted with time on it (laser/app.py DISCARD_KINDS). */
 export type DiscardKind = 'paid' | 'workshop' | 'volunteer' | 'other';
 export const DISCARD_KIND_LABELS: Record<DiscardKind | 'none', string> = {
-  paid: 'Already paid (cash / transfer)', workshop: 'Workshop (Maakleerplek pays)', volunteer: 'Volunteer (free)', other: 'Other (say why)', none: 'No reason given',
+  paid: 'Already paid (cash / transfer)', workshop: 'Workshop (billed separately)', volunteer: 'Volunteer (free)', other: 'Other (say why)', none: 'No reason given',
 };
 
 /** Shape of a row from the laser service's GET /discarded. */
