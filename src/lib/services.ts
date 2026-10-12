@@ -139,8 +139,6 @@ export interface LaserLedger {
   unpaid: LaserBucket;
   deleted: Record<DiscardKind | 'none', LaserBucket>;
   unverified: LaserBucket;
-  /** Minutes per person, lower-cased name as key. Usage = workshop + volunteer; unpaid = open + other + none. */
-  perPerson: Map<string, { name: string; paidOutside: number; usage: number; unpaid: number }>;
 }
 
 export function laserLedger(
@@ -157,17 +155,10 @@ export function laserLedger(
   const bucket = (): LaserBucket => ({ minutes: 0, value: 0, count: 0 });
   const unpaid = bucket(), unverified = bucket();
   const deleted = { paid: bucket(), workshop: bucket(), volunteer: bucket(), other: bucket(), none: bucket() };
-  const perPerson: LaserLedger['perPerson'] = new Map();
   const add = (b: LaserBucket, seconds: number) => {
     b.minutes += seconds / 60;
     b.value += (seconds / 60) * pricePerMinute;
     b.count++;
-  };
-  const addPerson = (name: string, seconds: number, kind: DiscardKind | 'none' | 'open') => {
-    const key = name.trim().toLowerCase().replace(/\s+/g, ' ');
-    const p = perPerson.get(key) ?? { name: name.trim(), paidOutside: 0, usage: 0, unpaid: 0 };
-    p[kind === 'paid' ? 'paidOutside' : kind === 'workshop' || kind === 'volunteer' ? 'usage' : 'unpaid'] += seconds / 60;
-    perPerson.set(key, p);
   };
 
   // Orders whose laser line counts as money in.
@@ -179,7 +170,6 @@ export function laserLedger(
     if (!s.paid_at) {
       if (!inPeriod(s.created)) continue;
       add(unpaid, s.total_time);
-      addPerson(s.name, s.total_time, 'open');
       continue;
     }
     if (s.order_ref) paidRefs.add(s.order_ref);
@@ -195,12 +185,54 @@ export function laserLedger(
     if (r.source === 'session' && r.session_name) {
       const kind = r.kind ?? 'none';
       add(deleted[kind], r.seconds);
-      addPerson(r.session_name, r.seconds, kind);
     } else {
       add(unverified, r.seconds);
     }
   }
 
   if (unassignedSeconds > 0) add(unverified, unassignedSeconds);
-  return { unpaid, deleted, unverified, perPerson };
+  return { unpaid, deleted, unverified };
+}
+
+export type SessionStatus = 'paid' | 'unverified' | 'open' | DiscardKind | 'none';
+export const SESSION_STATUS_LABELS: Record<SessionStatus, string> = {
+  ...DISCARD_KIND_LABELS, paid: 'Paid', unverified: 'Not verified (order cancelled)', open: 'Open, not paid yet',
+};
+/** One laser session: the name is whatever was typed (a person or a project). */
+export interface LaserSessionUse { date: string; name: string; minutes: number; status: SessionStatus; reason: string | null }
+
+/**
+ * Every laser session in the period, newest first: open and paid ones from the
+ * laser service, deleted ones from the discard log with the reason picked.
+ * Counter resets are not sessions and are left out.
+ */
+export function laserSessionList(
+  sessions: LaserSessionRow[], discarded: DiscardRow[], lines: ServiceLine[], days?: number, now: Date = new Date(),
+): LaserSessionUse[] {
+  const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
+  const inPeriod = (iso: string) => !since || new Date(iso) >= since;
+  const counted = new Set(lines.filter(l => isLaser(l) && COUNTED.has(l.orderStatus) && l.order).map(l => l.order));
+  const paidRefs = new Set(sessions.map(s => s.order_ref).filter(Boolean));
+  const out: LaserSessionUse[] = [];
+  for (const s of sessions) {
+    if (s.total_time <= 0) continue;
+    const date = s.paid_at ?? s.created;
+    if (!inPeriod(date)) continue;
+    const status = !s.paid_at ? 'open' : s.order_ref && counted.has(s.order_ref) ? 'paid' : 'unverified';
+    out.push({ date, name: s.name, minutes: s.total_time / 60, status, reason: s.order_ref });
+  }
+  for (const r of discarded) {
+    if (r.source !== 'session' || !inPeriod(r.discarded_at)) continue;
+    const ref = /SO-\d+/.exec(r.reason ?? '')?.[0];
+    if (ref && paidRefs.has(ref)) continue;   // booked by hand on a paid session's order: not twice
+    out.push({ date: r.discarded_at, name: r.session_name ?? '?', minutes: r.seconds / 60, status: r.kind ?? 'none', reason: r.reason });
+  }
+  return out.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** Count and average length of the sessions people use the laser for (Workshop / HTL left out). */
+export function sessionUse(list: LaserSessionUse[]): { count: number; avgMinutes: number } {
+  const use = list.filter(s => s.status !== 'workshop');
+  const minutes = use.reduce((sum, s) => sum + s.minutes, 0);
+  return { count: use.length, avgMinutes: use.length ? minutes / use.length : 0 };
 }
