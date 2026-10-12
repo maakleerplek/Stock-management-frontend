@@ -74,8 +74,14 @@ export function laserStats(lines: ServiceLine[], days?: number, now: Date = new 
   };
 }
 
+/** Why a session was deleted with time on it (laser/app.py DISCARD_KINDS). */
+export type DiscardKind = 'paid' | 'workshop' | 'volunteer' | 'other';
+export const DISCARD_KIND_LABELS: Record<DiscardKind | 'none', string> = {
+  paid: 'Already paid (cash / transfer)', workshop: 'Workshop (Maakleerplek pays)', volunteer: 'Volunteer (free)', other: 'Other (say why)', none: 'No reason given',
+};
+
 /** Shape of a row from the laser service's GET /discarded. */
-export interface DiscardRow { seconds: number; source: 'unassigned' | 'session'; session_name: string | null; reason: string | null; discarded_at: string }
+export interface DiscardRow { seconds: number; source: 'unassigned' | 'session'; session_name: string | null; reason: string | null; kind?: DiscardKind | null; discarded_at: string }
 
 export interface LostLaserStats {
   count: number;
@@ -120,17 +126,20 @@ export interface LaserSessionRow { name: string; created: string; total_time: nu
 export interface LaserBucket { minutes: number; value: number; count: number }
 
 /**
- * All laser time that is not on a paid sales order, in two buckets.
- * - unpaid: assigned to someone, not paid (open sessions and deleted sessions).
+ * All laser time that is not on a paid sales order.
+ * - unpaid: open sessions, not paid yet.
+ * - deleted: sessions deleted with time on them, per kind ('none': deleted before kinds existed).
+ *   'paid' was paid outside the checkout and counts as revenue.
  * - unverified: never assigned (reset counter, the counter now), or marked paid
  *   on a sales order that does not count (cancelled, ...).
  * Paid time itself comes from the sales orders (laserStats).
  */
 export interface LaserLedger {
   unpaid: LaserBucket;
+  deleted: Record<DiscardKind | 'none', LaserBucket>;
   unverified: LaserBucket;
-  /** Unpaid minutes per person, lower-cased name as key. */
-  unpaidPerPerson: Map<string, { name: string; minutes: number }>;
+  /** Minutes per person, lower-cased name as key. Usage = workshop + volunteer; unpaid = open + other + none. */
+  perPerson: Map<string, { name: string; paidOutside: number; usage: number; unpaid: number }>;
 }
 
 export function laserLedger(
@@ -146,17 +155,18 @@ export function laserLedger(
   const inPeriod = (iso: string | null) => !since || (!!iso && new Date(iso) >= since);
   const bucket = (): LaserBucket => ({ minutes: 0, value: 0, count: 0 });
   const unpaid = bucket(), unverified = bucket();
-  const unpaidPerPerson = new Map<string, { name: string; minutes: number }>();
+  const deleted = { paid: bucket(), workshop: bucket(), volunteer: bucket(), other: bucket(), none: bucket() };
+  const perPerson: LaserLedger['perPerson'] = new Map();
   const add = (b: LaserBucket, seconds: number) => {
     b.minutes += seconds / 60;
     b.value += (seconds / 60) * pricePerMinute;
     b.count++;
   };
-  const addPerson = (name: string, seconds: number) => {
+  const addPerson = (name: string, seconds: number, kind: DiscardKind | 'none' | 'open') => {
     const key = name.trim().toLowerCase().replace(/\s+/g, ' ');
-    const p = unpaidPerPerson.get(key) ?? { name: name.trim(), minutes: 0 };
-    p.minutes += seconds / 60;
-    unpaidPerPerson.set(key, p);
+    const p = perPerson.get(key) ?? { name: name.trim(), paidOutside: 0, usage: 0, unpaid: 0 };
+    p[kind === 'paid' ? 'paidOutside' : kind === 'workshop' || kind === 'volunteer' ? 'usage' : 'unpaid'] += seconds / 60;
+    perPerson.set(key, p);
   };
 
   // Orders whose laser line counts as money in.
@@ -168,7 +178,7 @@ export function laserLedger(
     if (!s.paid_at) {
       if (!inPeriod(s.created)) continue;
       add(unpaid, s.total_time);
-      addPerson(s.name, s.total_time);
+      addPerson(s.name, s.total_time, 'open');
       continue;
     }
     if (s.order_ref) paidRefs.add(s.order_ref);
@@ -182,13 +192,14 @@ export function laserLedger(
     const ref = /SO-\d+/.exec(r.reason ?? '')?.[0];
     if (ref && paidRefs.has(ref)) continue;
     if (r.source === 'session' && r.session_name) {
-      add(unpaid, r.seconds);
-      addPerson(r.session_name, r.seconds);
+      const kind = r.kind ?? 'none';
+      add(deleted[kind], r.seconds);
+      addPerson(r.session_name, r.seconds, kind);
     } else {
       add(unverified, r.seconds);
     }
   }
 
   if (unassignedSeconds > 0) add(unverified, unassignedSeconds);
-  return { unpaid, unverified, unpaidPerPerson };
+  return { unpaid, deleted, unverified, perPerson };
 }

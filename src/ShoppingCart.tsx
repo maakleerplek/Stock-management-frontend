@@ -2,20 +2,26 @@ import { useState } from 'react';
 import { type ItemData, isLabMaterial, isFilament } from './sendCodeHandler';
 import ImageDisplay from './ImageDisplay';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Plus, Minus, ShoppingCart as ShoppingCartIcon, Heart, CheckCircle, Loader2, MapPin, Tag, Package, X } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingCart as ShoppingCartIcon, Heart, CheckCircle, Loader2, MapPin, Tag, Package, X, FileText } from 'lucide-react';
 import { cn } from './lib/utils';
 import WeroQrCode from './QrCode';
 import { useToast } from './ToastContext';
+import { downloadInvoice, type Invoice } from './lib/invoice';
 
 export interface CartItem extends ItemData {
     cartQuantity: number;
 }
 
-/** What a volunteer's cart does: add/remove stock, set it, or take items out for free. */
+/** What a volunteer's cart does: restock or buy (taking out is paid), set stock, or take items out for free. */
 export type VolunteerCartMode = 'adjust' | 'set' | 'drink';
 
+const MODE_HINTS: Record<VolunteerCartMode, string> = {
+    adjust: '+ puts it in stock. − takes it out and you pay the normal price.',
+    set: 'Counted the shelf? Set the real number. Broken or lost items go here, nobody pays.',
+    drink: 'Free volunteer drink, or material for the lab / a workshop.',
+};
 const MODE_LABELS: Record<VolunteerCartMode, { tab: string; title: string; action: string }> = {
-    adjust: { tab: 'Add / remove', title: 'Add to stock', action: 'Add to stock' },
+    adjust: { tab: 'Restock / buy', title: 'Restock or buy', action: 'Restock' },
     set: { tab: 'Set absolute', title: 'Set stock', action: 'Set stock' },
     drink: { tab: 'Free (drink / lab / workshop)', title: 'Take out for free', action: 'Take out of stock' },
 };
@@ -26,8 +32,10 @@ interface ShoppingCartProps {
     onCheckout: () => void;
     checkedOutTotal: number | null;
     checkedOutDescription?: string;
+    invoice?: Invoice | null;
     onClearCheckout?: () => void;
     extraCosts: number;
+    volunteerToPay: number;
     isVolunteerMode: boolean;
     mode?: VolunteerCartMode;
     onModeChange?: (mode: VolunteerCartMode) => void;
@@ -41,8 +49,10 @@ function ShoppingCart({
     onCheckout,
     checkedOutTotal,
     checkedOutDescription,
+    invoice,
     onClearCheckout,
     extraCosts,
+    volunteerToPay,
     isVolunteerMode,
     mode = 'adjust',
     onModeChange,
@@ -52,6 +62,8 @@ function ShoppingCart({
     const [lastActionId, setLastActionId] = useState<number | null>(null);
     // Leaving the payment screen needs a second click: the QR code is gone after it.
     const [confirmClear, setConfirmClear] = useState(false);
+    // Invoice: null = closed, string = the customer details typed so far.
+    const [invoiceFor, setInvoiceFor] = useState<string | null>(null);
 
     const totalPrice = (cartItems || []).reduce(
         (total, item) => total + item.price * item.cartQuantity,
@@ -109,6 +121,7 @@ function ShoppingCart({
                             </button>
                         ))}
                     </div>
+                    <p className="mt-2 text-[10px] text-brand-black/70">{MODE_HINTS[mode]}</p>
                 </div>
             )}
 
@@ -131,6 +144,31 @@ function ShoppingCart({
                             />
                         </div>
 
+                        {invoice && (invoiceFor === null ? (
+                            <button onClick={() => setInvoiceFor('')} className="brutalist-button px-4 py-2 text-xs bg-white flex items-center gap-2">
+                                <FileText size={14} /> Need an invoice (factuur)?
+                            </button>
+                        ) : (
+                            <form
+                                className="w-full max-w-sm border border-lijn bg-white p-3 space-y-2 text-left"
+                                onSubmit={e => {
+                                    e.preventDefault();
+                                    downloadInvoice(invoice, invoiceFor).catch(() => addToast('Could not make the invoice PDF', 'error'));
+                                }}
+                            >
+                                <label htmlFor="invoice-customer" className="text-xs font-semibold">Invoice for (name or company, address, VAT nr)</label>
+                                <textarea
+                                    id="invoice-customer" rows={3} value={invoiceFor} autoFocus
+                                    onChange={e => setInvoiceFor(e.target.value)}
+                                    className="w-full px-2 py-1.5 border border-lijn text-sm"
+                                    placeholder={'Jane Doe\nStreet 1, 9000 Gent\nBE0123.456.789'}
+                                />
+                                <button type="submit" className="brutalist-button w-full py-2 text-xs font-semibold bg-brand-black text-white flex items-center justify-center gap-2">
+                                    <FileText size={14} /> Download invoice PDF ({invoice.reference})
+                                </button>
+                            </form>
+                        ))}
+
                         {onClearCheckout && (confirmClear ? (
                             <div role="alertdialog" aria-labelledby="clear-checkout-q" className="mt-4 border border-brand-black bg-white p-4 max-w-sm space-y-3">
                                 <p id="clear-checkout-q" className="text-sm font-semibold">Are you sure you have paid?</p>
@@ -139,7 +177,7 @@ function ShoppingCart({
                                     <button onClick={() => setConfirmClear(false)} className="brutalist-button px-4 py-2 text-xs bg-white">
                                         Back to the QR code
                                     </button>
-                                    <button onClick={() => { setConfirmClear(false); onClearCheckout(); }} className="brutalist-button px-4 py-2 text-xs bg-brand-black text-white">
+                                    <button onClick={() => { setConfirmClear(false); setInvoiceFor(null); onClearCheckout(); }} className="brutalist-button px-4 py-2 text-xs bg-brand-black text-white">
                                         Yes, I have paid
                                     </button>
                                 </div>
@@ -326,11 +364,11 @@ function ShoppingCart({
                         {/* Footer: Total & Checkout */}
                         {(cartItems.length > 0 || extraCosts > 0) && (
                             <div className="mt-auto border-t border-lijn bg-brand-beige p-4">
-                                {/* Volunteers only pay the extra services (laser time, ...); the items are stock work. */}
-                                {(!isVolunteerMode || extraCosts > 0) && (
+                                {/* Volunteers pay the extras and what add/remove takes out; the rest is stock work. */}
+                                {(!isVolunteerMode || volunteerToPay > 0) && (
                                     <div className="flex justify-between items-center mb-3">
-                                        <span className="text-sm font-semibold text-brand-black/60">{isVolunteerMode ? 'To pay (extra services)' : 'Total'}</span>
-                                        <span className="font-semibold text-2xl">€{(isVolunteerMode ? extraCosts : totalPrice + extraCosts).toFixed(2)}</span>
+                                        <span className="text-sm font-semibold text-brand-black/60">{isVolunteerMode ? 'To pay' : 'Total'}</span>
+                                        <span className="font-semibold text-2xl">€{(isVolunteerMode ? volunteerToPay : totalPrice + extraCosts).toFixed(2)}</span>
                                     </div>
                                 )}
                                 <button
@@ -353,7 +391,7 @@ function ShoppingCart({
                                             Processing...
                                         </>
                                     ) : (
-                                        isVolunteerMode && cartItems.length > 0 ? MODE_LABELS[mode].action : 'Checkout'
+                                        isVolunteerMode && cartItems.length > 0 ? (volunteerToPay > 0 ? `Pay €${volunteerToPay.toFixed(2)}` : MODE_LABELS[mode].action) : 'Checkout'
                                     )}
                                 </button>
                             </div>

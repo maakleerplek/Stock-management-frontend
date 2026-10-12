@@ -2,8 +2,8 @@ import { useMemo, useCallback } from 'react';
 import { Sigma, Download, AlertTriangle } from 'lucide-react';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { itemAnalytics } from '../lib/itemAnalytics';
-import { serviceRevenue, laserLedger, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../lib/services';
-import { buildTotals } from '../lib/totals';
+import { serviceRevenue, laserLedger, DISCARD_KIND_LABELS, type ServiceLine, type DiscardRow, type LaserSessionRow, type LaserBucket } from '../lib/services';
+import { buildTotals, type Totals } from '../lib/totals';
 import { PRICING } from '../constants';
 import { cn } from '../lib/utils';
 import { usePartLookup } from './usePartLookup';
@@ -17,6 +17,10 @@ const fmtMinutes = (m: number) => {
 };
 
 /** Revenue, costs and profit of everything in the period, in one table. */
+/** Deleted laser time per kind for the box under the table; paid-outside time is already a row in the total. */
+const laserDeletedRows = (t: Totals) =>
+  (Object.entries(t.laserDeleted) as [keyof Totals['laserDeleted'], LaserBucket][]).filter(([k, b]) => k !== 'paid' && b.count > 0);
+
 export default function TotalsTab({ trackingEntries, serviceLines, discarded, laserSessions, loading, trackingError, dateRange }: {
   trackingEntries: InvenTreeTrackingEntry[];
   serviceLines: ServiceLine[];
@@ -46,9 +50,10 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
       ['Source', 'Revenue (€)', 'Costs (€)', 'Profit (€)'],
       ...[...totals.rows, totals.total].map(r => [r.label, r.revenue.toFixed(2), r.costs.toFixed(2), r.profit.toFixed(2)]),
       [],
-      ['Laser time assigned, not paid (not in total)', totals.laserUnpaid.value.toFixed(2), '', '', `${Math.round(totals.laserUnpaid.minutes)} min`],
+      ['Laser time in open sessions (not in total)', totals.laserUnpaid.value.toFixed(2), '', '', `${Math.round(totals.laserUnpaid.minutes)} min`],
+      ...laserDeletedRows(totals).map(([k, b]) => [`Laser time deleted · ${DISCARD_KIND_LABELS[k]} (not in total)`, b.value.toFixed(2), '', '', `${Math.round(b.minutes)} min`]),
       ['Laser time not verified (not in total)', totals.laserUnverified.value.toFixed(2), '', '', `${Math.round(totals.laserUnverified.minutes)} min`],
-      ['Profit if the assigned laser time gets paid', '', '', totals.profitWithUnpaidLaser.toFixed(2)],
+      ['Profit if the open laser sessions get paid', '', '', totals.profitWithUnpaidLaser.toFixed(2)],
       ...totals.notes.map(n => [n]),
     ];
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
@@ -125,7 +130,7 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
           </table>
         </div>
 
-        {(totals.laserUnpaid.count > 0 || totals.laserUnverified.count > 0) && (
+        {(totals.laserUnpaid.count > 0 || totals.laserUnverified.count > 0 || laserDeletedRows(totals).length > 0) && (
           <div className="mt-4 border border-lijn">
             <div className="px-3 py-1.5 bg-brand-beige-dark text-[10px] font-semibold text-brand-black/60">
               Laser time not on a paid sale (not in the total, details on the Laser tab)
@@ -133,17 +138,24 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
             <table className="w-full text-xs">
               <tbody>
                 <tr className="border-b border-lijn-zacht bg-amber-50">
-                  <td className="py-2 px-3 font-semibold">Assigned, not paid</td>
+                  <td className="py-2 px-3 font-semibold">Open sessions, not paid yet</td>
                   <td className="py-2 text-right tabular-nums">{fmtMinutes(totals.laserUnpaid.minutes)}</td>
                   <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(totals.laserUnpaid.value)}</td>
                 </tr>
+                {laserDeletedRows(totals).map(([k, b]) => (
+                  <tr key={k} className="border-b border-lijn-zacht">
+                    <td className="py-2 px-3 font-semibold">Deleted · {DISCARD_KIND_LABELS[k]}</td>
+                    <td className="py-2 text-right tabular-nums">{fmtMinutes(b.minutes)}</td>
+                    <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(b.value)}</td>
+                  </tr>
+                ))}
                 <tr className="border-b border-lijn-zacht bg-rose-50">
                   <td className="py-2 px-3 font-semibold">Not verified</td>
                   <td className="py-2 text-right tabular-nums">{fmtMinutes(totals.laserUnverified.minutes)}</td>
                   <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(totals.laserUnverified.value)}</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3 font-semibold">Profit if the assigned time gets paid</td>
+                  <td className="py-2 px-3 font-semibold">Profit if the open sessions get paid</td>
                   <td />
                   <td className={cn('py-2 px-3 text-right tabular-nums font-mono font-semibold', totals.profitWithUnpaidLaser < 0 && 'text-red-600')}>
                     {eur(totals.profitWithUnpaidLaser)}
@@ -152,8 +164,8 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
               </tbody>
             </table>
             <p className="px-3 py-1.5 text-[10px] text-brand-black/60">
-              Assigned: open or deleted sessions with a name. Not verified: time reset without a session, the counter now,
-              or a session whose sales order was cancelled.
+              Deleted: sessions removed with time on them, by the reason picked (paid outside checkout is in the total above).
+              Not verified: time reset without a session, the counter now, or a session whose sales order was cancelled.
             </p>
           </div>
         )}

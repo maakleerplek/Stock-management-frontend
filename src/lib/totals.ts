@@ -12,7 +12,9 @@ export interface Totals {
   rows: TotalsRow[];        // rows with only zeros left out
   total: TotalsRow;
   /** Laser time not on a paid sales order: not in the total. */
-  laserUnpaid: LaserBucket;       // assigned to someone, not paid
+  laserUnpaid: LaserBucket;       // open sessions, not paid yet
+  /** Deleted sessions per kind; 'paid' is also a row in the total. */
+  laserDeleted: LaserLedger['deleted'];
   laserUnverified: LaserBucket;   // never assigned, or its order did not count
   /** Total profit if all assigned, unpaid laser time gets paid. */
   profitWithUnpaidLaser: number;
@@ -30,6 +32,7 @@ export function buildTotals(items: ItemAnalytics, services: ServiceRevenue[], la
     { label: 'Lab & workshop use (filament, wood, ...)', revenue: 0, costs: items.usedCost, profit: -items.usedCost },
     // Machine costs (power, wear, material) are not tracked.
     ...services.map(s => ({ label: SERVICE_LABEL[s.reference] ?? s.reference, revenue: s.revenue, costs: 0, profit: s.revenue })),
+    { label: 'Laser time · paid outside checkout', revenue: laser.deleted.paid.value, costs: 0, profit: laser.deleted.paid.value },
   ];
   const rows = all.filter(r => r.revenue !== 0 || r.costs !== 0);
   const total = rows.reduce(
@@ -50,6 +53,7 @@ export function buildTotals(items: ItemAnalytics, services: ServiceRevenue[], la
   return {
     rows, total,
     laserUnpaid: laser.unpaid,
+    laserDeleted: laser.deleted,
     laserUnverified: laser.unverified,
     profitWithUnpaidLaser: total.profit + laser.unpaid.value,
     notes,
