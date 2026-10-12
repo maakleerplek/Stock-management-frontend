@@ -85,6 +85,20 @@ describe('buildTotals', () => {
     expect(t.notes).toHaveLength(2);                        // uncosted stickers, machine costs
   });
 
+  it('counts filament booked as a volunteer drink as lab use; empty-spool corrections not at all', () => {
+    const filament = new Map(parts).set(3, { name: 'PLA White (1 kg)', sellingPrice: 25, costPrice: 20, category: 'Filament' });
+    const withFil = [...entries,
+      entry(3, '2026-09-27', TRACKING.STOCK_REMOVE, { removed: 1 }, 'Volunteer drink via Stock App'),
+      entry(3, '2026-09-28', TRACKING.STOCK_REMOVE, { removed: 2 }, 'Removed via Stock App - Volunteer Mode (empty spool, photos in chat)'),
+      entry(3, '2026-09-28', TRACKING.STOCK_REMOVE, { removed: 1 }, 'Removed via Stock App - Volunteer Mode'),   // a plain correction
+    ];
+    const t = buildTotals(itemAnalytics(withFil, filament, 'all', 30, now), [], noLaser);
+    const base = buildTotals(itemAnalytics(entries, filament, 'all', 30, now), [], noLaser);
+    expect(t.rows.find(r => r.label === 'Lab filament (3D printers)')).toMatchObject({ costs: 20 });   // only the "drink"
+    expect(t.printing.grams).toBe(1000);
+    expect(t.rows.find(r => r.label === 'Volunteer drinks')?.costs).toBe(base.rows.find(r => r.label === 'Volunteer drinks')?.costs);
+  });
+
   it('counts lab use (filament for the open-lab printers) as a cost', () => {
     const filament = new Map(parts).set(3, { name: 'PLA 1 kg', sellingPrice: 25, costPrice: 20, category: 'Filament' });
     const withUse = [...entries, entry(3, '2026-09-27', TRACKING.STOCK_REMOVE, { removed: 2 }, 'Internal use via Stock App')];
