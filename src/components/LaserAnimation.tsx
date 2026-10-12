@@ -126,11 +126,12 @@ export default function LaserAnimation({ active, className }: { active: boolean;
       return to;
     });
 
-    let phase: 'cut' | 'move' | 'drop' | 'fill' = 'cut';
+    // The head waits above the middle of the plate and drives to the first cut once the laser goes on.
+    let phase: 'cut' | 'move' | 'drop' | 'fill' = 'move';
     let phaseTick = 0;
-    let cutIndex = 0;
+    let cutIndex = -1;
     let kerfs = [0, 0, 0];                 // depth of each cut, 0..PLATE.h
-    let headX = CUTS[0];
+    let headX = PLATE.x + PLATE.w / 2;
     let moveFrom = headX;
     let tick = 0;
     const sparks: Spark[] = [];
