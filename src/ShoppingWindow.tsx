@@ -3,9 +3,10 @@ import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingC
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
 import { laserApi, markPaidReliably, pendingPaidIds, type LaserSession } from './lib/laserApi';
 import { PRICING } from './constants';
-import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleRemoveItem as removeStock, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine, volunteerSaleLines, linesTotal } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
+import type { Invoice } from './lib/invoice';
 import ModalFrame from './components/ModalFrame';
 import { AlertCircle, Check, X, Settings } from 'lucide-react';
 
@@ -57,6 +58,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const { isVolunteerMode } = useVolunteer();
     const isVolunteerModeRef = useRef(isVolunteerMode);
     isVolunteerModeRef.current = isVolunteerMode;
+    // What a volunteer pays: extras, plus what add/remove takes out (sold at the normal price).
+    const volunteerSales = isVolunteerMode && mode === 'adjust' ? volunteerSaleLines(cartItems) : [];
+    const volunteerToPay = linesTotal(volunteerSales) + extraCosts;
 
     const handleModeChange = useCallback((newMode: VolunteerCartMode) => {
         setMode(newMode);
@@ -68,8 +72,11 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
         }
     }, []);
 
+    // The last sale, for the invoice PDF on the payment screen.
+    const [invoice, setInvoice] = useState<Invoice | null>(null);
     const setCheckedOut = useCallback((result: { total: number; description: string } | null) => {
         setCheckedOutResult(result);
+        if (!result) setInvoice(null);
         onCheckoutResultChange?.(result);
     }, [onCheckoutResultChange]);
 
@@ -144,6 +151,13 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
             });
         }
         localStorage.removeItem(EXTRAS_STORAGE_KEY);
+        setInvoice({
+            reference, date: new Date(),
+            lines: [
+                ...lines.map(l => ({ name: l.name, quantity: l.quantity, unitPrice: l.unitPrice })),
+                ...extras.map(e => ({ name: `${extraLabel(e)} (${e.unit})`, quantity: e.quantity, unitPrice: e.unitPrice })),
+            ],
+        });
         const total = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0) + extraCosts;
         let desc = lines.map(l => `${l.name} x${l.quantity}`).join(', ');
         if (extras.length) desc += (desc ? ', ' : '') + extras.map(describeExtra).join(', ');
@@ -162,8 +176,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                 return;
             }
 
-            // Volunteers: the items are stock work, item by item; the extra services are still paid.
-            for (const item of cartItems) {
+            // Volunteers: what add/remove takes out is sold; the rest is stock work, item by item.
+            for (const item of cartItems.filter(i => !(mode === 'adjust' && i.cartQuantity < 0))) {
                 const totalPrice = item.price > 0 ? parseFloat((item.price * Math.abs(item.cartQuantity)).toFixed(2)) : undefined;
                 // Free tab: a drink is the volunteer's own; the rest (filament, wood, workshop material) is for the lab.
                 const success = mode === 'drink'
@@ -172,9 +186,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                         : await handleVolunteerDrink(item.id, item.cartQuantity, item.name)
                     : mode === 'set'
                         ? await handleSetItem(item.id, item.cartQuantity, item.name, totalPrice)
-                        : item.cartQuantity < 0
-                            ? await removeStock(item.id, Math.abs(item.cartQuantity), item.name, totalPrice)
-                            : await handleAddItem(item.id, item.cartQuantity, item.name, totalPrice);
+                        : await handleAddItem(item.id, item.cartQuantity, item.name, totalPrice);
                 if (!success) {
                     addToast(`Failed to process "${item.name}". Operation stopped.`, 'error');
                     return;
@@ -182,7 +194,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                 // Done: out of the cart, so a retry cannot apply it twice.
                 setCartItems(prev => prev.filter(i => i.id !== item.id));
             }
-            if (cartItems.length) {
+            if (cartItems.length > volunteerSales.length) {
                 const lab = cartItems.filter(isLabMaterial).length;
                 const drinks = cartItems.length - lab;
                 addToast(
@@ -191,8 +203,10 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                     'success',
                 );
             }
-            if (extras.length) await sell([]);
-            else setCheckedOut(null);
+            if (volunteerSales.length || extras.length) {
+                await sell(volunteerSales);
+                setCartItems([]);
+            } else setCheckedOut(null);
         } catch (error) {
             console.error('[Checkout] Failed:', error);
             addToast(error instanceof Error ? `Checkout failed: ${error.message}` : 'Checkout failed', 'error');
@@ -211,8 +225,10 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                     onCheckout={handleCheckout}
                     checkedOutTotal={checkedOutResult?.total ?? null}
                     checkedOutDescription={checkedOutResult?.description ?? undefined}
+                    invoice={invoice}
                     onClearCheckout={() => setCheckedOut(null)}
                     extraCosts={extraCosts}
+                    volunteerToPay={volunteerToPay}
                     isVolunteerMode={isVolunteerMode}
                     mode={mode}
                     onModeChange={handleModeChange}
@@ -264,7 +280,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                             <span className="font-semibold text-sm">{item.name}</span>
                                             <span className="text-[10px] font-bold text-brand-black/60">Qty: {item.cartQuantity} × €{item.price.toFixed(2)}</span>
                                         </div>
-                                        <div className="font-semibold text-sm">€{(item.cartQuantity * item.price).toFixed(2)}</div>
+                                        <div className="font-semibold text-sm">{isVolunteerMode && (mode !== 'adjust' || item.cartQuantity > 0) ? (mode === 'adjust' ? `+${item.cartQuantity} to stock` : 'No charge') : `€${(Math.abs(item.cartQuantity) * item.price).toFixed(2)}`}</div>
                                     </div>
                                 ))}
 
@@ -283,7 +299,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                 <span className="text-[10px] font-semibold text-brand-black/50">Total amount</span>
                                 <span className="text-5xl font-semibold text-brand-black tracking-tight">
                                     {isVolunteerMode
-                                        ? (extraCosts > 0 || mode !== 'drink' ? `€${extraCosts.toFixed(2)}` : 'Free')
+                                        ? (volunteerToPay > 0 || mode !== 'drink' ? `€${volunteerToPay.toFixed(2)}` : 'Free')
                                         : `€${(cartItems.reduce((acc, i) => acc + i.price * i.cartQuantity, 0) + extraCosts).toFixed(2)}`}
                                 </span>
                             </div>
@@ -304,7 +320,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                     <span className="flex items-center gap-2">Processing...</span>
                                 ) : (
                                     <>
-                                        <Check size={20} /> Complete checkout
+                                        <Check size={20} /> {isVolunteerMode && volunteerToPay === 0 ? 'Confirm' : 'Complete checkout'}
                                     </>
                                 )}
                             </button>

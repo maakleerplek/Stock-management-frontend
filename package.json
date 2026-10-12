@@ -17,6 +17,7 @@
     "@types/qrcode.react": "^1.0.5",
     "@yudiel/react-qr-scanner": "^2.5.1",
     "clsx": "^2.1.1",
+    "jspdf": "^3.0.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.25",
     "qrcode.react": "^4.2.0",

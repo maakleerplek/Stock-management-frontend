@@ -50,6 +50,7 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
             source TEXT NOT NULL CHECK (source IN ('unassigned', 'session')),
             session_name TEXT,
             reason TEXT,
+            kind TEXT,  -- deleted session: paid (outside checkout), workshop (HTL use), volunteer (own credit), other
             discarded_at TEXT NOT NULL
         );
 
@@ -76,6 +77,8 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
     for column in ('checkout_at', 'paid_at', 'order_ref'):
         if column not in have:
             _conn.execute(f'ALTER TABLE sessions ADD COLUMN {column} TEXT')
+    if 'kind' not in {r[1] for r in _conn.execute('PRAGMA table_info(discarded_time)')}:
+        _conn.execute('ALTER TABLE discarded_time ADD COLUMN kind TEXT')
     # Rows from before MIN_LOGGED_SECONDS existed: they only skew the analytics.
     _conn.execute('DELETE FROM discarded_time WHERE seconds < ?', (MIN_LOGGED_SECONDS,))
     _conn.execute('DELETE FROM sessions WHERE paid_at IS NOT NULL AND total_time <= 0')

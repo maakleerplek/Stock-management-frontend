@@ -67,6 +67,11 @@ export const PAYMENT = {
   BENEFICIARY_NAME: import.meta.env.VITE_PAYMENT_NAME || 'Stock Manager',
   IBAN: import.meta.env.VITE_PAYMENT_IBAN || 'BE00000000000000',
   PAYCONIQ_MERCHANT_ID: import.meta.env.VITE_PAYCONIQ_MERCHANT_ID || '',
+  // Invoice (factuur) PDF: seller block under the name (address, KBO / VAT nr; \n between lines)
+  // and a closing note, e.g. the VAT exemption.
+  INVOICE_SELLER_NAME: import.meta.env.VITE_INVOICE_SELLER_NAME || 'Maakleerplek',
+  INVOICE_SELLER: (import.meta.env.VITE_INVOICE_SELLER || '').replace(/\\n/g, '\n'),
+  INVOICE_NOTE: import.meta.env.VITE_INVOICE_NOTE || '',
 } as const;
 
 // Footer links; on a phone they are in the More sheet (BottomNav).

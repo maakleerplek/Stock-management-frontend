@@ -88,6 +88,14 @@ def test_thrown_away_time_is_logged(tmp_path):
         ('session', 120.0, 'Ruben', None),
     ]
 
+    # A deleted session gets a kind, at delete time or afterwards; junk kinds are refused.
+    sid = c.post('/laser/api/sessions', json={'name': 'HTL'}).json['id']
+    db.execute('UPDATE sessions SET total_time = 300 WHERE id = ?', (sid,))
+    c.delete(f'/laser/api/sessions/{sid}', json={'kind': 'workshop'})
+    assert c.patch(f"/laser/api/admin/discarded/{rows[1]['id']}", json={'kind': 'paid'}).status_code == 200
+    assert c.patch(f"/laser/api/admin/discarded/{rows[1]['id']}", json={'kind': 'free'}).status_code == 400
+    assert [r['kind'] for r in db.query('SELECT kind FROM discarded_time ORDER BY id')] == [None, 'paid', 'workshop']
+
 
 def test_empty_session_is_never_billed_or_kept(tmp_path):
     c = client(tmp_path)
