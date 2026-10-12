@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 import { itemAnalytics, type PartPrice } from '../src/lib/itemAnalytics';
 import { serviceRevenue, laserLedger, type ServiceLine, type DiscardRow } from '../src/lib/services';
-import { buildTotals } from '../src/lib/totals';
+import { buildTotals, spoolGrams } from '../src/lib/totals';
+import { PRICING } from '../src/constants';
 import { TRACKING } from '../src/lib/stockHistory';
 
 const now = new Date('2026-09-28T12:00:00');
@@ -90,11 +91,14 @@ describe('buildTotals', () => {
     const items = itemAnalytics(withUse, filament, 'all', 30, now);
     const t = buildTotals(items, [], noLaser);
 
-    expect(t.rows.find(r => r.label.startsWith('Lab & workshop use'))).toMatchObject({ revenue: 0, costs: 40, profit: -40 });
+    expect(t.rows.find(r => r.label === 'Lab filament (3D printers)')).toMatchObject({ revenue: 0, costs: 40, profit: -40 });
+    expect(t.rows.map(r => r.label)).not.toContain('Lab & workshop use (wood, ...)');   // only filament used
+    // 2 spools of 1 kg (from the name); nothing printed at the till yet.
+    expect(t.printing).toMatchObject({ grams: 2000, cost: 40, paidGrams: 0, paidRevenue: 0 });
+    expect(t.printing.potentialRevenue).toBeCloseTo(2000 * PRICING.PRINTING_PER_GRAM);
     expect(t.rows.map(r => r.label)).not.toContain('Items sold · Filament');
     expect(t.total.revenue).toBeCloseTo(10);                // the items only
     expect(t.total.profit).toBeCloseTo(10 - 2.4 - 1.6 - 40);
-    expect(t.notes.some(n => /3D printing is not measured/.test(n))).toBe(true);
     expect(items.totalRemoved).toBe(3 + 2 + 4 + 2);         // paid, drinks and internal use
   });
 
@@ -112,5 +116,14 @@ describe('buildTotals', () => {
     expect(t.rows).toEqual([]);
     expect(t.total).toEqual({ label: 'Total', revenue: 0, costs: 0, profit: 0 });
     expect(t.notes).toEqual([]);
+  });
+});
+
+describe('spoolGrams', () => {
+  it('reads the spool weight from the name, 1 kg when it does not say', () => {
+    expect(spoolGrams('PLA White (1 kg)')).toBe(1000);
+    expect(spoolGrams('PETG Black 750g')).toBe(750);
+    expect(spoolGrams('TPU 0,5 kg')).toBe(500);
+    expect(spoolGrams('PLA Blue')).toBe(1000);
   });
 });

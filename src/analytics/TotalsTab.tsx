@@ -54,6 +54,11 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
       ...laserDeletedRows(totals).map(([k, b]) => [`Laser time deleted · ${DISCARD_KIND_LABELS[k]} (not in total)`, b.value.toFixed(2), '', '', `${Math.round(b.minutes)} min`]),
       ['Laser time not verified (not in total)', totals.laserUnverified.value.toFixed(2), '', '', `${Math.round(totals.laserUnverified.minutes)} min`],
       ['Profit if the open laser sessions get paid', '', '', totals.profitWithUnpaidLaser.toFixed(2)],
+      ...(totals.printing.grams > 0 ? [
+        ['3D printing (not in total): filament taken (g)', String(Math.round(totals.printing.grams))],
+        ['3D printing paid at the till', totals.printing.paidRevenue.toFixed(2), '', '', `${Math.round(totals.printing.paidGrams)} g`],
+        ['Profit if all filament is printed and paid', '', '', (totals.printing.potentialRevenue - totals.printing.cost).toFixed(2)],
+      ] : []),
       ...totals.notes.map(n => [n]),
     ];
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
@@ -169,6 +174,45 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
             </p>
           </div>
         )}
+
+        {totals.printing.grams > 0 && (() => {
+          const p = totals.printing;
+          const kg = (g: number) => `${(g / 1000).toLocaleString('nl-BE', { maximumFractionDigits: 1 })} kg`;
+          return (
+            <div className="mt-4 border border-lijn">
+              <div className="px-3 py-1.5 bg-brand-beige-dark text-[10px] font-semibold text-brand-black/60">
+                3D printing: lab filament against paid prints (not in the total)
+              </div>
+              <table className="w-full text-xs">
+                <tbody>
+                  <tr className="border-b border-lijn-zacht">
+                    <td className="py-2 px-3 font-semibold">Filament taken for the printers (cost, in the total)</td>
+                    <td className="py-2 text-right tabular-nums">{kg(p.grams)}</td>
+                    <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(-p.cost)}</td>
+                  </tr>
+                  <tr className="border-b border-lijn-zacht">
+                    <td className="py-2 px-3 font-semibold">3D printing paid at the till</td>
+                    <td className="py-2 text-right tabular-nums">{kg(p.paidGrams)}</td>
+                    <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(p.paidRevenue)}</td>
+                  </tr>
+                  <tr className="border-b border-lijn-zacht bg-amber-50">
+                    <td className="py-2 px-3 font-semibold">Not paid in the system (paid elsewhere, or not printed yet)</td>
+                    <td className="py-2 text-right tabular-nums">{kg(Math.max(0, p.grams - p.paidGrams))}</td>
+                    <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(Math.max(0, p.potentialRevenue - p.paidRevenue))}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-3 font-semibold">Profit if all of it is printed and paid</td>
+                    <td />
+                    <td className="py-2 px-3 text-right tabular-nums font-mono font-semibold">{eur(p.potentialRevenue - p.cost)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p className="px-3 py-1.5 text-[10px] text-brand-black/60">
+                At €{PRICING.PRINTING_PER_GRAM.toFixed(2)} per gram; spool weight from the product name (1 kg when it does not say).
+              </p>
+            </div>
+          );
+        })()}
 
         {totals.notes.length > 0 && (
           <ul className="mt-4 space-y-1 text-[10px] text-brand-black/50">
