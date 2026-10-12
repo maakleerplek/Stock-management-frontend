@@ -67,15 +67,21 @@ export function itemAnalytics(
   let paidCost = 0, uncostedUnits = 0;
 
   for (const entry of filtered) {
+    const partId = entry.part;
+    const info = parts.get(partId);
     // Stocktakes and volunteer-mode corrections are not sales or restocks.
     const paid = kind === 'volunteer' ? 0 : unitsSold(entry);
-    const given = kind === 'paid' ? 0 : unitsGiven(entry);
-    const used = kind === 'paid' ? 0 : unitsUsed(entry);
+    let given = kind === 'paid' ? 0 : unitsGiven(entry);
+    let used = kind === 'paid' ? 0 : unitsUsed(entry);
+    // Filament is never a drink: booked as one (the Free tab before 9 Oct), it
+    // went into the printers: lab use.
+    if (/filament/i.test(info?.category ?? '')) {
+      used += given;
+      given = 0;
+    }
     const added = entry.tracking_type === TRACKING.STOCK_ADD ? entry.deltas?.added ?? 0 : 0;
     if (paid === 0 && given === 0 && used === 0 && added === 0) continue;
 
-    const partId = entry.part;
-    const info = parts.get(partId);
     const name = info?.name ?? `Part #${partId}`;
     const sellingPrice = info?.sellingPrice ?? 0;
     const costPrice = info?.costPrice ?? 0;
