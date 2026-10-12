@@ -50,7 +50,7 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
             source TEXT NOT NULL CHECK (source IN ('unassigned', 'session')),
             session_name TEXT,
             reason TEXT,
-            kind TEXT,  -- deleted session: paid (outside checkout), workshop, volunteer, other
+            kind TEXT,  -- deleted session: paid (outside checkout), workshop (HTL use), volunteer (own credit), other
             discarded_at TEXT NOT NULL
         );
 
