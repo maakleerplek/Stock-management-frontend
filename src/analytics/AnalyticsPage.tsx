@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, RefreshCw, Sigma, Zap } from 'lucide-react';
+import { Package, Printer, RefreshCw, Sigma, Zap } from 'lucide-react';
 import inventreeClient from '../api/inventreeClient';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { laserApi } from '../lib/laserApi';
@@ -9,6 +9,7 @@ import { SegmentedButtons } from './ui';
 import ItemsTab from './ItemsTab';
 import LaserTab from './LaserTab';
 import TotalsTab from './TotalsTab';
+import PrintTab from './PrintTab';
 import { useStock } from '../StockContext';
 
 const DATE_RANGES = [
@@ -25,6 +26,7 @@ const TABS = [
   { id: 'totals', label: 'Totals', icon: Sigma, subtitle: 'Revenue, costs and profit' },
   { id: 'items', label: 'Items', icon: Package, subtitle: 'Stock movement & revenue' },
   { id: 'laser', label: 'Laser', icon: Zap, subtitle: 'Laser time, paid via a session or not' },
+  { id: 'print', label: '3D printing', icon: Printer, subtitle: 'Prints paid per filament, against the filament used' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -151,6 +153,9 @@ export default function AnalyticsPage() {
             onRetry={() => setRefreshKey(k => k + 1)}
             dateRange={dateRange}
           />
+        )}
+        {tab === 'print' && (
+          <PrintTab trackingEntries={trackingEntries} serviceLines={serviceLines} loading={trackingLoading} dateRange={dateRange} />
         )}
         {tab === 'laser' && (
           <LaserTab serviceLines={serviceLines} discarded={discarded} laserSessions={laserSessions} loading={laserLoading} dateRange={dateRange} refreshKey={refreshKey} />
