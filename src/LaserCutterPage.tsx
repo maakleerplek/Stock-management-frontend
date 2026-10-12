@@ -92,9 +92,9 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
         </span>
       </div>
 
-      <div className="flex flex-row items-end justify-between gap-3 px-4 py-3 border border-lijn bg-white">
-        {/* Phone (and the laser PC's side bar): time left, a smaller animation right. */}
-        <div className="order-last sm:order-first min-w-0 w-full max-w-[160px] sm:max-w-[304px]">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 px-4 py-3 border border-lijn bg-white">
+        {/* Phone (and the laser PC's side bar): the time on top, the animation full width under it, so its text stays readable. */}
+        <div className="order-last sm:order-first min-w-0 w-full sm:max-w-[304px]">
           <LaserAnimation active={laserOn} />
         </div>
         <div className="text-left sm:text-right shrink-0">
