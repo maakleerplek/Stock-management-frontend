@@ -4,7 +4,7 @@
  * material used in the lab, and the laser time that is not on a paid order.
  */
 import type { ItemAnalytics } from './itemAnalytics';
-import type { ServiceRevenue, LaserLedger, LaserBucket } from './services';
+import type { ServiceRevenue, LaserLedger, LaserBucket, PrintUse } from './services';
 import { PRICING } from '../constants';
 
 /** Grams of filament in a spool, from its name ("PLA White (1 kg)", "750g"); 1 kg when it does not say. */
@@ -18,13 +18,16 @@ export function spoolGrams(name: string): number {
  * the till. The filament is a cost now; the prints are paid later, partly
  * outside the system, so the gap is shown apart and not in the total.
  */
-export interface Printing {
+export interface PrintMaterial {
+  material: string;
   grams: number;          // filament taken out for the printers
   cost: number;           // what that filament cost
   paidGrams: number;      // 3D printing paid at the till
   paidRevenue: number;
-  potentialRevenue: number;   // if every gram gets printed and paid
+  prints: number;
+  potentialRevenue: number;   // if every gram taken gets printed and paid at its price
 }
+export interface Printing extends Omit<PrintMaterial, 'material'> { byMaterial: PrintMaterial[] }
 
 export interface TotalsRow { label: string; revenue: number; costs: number; profit: number }
 
@@ -44,20 +47,33 @@ export interface Totals {
 
 const SERVICE_LABEL: Record<string, string> = { Lasertime: 'Laser time' };
 
-export function buildTotals(items: ItemAnalytics, services: ServiceRevenue[], laser: LaserLedger): Totals {
+export function buildTotals(
+  items: ItemAnalytics, services: ServiceRevenue[], laser: LaserLedger,
+  prints: Map<string, PrintUse> = new Map(), pricePerGram: Record<string, number> = {},
+): Totals {
   const { paid, other, none } = laser.deleted;
   const deletedPaid = paid.value + other.value + none.value;
-  const fil = items.byPart.filter(p => p.used > 0 && /filament/i.test(p.category));
-  const filament = {
-    grams: fil.reduce((s, p) => s + p.used * spoolGrams(p.name), 0),
-    cost: fil.reduce((s, p) => s + p.used * p.costPrice, 0),
-  };
-  const print = services.find(s => /3d print/i.test(s.reference));
+  // Per filament: taken out as lab use against 3D printing paid at the till.
+  const materials = new Map<string, PrintMaterial>();
+  const material = (name: string) => materials.get(name) ?? { material: name, grams: 0, cost: 0, paidGrams: 0, paidRevenue: 0, prints: 0, potentialRevenue: 0 };
+  for (const p of items.byPart) {
+    if (p.used <= 0 || !/filament/i.test(p.category)) continue;
+    const m = material(p.name);
+    const grams = p.used * spoolGrams(p.name);
+    materials.set(p.name, { ...m, grams: m.grams + grams, cost: m.cost + p.used * p.costPrice,
+      potentialRevenue: m.potentialRevenue + grams * (pricePerGram[p.name] ?? PRICING.PRINTING_PER_GRAM) });
+  }
+  for (const [name, u] of prints) {
+    const m = material(name);
+    materials.set(name, { ...m, paidGrams: m.paidGrams + u.grams, paidRevenue: m.paidRevenue + u.revenue, prints: m.prints + u.prints });
+  }
+  const byMaterial = [...materials.values()].sort((a, b) => b.grams + b.paidGrams - a.grams - a.paidGrams);
+  const add = (f: (m: PrintMaterial) => number) => byMaterial.reduce((s, m) => s + f(m), 0);
+  const filament = { cost: add(m => m.cost) };
   const printing: Printing = {
-    ...filament,
-    paidGrams: print?.quantity ?? 0,
-    paidRevenue: print?.revenue ?? 0,
-    potentialRevenue: filament.grams * PRICING.PRINTING_PER_GRAM,
+    byMaterial,
+    grams: add(m => m.grams), cost: filament.cost, paidGrams: add(m => m.paidGrams), paidRevenue: add(m => m.paidRevenue),
+    prints: add(m => m.prints), potentialRevenue: add(m => m.potentialRevenue),
   };
   const all: TotalsRow[] = [
     // Items sold, one row per stock category.

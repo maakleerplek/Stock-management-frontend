@@ -1,10 +1,11 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect, useState } from 'react';
 import { Sigma, Download, AlertTriangle } from 'lucide-react';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { itemAnalytics } from '../lib/itemAnalytics';
-import { serviceRevenue, laserLedger, DISCARD_KIND_LABELS, type ServiceLine, type DiscardRow, type LaserSessionRow, type LaserBucket } from '../lib/services';
+import { serviceRevenue, laserLedger, printsByMaterial, DISCARD_KIND_LABELS, type ServiceLine, type DiscardRow, type LaserSessionRow, type LaserBucket } from '../lib/services';
 import { buildTotals, type Totals } from '../lib/totals';
 import { PRICING } from '../constants';
+import { inventreeClient } from '../api/inventreeClient';
 import { cn } from '../lib/utils';
 import { usePartLookup } from './usePartLookup';
 import { Section } from './ui';
@@ -33,11 +34,20 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
   const partLookup = usePartLookup();
   const days = dateRange.days ?? undefined;
 
+  // 3D-print price per gram per filament (InvenTree parameter), by name like the print lines.
+  const [printPrices, setPrintPrices] = useState<Record<number, number>>({});
+  useEffect(() => { void inventreeClient.getPrintPricePerGram().then(setPrintPrices); }, []);
+  const pricePerGram = useMemo(() => Object.fromEntries(
+    Object.entries(printPrices).flatMap(([id, price]) => { const n = partLookup.get(Number(id))?.name; return n ? [[n, price]] : []; }),
+  ), [printPrices, partLookup]);
+
   const totals = useMemo(() => buildTotals(
     itemAnalytics(trackingEntries, partLookup, 'all', days),
     serviceRevenue(serviceLines, days),
     laserLedger(laserSessions.sessions, discarded, serviceLines, laserSessions.unassignedSeconds, PRICING.LASER_PER_MINUTE, days),
-  ), [trackingEntries, partLookup, serviceLines, discarded, laserSessions, days]);
+    printsByMaterial(serviceLines, days),
+    pricePerGram,
+  ), [trackingEntries, partLookup, serviceLines, discarded, laserSessions, days, pricePerGram]);
 
   const period = dateRange.days ? `Last ${dateRange.days} days` : 'All time';
 
@@ -54,10 +64,11 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
       ...laserDeletedRows(totals).map(([k, b]) => [`Laser time deleted · ${DISCARD_KIND_LABELS[k]} (not in total)`, b.value.toFixed(2), '', '', `${Math.round(b.minutes)} min`]),
       ['Laser time not verified (not in total)', totals.laserUnverified.value.toFixed(2), '', '', `${Math.round(totals.laserUnverified.minutes)} min`],
       ['Profit if the open laser sessions get paid', '', '', totals.profitWithUnpaidLaser.toFixed(2)],
-      ...(totals.printing.grams > 0 ? [
-        ['3D printing (not in total): filament taken (g)', String(Math.round(totals.printing.grams))],
-        ['3D printing paid at the till', totals.printing.paidRevenue.toFixed(2), '', '', `${Math.round(totals.printing.paidGrams)} g`],
-        ['Profit if all filament is printed and paid', '', '', (totals.printing.potentialRevenue - totals.printing.cost).toFixed(2)],
+      ...(totals.printing.byMaterial.length ? [
+        [],
+        ['3D printing per filament (not in total)', 'Taken (g)', 'Cost (€)', 'Paid (g)', 'Paid (€)', 'Profit if all paid (€)'],
+        ...totals.printing.byMaterial.map(m => [m.material, String(Math.round(m.grams)), m.cost.toFixed(2), String(Math.round(m.paidGrams)), m.paidRevenue.toFixed(2),
+          (Math.max(m.potentialRevenue, m.paidRevenue) - m.cost).toFixed(2)]),
       ] : []),
       ...totals.notes.map(n => [n]),
     ];
@@ -175,40 +186,42 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
           </div>
         )}
 
-        {totals.printing.grams > 0 && (() => {
+        {totals.printing.byMaterial.length > 0 && (() => {
           const p = totals.printing;
-          const kg = (g: number) => `${(g / 1000).toLocaleString('nl-BE', { maximumFractionDigits: 1 })} kg`;
+          const g = (n: number) => n >= 1000 ? `${(n / 1000).toLocaleString('nl-BE', { maximumFractionDigits: 1 })} kg` : `${Math.round(n)} g`;
+          const row = (m: typeof p, label: string, bold = false) => (
+            <tr key={label} className={cn('border-b border-lijn-zacht', bold && 'font-semibold bg-brand-beige')}>
+              <td className="py-2 px-3 font-semibold">{label}</td>
+              <td className="py-2 text-right tabular-nums">{g(m.grams)} · {eur(-m.cost)}</td>
+              <td className="py-2 text-right tabular-nums">{g(m.paidGrams)} · {eur(m.paidRevenue)}</td>
+              <td className={cn('py-2 text-right tabular-nums', m.grams > m.paidGrams && 'text-amber-700')}>{g(Math.max(0, m.grams - m.paidGrams))}</td>
+              <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(Math.max(m.potentialRevenue, m.paidRevenue) - m.cost)}</td>
+            </tr>
+          );
           return (
-            <div className="mt-4 border border-lijn">
+            <div className="mt-4 border border-lijn overflow-x-auto">
               <div className="px-3 py-1.5 bg-brand-beige-dark text-[10px] font-semibold text-brand-black/60">
-                3D printing: lab filament against paid prints (not in the total)
+                3D printing per filament (not in the total)
               </div>
               <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-brand-black/60 border-b border-lijn">
+                    <th className="py-1.5 px-3 text-left font-semibold">Filament</th>
+                    <th className="py-1.5 text-right font-semibold">Taken for the printers</th>
+                    <th className="py-1.5 text-right font-semibold">Paid at the till</th>
+                    <th className="py-1.5 text-right font-semibold">Not paid in the system</th>
+                    <th className="py-1.5 px-3 text-right font-semibold">Profit if all is paid</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  <tr className="border-b border-lijn-zacht">
-                    <td className="py-2 px-3 font-semibold">Filament taken for the printers (cost, in the total)</td>
-                    <td className="py-2 text-right tabular-nums">{kg(p.grams)}</td>
-                    <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(-p.cost)}</td>
-                  </tr>
-                  <tr className="border-b border-lijn-zacht">
-                    <td className="py-2 px-3 font-semibold">3D printing paid at the till</td>
-                    <td className="py-2 text-right tabular-nums">{kg(p.paidGrams)}</td>
-                    <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(p.paidRevenue)}</td>
-                  </tr>
-                  <tr className="border-b border-lijn-zacht bg-amber-50">
-                    <td className="py-2 px-3 font-semibold">Not paid in the system (paid elsewhere, or not printed yet)</td>
-                    <td className="py-2 text-right tabular-nums">{kg(Math.max(0, p.grams - p.paidGrams))}</td>
-                    <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(Math.max(0, p.potentialRevenue - p.paidRevenue))}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-semibold">Profit if all of it is printed and paid</td>
-                    <td />
-                    <td className="py-2 px-3 text-right tabular-nums font-mono font-semibold">{eur(p.potentialRevenue - p.cost)}</td>
-                  </tr>
+                  {p.byMaterial.map(m => row(m, m.material))}
+                  {p.byMaterial.length > 1 && row(p, 'Total', true)}
                 </tbody>
               </table>
               <p className="px-3 py-1.5 text-[10px] text-brand-black/60">
-                At €{PRICING.PRINTING_PER_GRAM.toFixed(2)} per gram; spool weight from the product name (1 kg when it does not say).
+                {p.prints} print{p.prints === 1 ? '' : 's'} paid at the till. "Not paid in the system": paid elsewhere, or not printed yet.
+                Price per gram from the filament's "3D-print prijs per gram" in InvenTree, else €{PRICING.PRINTING_PER_GRAM.toFixed(2)};
+                spool weight from the product name (1 kg when it does not say).
               </p>
             </div>
           );

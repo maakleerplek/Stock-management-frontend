@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Zap } from 'lucide-react';
 import { PRICING } from './constants';
-import type { ExtraLine } from './sendCodeHandler';
+import { isFilament, type ExtraLine } from './sendCodeHandler';
+import { useStock } from './StockContext';
+import { inventreeClient } from './api/inventreeClient';
 import type { LaserSession } from './lib/laserApi';
 
 /** Hand-typed services survive a refresh, like the cart. Cleared after a sale. */
@@ -18,11 +20,12 @@ interface ExtrasProps {
     onRemoveLaserSession: (id: string) => void;
 }
 
-function stored(): { laser: number; cnc: number; print: number } {
+function stored(): { laser: number; cnc: number; print: number; printPart: number | null } {
+    const empty = { laser: 0, cnc: 0, print: 0, printPart: null };
     try {
-        return { laser: 0, cnc: 0, print: 0, ...JSON.parse(localStorage.getItem(EXTRAS_STORAGE_KEY) || '{}') };
+        return { ...empty, ...JSON.parse(localStorage.getItem(EXTRAS_STORAGE_KEY) || '{}') };
     } catch {
-        return { laser: 0, cnc: 0, print: 0 };
+        return empty;
     }
 }
 
@@ -30,20 +33,33 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
     const [lasertimeMinutes, setLasertimeMinutes] = useState(() => stored().laser);
     const [cncMinutes, setCncMinutes] = useState(() => stored().cnc);
     const [printingGrams, setPrintingGrams] = useState(() => stored().print);
+    // 3D print: which filament (part id) and its price per gram (InvenTree parameter, else the default).
+    const [printPart, setPrintPart] = useState<number | null>(() => stored().printPart);
+    const [printPrices, setPrintPrices] = useState<Record<number, number>>({});
+    useEffect(() => { void inventreeClient.getPrintPricePerGram().then(setPrintPrices); }, []);
+    const { items } = useStock();
+    const filaments = useMemo(() => {
+        const byPart = new Map<number, string>();
+        for (const i of items) if (i.part_id != null && isFilament(i)) byPart.set(i.part_id, i.name);
+        return [...byPart].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    }, [items]);
+    const printFilament = filaments.find(f => f.id === printPart);
+    const printPricePerGram = (printPart != null && printPrices[printPart]) || PRICING.PRINTING_PER_GRAM;
 
     const lasertimeCost = lasertimeMinutes * PRICING.LASER_PER_MINUTE;
     const cncCost = cncMinutes * PRICING.CNC_PER_MINUTE;
-    const printingCost = printingGrams * PRICING.PRINTING_PER_GRAM;
+    const printingCost = printingGrams * printPricePerGram;
 
     useEffect(() => {
-        localStorage.setItem(EXTRAS_STORAGE_KEY, JSON.stringify({ laser: lasertimeMinutes, cnc: cncMinutes, print: printingGrams }));
+        localStorage.setItem(EXTRAS_STORAGE_KEY, JSON.stringify({ laser: lasertimeMinutes, cnc: cncMinutes, print: printingGrams, printPart }));
         const lines: ExtraLine[] = [
             { name: 'Lasertime', quantity: lasertimeMinutes, unit: 'min', unitPrice: PRICING.LASER_PER_MINUTE },
             { name: 'CNC time', quantity: cncMinutes, unit: 'min', unitPrice: PRICING.CNC_PER_MINUTE },
-            { name: '3D printing', quantity: printingGrams, unit: 'g', unitPrice: PRICING.PRINTING_PER_GRAM },
+            // The filament is booked as the line's description: analytics per material.
+            { name: '3D printing', quantity: printingGrams, unit: 'g', unitPrice: printPricePerGram, person: printFilament?.name },
         ];
         onExtrasChange(lines.filter(l => l.quantity > 0));
-    }, [lasertimeMinutes, cncMinutes, printingGrams, onExtrasChange]);
+    }, [lasertimeMinutes, cncMinutes, printingGrams, printPart, printFilament, printPricePerGram, onExtrasChange]);
 
     return (
         <div className="space-y-4">
@@ -133,8 +149,17 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
             <div className="space-y-1 border border-lijn p-3 bg-brand-beige">
                 <div className="flex justify-between items-end border-b border-lijn pb-2 mb-2">
                     <label className="text-[10px] font-semibold block text-brand-black/60">3D Printing (g)</label>
-                    <span className="text-[10px] font-mono opacity-50 font-bold">€{PRICING.PRINTING_PER_GRAM.toFixed(2)}/g</span>
+                    <span className="text-[10px] font-mono opacity-50 font-bold">€{printPricePerGram.toFixed(2)}/g</span>
                 </div>
+                <select
+                    value={printPart ?? ''}
+                    onChange={e => setPrintPart(e.target.value ? Number(e.target.value) : null)}
+                    aria-label="Filament"
+                    className="w-full h-9 px-2 mb-2 border border-lijn bg-white text-sm"
+                >
+                    <option value="">Which filament?</option>
+                    {filaments.map(f => <option key={f.id} value={f.id}>{f.name}{printPrices[f.id] ? ` · €${printPrices[f.id].toFixed(2)}/g` : ''}</option>)}
+                </select>
                 <div className="flex items-center gap-3">
                     <input
                         type="number"

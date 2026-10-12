@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 import { itemAnalytics, type PartPrice } from '../src/lib/itemAnalytics';
-import { serviceRevenue, laserLedger, type ServiceLine, type DiscardRow } from '../src/lib/services';
+import { serviceRevenue, laserLedger, printsByMaterial, type ServiceLine, type DiscardRow } from '../src/lib/services';
 import { buildTotals, spoolGrams } from '../src/lib/totals';
 import { PRICING } from '../src/constants';
 import { TRACKING } from '../src/lib/stockHistory';
@@ -125,5 +125,25 @@ describe('spoolGrams', () => {
     expect(spoolGrams('PETG Black 750g')).toBe(750);
     expect(spoolGrams('TPU 0,5 kg')).toBe(500);
     expect(spoolGrams('PLA Blue')).toBe(1000);
+  });
+});
+
+describe('3D printing per filament', () => {
+  it('sets the filament taken against the prints paid at the till, at the price per material', () => {
+    const filament = new Map(parts).set(3, { name: 'PLA 1 kg', sellingPrice: 25, costPrice: 20, category: 'Filament' });
+    const withUse = [...entries, entry(3, '2026-09-27', TRACKING.STOCK_REMOVE, { removed: 1 }, 'Internal use via Stock App')];
+    const prints = printsByMaterial([
+      line({ reference: '3D printing', description: 'PLA 1 kg', quantity: 50, price: 0.12, order: 'SO-0050' }),
+      line({ reference: '3D printing', description: 'PLA 1 kg', quantity: 30, price: 0.12, order: 'SO-0051' }),
+      line({ reference: '3D printing', description: '', quantity: 10, price: 0.1, order: 'SO-0052' }),
+    ], 30, now);
+    const t = buildTotals(itemAnalytics(withUse, filament, 'all', 30, now), [], noLaser, prints, { 'PLA 1 kg': 0.12 });
+
+    const pla = t.printing.byMaterial.find(m => m.material === 'PLA 1 kg')!;
+    expect(pla).toMatchObject({ grams: 1000, cost: 20, paidGrams: 80, prints: 2 });
+    expect(pla.paidRevenue).toBeCloseTo(9.6);
+    expect(pla.potentialRevenue).toBeCloseTo(120);                 // 1000 g × €0.12
+    expect(t.printing.byMaterial.find(m => m.material === 'Unknown material')).toMatchObject({ grams: 0, paidGrams: 10 });
+    expect(t.printing.prints).toBe(3);
   });
 });

@@ -236,3 +236,19 @@ export function sessionUse(list: LaserSessionUse[]): { count: number; avgMinutes
   const minutes = use.reduce((sum, s) => sum + s.minutes, 0);
   return { count: use.length, avgMinutes: use.length ? minutes / use.length : 0 };
 }
+
+export interface PrintUse { grams: number; revenue: number; prints: number }
+
+/** 3D printing paid at the till per filament (the line's description); older lines without one: "Unknown material". */
+export function printsByMaterial(lines: ServiceLine[], days?: number, now: Date = new Date()): Map<string, PrintUse> {
+  const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
+  const out = new Map<string, PrintUse>();
+  for (const l of lines) {
+    if (!/^3d print/i.test(l.reference) || !COUNTED.has(l.orderStatus)) continue;
+    if (since && !(l.date && new Date(l.date) >= since)) continue;
+    const name = l.description.trim() || 'Unknown material';
+    const p = out.get(name) ?? { grams: 0, revenue: 0, prints: 0 };
+    out.set(name, { grams: p.grams + l.quantity, revenue: p.revenue + l.quantity * l.price, prints: p.prints + 1 });
+  }
+  return out;
+}

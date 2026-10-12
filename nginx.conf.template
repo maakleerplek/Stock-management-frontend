@@ -94,6 +94,24 @@ server {
         proxy_pass ${INVENTREE_BACKEND_URL};
     }
 
+    # Part parameters: the till may read the template names and the 3D-print
+    # price per gram; the other values (laser reports with names) stay volunteer-only.
+    location = /api/parameter/template/ {
+        if ($request_method !~ ^(GET|HEAD)$) {
+            rewrite ^ /__volunteer$uri last;
+        }
+        proxy_pass ${INVENTREE_BACKEND_URL};
+    }
+    # A read always gets that one template, whatever the query says: nginx and
+    # InvenTree read a repeated ?template= differently (first vs last value).
+    location = /api/parameter/ {
+        if ($request_method !~ ^(GET|HEAD)$) {
+            rewrite ^ /__volunteer$uri last;
+        }
+        rewrite ^ /api/parameter/?model_type=part.part&template=${PRINT_PRICE_TEMPLATE}&limit=$arg_limit&offset=$arg_offset? break;
+        proxy_pass ${INVENTREE_BACKEND_URL};
+    }
+
     # Catalogue: anyone may read, volunteers may write. Writes are sent on to
     # the checked location below; rewrite...last is one of the safe uses of if.
     location ~ ^/api/(part|stock|company|order|barcode)/ {
