@@ -62,22 +62,25 @@ describe('serviceRevenue', () => {
 const noLaser = laserLedger([], [], [], 0, 0.5, 30, now);
 
 describe('buildTotals', () => {
-  it('adds the rows up to the total and keeps unpaid and unverified laser time out of it', () => {
+  it('adds the rows up to the total and keeps open and unverified laser time out of it', () => {
     const items = itemAnalytics(entries, parts, 'all', 30, now);
     const laser = laserLedger(
       [{ name: 'Wolf', created: '2026-09-27T09:00:00', total_time: 600, paid_at: null, order_ref: null }],
-      [{ seconds: 900, source: 'unassigned', session_name: null, reason: null, discarded_at: '2026-09-27T10:00:00' }],
+      [
+        { seconds: 900, source: 'unassigned', session_name: null, reason: null, discarded_at: '2026-09-27T10:00:00' },
+        { seconds: 240, source: 'session', session_name: 'Jan', reason: 'cash', kind: 'paid', discarded_at: '2026-09-27T11:00:00' },
+      ],
       [], 0, 0.5, 30, now);
     const t = buildTotals(items, serviceRevenue([line({})], 30, now), laser);
 
-    expect(t.rows.map(r => r.label)).toEqual(['Items sold · Drinks', 'Items sold · Misc', 'Volunteer drinks', 'Laser time']);
-    expect(t.total.revenue).toBeCloseTo(15);                // 10 items + 5 laser
+    expect(t.rows.map(r => r.label)).toEqual(['Items sold · Drinks', 'Items sold · Misc', 'Volunteer drinks', 'Laser time', 'Laser time · paid outside checkout']);
+    expect(t.total.revenue).toBeCloseTo(17);                // 10 items + 5 laser + 2 paid in cash
     expect(t.total.costs).toBeCloseTo(4);                   // 2.4 + 1.6
-    expect(t.total.profit).toBeCloseTo(11);
+    expect(t.total.profit).toBeCloseTo(13);
     expect(t.total.profit).toBeCloseTo(t.rows.reduce((s, r) => s + r.profit, 0));
     expect(t.laserUnverified).toEqual({ minutes: 15, value: 7.5, count: 1 });
     expect(t.laserUnpaid).toEqual({ minutes: 10, value: 5, count: 1 });
-    expect(t.profitWithUnpaidLaser).toBeCloseTo(16);
+    expect(t.profitWithUnpaidLaser).toBeCloseTo(18);
     expect(t.notes).toHaveLength(2);                        // uncosted stickers, machine costs
   });
 

@@ -211,11 +211,19 @@ def reason_from_body() -> str | None:
     return (((request.get_json(silent=True) or {}).get('reason') or '').strip()[:200]) or None
 
 
-def log_discard(seconds: float, source: str, session_name: str | None, reason: str | None):
+DISCARD_KINDS = {'paid', 'workshop', 'volunteer', 'other'}
+
+
+def kind_from_body() -> str | None:
+    kind = (request.get_json(silent=True) or {}).get('kind')
+    return kind if kind in DISCARD_KINDS else None
+
+
+def log_discard(seconds: float, source: str, session_name: str | None, reason: str | None, kind: str | None = None):
     if seconds < db.MIN_LOGGED_SECONDS:
         return
-    db.execute('INSERT INTO discarded_time (seconds, source, session_name, reason, discarded_at) VALUES (?, ?, ?, ?, ?)',
-               (seconds, source, session_name, reason, datetime.now().isoformat()))
+    db.execute('INSERT INTO discarded_time (seconds, source, session_name, reason, kind, discarded_at) VALUES (?, ?, ?, ?, ?, ?)',
+               (seconds, source, session_name, reason, kind, datetime.now().isoformat()))
 
 
 @app.delete('/laser/api/sessions/<sid>')
@@ -225,7 +233,7 @@ def delete_session(sid):
         return {'error': 'Session not found'}, 404
     s = rows[0]
     if s['paid_at'] is None and s['total_time'] > 0:
-        log_discard(s['total_time'], 'session', s['name'], reason_from_body())
+        log_discard(s['total_time'], 'session', s['name'], reason_from_body(), kind_from_body())
     db.execute('DELETE FROM time_blocks WHERE session_id = ?', (sid,))
     db.execute('DELETE FROM sessions WHERE id = ?', (sid,))
     broadcast_sessions()
@@ -295,6 +303,18 @@ def reset():
 @app.get('/laser/api/discarded')
 def get_discarded():
     return {'rows': db.query('SELECT * FROM discarded_time ORDER BY discarded_at DESC')}
+
+
+@app.patch('/laser/api/admin/discarded/<int:row_id>')
+def set_discard_kind(row_id):
+    """Classify a deleted session afterwards (paid outside checkout, workshop, ...)."""
+    kind = kind_from_body()
+    if not kind:
+        return {'error': f'kind must be one of {sorted(DISCARD_KINDS)}'}, 400
+    if not db.query('SELECT id FROM discarded_time WHERE id = ?', (row_id,)):
+        return {'error': 'Not found'}, 404
+    db.execute('UPDATE discarded_time SET kind = ? WHERE id = ?', (kind, row_id))
+    return {'ok': True}
 
 
 @app.post('/laser/api/simulate')

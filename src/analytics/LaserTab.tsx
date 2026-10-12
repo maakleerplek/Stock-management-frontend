@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Zap, Users, Clock, Timer, Trash2, Euro } from 'lucide-react';
-import { laserStats, lostLaserStats, laserLedger, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../lib/services';
+import { laserStats, lostLaserStats, laserLedger, DISCARD_KIND_LABELS, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../lib/services';
 import { PRICING } from '../constants';
 import { cn } from '../lib/utils';
 import { Section, Empty, StatCards } from './ui';
@@ -33,15 +33,21 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
   );
   const openSessions = laserSessions.sessions.filter(s => !s.paid_at && s.total_time > 0
     && (!days || new Date(s.created) >= new Date(Date.now() - days * 86_400_000)));
-  // Everyone with paid or unpaid time, most minutes first.
-  const people = new Map<string, { name: string; sessions: number; minutes: number; revenue: number; unpaid: number }>();
-  for (const p of laser.perPerson) people.set(p.name.toLowerCase().replace(/\s+/g, ' '), { ...p, unpaid: 0 });
-  for (const [key, u] of ledger.unpaidPerPerson) {
-    const p = people.get(key) ?? { name: u.name, sessions: 0, minutes: 0, revenue: 0, unpaid: 0 };
-    p.unpaid += u.minutes;
+  // Everyone with laser time, most minutes first. Paid outside the checkout counts as paid.
+  const people = new Map<string, { name: string; sessions: number; minutes: number; revenue: number; usage: number; unpaid: number }>();
+  for (const p of laser.perPerson) people.set(p.name.toLowerCase().replace(/\s+/g, ' '), { ...p, usage: 0, unpaid: 0 });
+  for (const [key, u] of ledger.perPerson) {
+    const p = people.get(key) ?? { name: u.name, sessions: 0, minutes: 0, revenue: 0, usage: 0, unpaid: 0 };
+    p.minutes += u.paidOutside;
+    p.revenue += u.paidOutside * PRICING.LASER_PER_MINUTE;
+    p.usage += u.usage;
+    p.unpaid += u.unpaid;
     people.set(key, p);
   }
-  const perPerson = [...people.values()].sort((a, b) => (b.minutes + b.unpaid) - (a.minutes + a.unpaid));
+  const perPerson = [...people.values()].sort((a, b) => (b.minutes + b.usage + b.unpaid) - (a.minutes + a.usage + a.unpaid));
+  const { paid: paidOutside, workshop, volunteer, other, none } = ledger.deleted;
+  const usage = { minutes: workshop.minutes + volunteer.minutes, value: workshop.value + volunteer.value };
+  const notPaid = { minutes: ledger.unpaid.minutes + other.minutes + none.minutes, value: ledger.unpaid.value + other.value + none.value };
 
   if (loading) {
     return (
@@ -56,12 +62,13 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
       <StatCards cards={[
         { label: 'Sessions', value: laser.sessions, icon: Zap, bg: 'bg-brand-beige-dark' },
         { label: 'People', value: laser.people, icon: Users, bg: 'bg-brand-beige-dark' },
-        { label: 'Paid', value: fmtMinutes(laser.minutes), sub: `€${laser.revenue.toFixed(2)}`, icon: Euro, bg: 'bg-green-50' },
-        { label: 'Assigned, not paid', value: fmtMinutes(ledger.unpaid.minutes), sub: `€${ledger.unpaid.value.toFixed(2)}`, icon: Clock, bg: ledger.unpaid.count ? 'bg-amber-50' : 'bg-brand-beige-dark' },
+        { label: 'Paid', value: fmtMinutes(laser.minutes + paidOutside.minutes), sub: `€${(laser.revenue + paidOutside.value).toFixed(2)}`, icon: Euro, bg: 'bg-green-50' },
+        { label: 'Workshop & volunteer use', value: fmtMinutes(usage.minutes), sub: `€${usage.value.toFixed(2)}`, icon: Users, bg: 'bg-brand-beige-dark' },
+        { label: 'Open / not paid', value: fmtMinutes(notPaid.minutes), sub: `€${notPaid.value.toFixed(2)}`, icon: Clock, bg: notPaid.minutes ? 'bg-amber-50' : 'bg-brand-beige-dark' },
         { label: 'Not verified', value: fmtMinutes(ledger.unverified.minutes), sub: `€${ledger.unverified.value.toFixed(2)}`, icon: Trash2, bg: ledger.unverified.count ? 'bg-rose-50' : 'bg-brand-beige-dark' },
         {
           label: 'All laser time',
-          value: fmtMinutes(laser.minutes + ledger.unpaid.minutes + ledger.unverified.minutes),
+          value: fmtMinutes(laser.minutes + paidOutside.minutes + usage.minutes + notPaid.minutes + ledger.unverified.minutes),
           sub: laser.sessions ? `avg ${fmtMinutes(laser.avgPerSession)} per paid session` : undefined,
           icon: Timer,
           bg: 'bg-brand-beige-dark',
@@ -78,6 +85,7 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
                 <th className="py-1.5 font-semibold text-right">Time</th>
                 <th className="py-1.5 font-semibold text-right">Avg</th>
                 <th className="py-1.5 font-semibold text-right">Paid</th>
+                <th className="py-1.5 font-semibold text-right">Usage</th>
                 <th className="py-1.5 font-semibold text-right">Not paid</th>
               </tr>
             </thead>
@@ -89,6 +97,7 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
                   <td className="py-1.5 text-right tabular-nums">{fmtMinutes(p.minutes)}</td>
                   <td className="py-1.5 text-right tabular-nums">{p.sessions ? fmtMinutes(p.minutes / p.sessions) : '–'}</td>
                   <td className="py-1.5 text-right tabular-nums">€{p.revenue.toFixed(2)}</td>
+                  <td className="py-1.5 text-right tabular-nums">{p.usage > 0 ? fmtMinutes(p.usage) : '–'}</td>
                   <td className={cn('py-1.5 text-right tabular-nums', p.unpaid > 0 && 'text-amber-700 font-semibold')}>
                     {p.unpaid > 0 ? `${fmtMinutes(p.unpaid)} · €${(p.unpaid * PRICING.LASER_PER_MINUTE).toFixed(2)}` : '–'}
                   </td>
@@ -130,7 +139,7 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
                 {lost.rows.map((r, i) => (
                   <tr key={i} className="border-b border-lijn-zacht">
                     <td className="py-1.5 tabular-nums whitespace-nowrap">{fmtDate(r.discarded_at)}</td>
-                    <td className="py-1.5 font-semibold">{r.source === 'session' ? `${r.session_name} (assigned)` : 'Unassigned (not verified)'}</td>
+                    <td className="py-1.5 font-semibold">{r.source === 'session' ? `${r.session_name} · ${DISCARD_KIND_LABELS[r.kind ?? 'none']}` : 'Unassigned (not verified)'}</td>
                     <td className="py-1.5 text-right tabular-nums">{fmtMinutes(r.seconds / 60)}</td>
                     <td className="py-1.5 text-right tabular-nums">€{(r.seconds / 60 * PRICING.LASER_PER_MINUTE).toFixed(2)}</td>
                     <td className="py-1.5 pl-4 text-brand-black/70">{r.reason ?? '–'}</td>

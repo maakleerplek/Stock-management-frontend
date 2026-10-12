@@ -5,6 +5,7 @@ import LaserLibrary from './components/LaserLibrary';
 import { useToast } from './ToastContext';
 import { cn } from './lib/utils';
 import { PRICING } from './constants';
+import { DISCARD_KIND_LABELS, type DiscardKind } from './lib/services';
 import {
   laserApi, useLaserSocket, formatDuration,
   type LaserMaterial, type LaserOperation, type LaserOutcome, type LaserSetting,
@@ -210,9 +211,10 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
               <DiscardConfirm
                 what={s.total_time > 0 ? `Delete ${s.name} with ${formatDuration(s.total_time)} unpaid` : `Delete the session of ${s.name}`}
                 value={s.total_time > 0 ? s.minutes * PRICING.LASER_PER_MINUTE : null}
+                askKind={s.total_time > 0}
                 busy={busy}
                 onCancel={() => setDiscarding(null)}
-                onConfirm={reason => run(async () => { await laserApi.deleteSession(s.id, reason); setDiscarding(null); })}
+                onConfirm={(reason, kind) => run(async () => { await laserApi.deleteSession(s.id, reason, kind); setDiscarding(null); })}
               />
             </div>
           )}
@@ -226,27 +228,41 @@ function TimePanel({ onCheckout, live }: LaserCutterPageProps) {
 /** Inline confirm before laser time leaves the app without a paid session. The
  *  time is logged for the analytics (it may or may not have been paid some
  *  other way), with an optional reason; value null means no time is involved. */
-function DiscardConfirm({ what, value, busy, onCancel, onConfirm }: {
+function DiscardConfirm({ what, value, askKind = false, busy, onCancel, onConfirm }: {
   what: string;
   value: number | null;
+  /** A session with time: say why it goes (paid outside checkout, workshop, ...). */
+  askKind?: boolean;
   busy: boolean;
   onCancel: () => void;
-  onConfirm: (reason?: string) => void;
+  onConfirm: (reason?: string, kind?: DiscardKind) => void;
 }) {
   const [reason, setReason] = useState('');
+  const [kind, setKind] = useState<DiscardKind | null>(null);
+  const missing = askKind && (!kind || (kind === 'other' && !reason.trim()));
   return (
     <form
       className="border border-lijn bg-rose-50 p-3 space-y-2"
-      onSubmit={e => { e.preventDefault(); onConfirm(reason.trim() || undefined); }}
+      onSubmit={e => { e.preventDefault(); if (!missing) onConfirm(reason.trim() || undefined, kind ?? undefined); }}
     >
       <div className="text-xs font-semibold text-brand-black">
         {what}{value !== null && ` · €${value.toFixed(2)}`}?
       </div>
+      {askKind && (
+        <div className="grid grid-cols-2 gap-1.5">
+          {(['paid', 'workshop', 'volunteer', 'other'] as const).map(k => (
+            <button key={k} type="button" onClick={() => setKind(k)} aria-pressed={kind === k}
+              className={cn('brutalist-button px-2 py-1.5 text-xs', kind === k ? 'bg-brand-black text-white' : 'bg-white')}>
+              {DISCARD_KIND_LABELS[k]}
+            </button>
+          ))}
+        </div>
+      )}
       {value !== null && (
         <input
           value={reason}
           onChange={e => setReason(e.target.value)}
-          placeholder="Why? (optional, e.g. test cut, paid in cash)"
+          placeholder={kind === 'other' ? 'Why? (required, e.g. test cut, wants an invoice)' : 'Note (optional, e.g. paid cash to Ruben)'}
           className="w-full h-9 px-3 border border-lijn bg-white text-sm"
           maxLength={200}
           autoFocus
@@ -254,11 +270,11 @@ function DiscardConfirm({ what, value, busy, onCancel, onConfirm }: {
       )}
       <div className="flex justify-end gap-2">
         <button type="button" className="brutalist-button px-3 py-1.5 bg-white text-xs" onClick={onCancel}>Cancel</button>
-        <button type="submit" disabled={busy} className="brutalist-button px-3 py-1.5 bg-brand-black text-white text-xs font-semibold disabled:opacity-40">
+        <button type="submit" disabled={busy || missing} className="brutalist-button px-3 py-1.5 bg-brand-black text-white text-xs font-semibold disabled:opacity-40">
           {value !== null ? 'Clear' : 'Delete'}
         </button>
       </div>
-      {value !== null && <p className="text-[10px] text-grafiet">Shown in Analytics → Laser as time not paid via a session.</p>}
+      {value !== null && <p className="text-[10px] text-grafiet">Shown in Analytics → Laser{askKind ? '; paid outside checkout counts as paid.' : ' as time not verified.'}</p>}
     </form>
   );
 }

@@ -119,6 +119,26 @@ function AppContent() {
   ).sort((a, b) => b[1] - a[1]);
   const maxCategoryCount = categoryStats[0]?.[1] || 1;
 
+  // In the laser timer bar (laser-timer-widget sets LASER_SERVER) the Lasercutter
+  // tab is home: back there after a payment, and after a minute without input
+  // (three while the payment QR is up, so nobody loses it mid-payment).
+  const paidRef = useRef(false);
+  useEffect(() => {
+    if (!('LASER_SERVER' in window)) return;
+    if (checkoutResult) paidRef.current = true;
+    else if (paidRef.current) { paidRef.current = false; setCurrentPage('laser'); }
+    if (currentPage === 'laser') return;
+    let timer = 0;
+    const arm = () => {
+      clearTimeout(timer);
+      timer = window.setTimeout(() => setCurrentPage('laser'), checkoutResult ? 180_000 : 60_000);
+    };
+    arm();
+    const events = ['pointerdown', 'keydown'] as const;
+    events.forEach(e => window.addEventListener(e, arm));
+    return () => { clearTimeout(timer); events.forEach(e => window.removeEventListener(e, arm)); };
+  }, [checkoutResult, currentPage]);
+
   // Warn before refresh if checkout result or any create modal is active
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {

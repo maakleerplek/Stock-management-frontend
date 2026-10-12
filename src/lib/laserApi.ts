@@ -3,6 +3,7 @@
  */
 import { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import type { DiscardKind } from './services';
 
 const BASE = '/laser/api';
 
@@ -36,6 +37,7 @@ export interface DiscardedTime {
   source: 'unassigned' | 'session';
   session_name: string | null;
   reason: string | null;
+  kind?: DiscardKind | null;
   discarded_at: string;
 }
 
@@ -149,7 +151,7 @@ async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T>
 export const laserApi = {
   config: () => call<{ costPerMin: number; maxPower: number; simulate: boolean }>('/config'),
   createSession: (name: string) => call<{ id: string }>('/sessions', 'POST', { name }),
-  deleteSession: (id: string, reason?: string) => call('/sessions/' + encodeURIComponent(id), 'DELETE', { reason }),
+  deleteSession: (id: string, reason?: string, kind?: DiscardKind) => call('/sessions/' + encodeURIComponent(id), 'DELETE', { reason, kind }),
   setCheckout: (id: string, on: boolean) => call(`/sessions/${encodeURIComponent(id)}/checkout`, 'POST', { on }),
   markPaid: (id: string, order: string) => call(`/sessions/${encodeURIComponent(id)}/paid`, 'POST', { order }),
   flush: (sessionId: string) => call<{ flushed_time: number }>('/flush', 'POST', { session_id: sessionId }),

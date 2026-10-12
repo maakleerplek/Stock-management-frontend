@@ -64,13 +64,20 @@ describe('laserLedger', () => {
   });
   const paidLine: ServiceLine = { reference: 'Lasertime', description: 'Ruben', quantity: 5, price: 0.5, date: '2026-10-09', orderStatus: 30, order: 'SO-0010' };
 
-  it('puts assigned time (open and deleted sessions) in unpaid, per person', () => {
+  it('puts open sessions in unpaid and deleted ones under their kind, per person', () => {
+    const del = (session_name: string, kind: DiscardRow['kind'], seconds = 1200): DiscardRow =>
+      ({ seconds, source: 'session', session_name, reason: null, kind, discarded_at: '2026-10-09T16:12:00' });
     const l = laserLedger(
       [session({}), session({ name: 'wolf ', total_time: 300 })],
-      [{ seconds: 1200, source: 'session', session_name: 'HTL', reason: null, discarded_at: '2026-10-09T16:12:00' }],
+      [del('HTL', null), del('HTL', 'workshop', 600), del('Wolf', 'paid', 300), del('Ivo', 'volunteer', 60)],
       [], 0, 0.5, 30, today);
-    expect(l.unpaid).toEqual({ minutes: 35, value: 17.5, count: 3 });
-    expect(l.unpaidPerPerson.get('wolf')?.minutes).toBe(15);
+    expect(l.unpaid).toEqual({ minutes: 15, value: 7.5, count: 2 });
+    expect(l.deleted.none.minutes).toBe(20);
+    expect(l.deleted.workshop.minutes).toBe(10);
+    expect(l.deleted.paid.value).toBe(2.5);
+    expect(l.perPerson.get('wolf')).toEqual({ name: 'Wolf', paidOutside: 5, usage: 0, unpaid: 15 });
+    expect(l.perPerson.get('htl')).toEqual({ name: 'HTL', paidOutside: 0, usage: 10, unpaid: 20 });
+    expect(l.perPerson.get('ivo')?.usage).toBe(1);
     expect(l.unverified.count).toBe(0);
   });
 
