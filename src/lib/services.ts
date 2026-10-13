@@ -252,3 +252,18 @@ export function printsByMaterial(lines: ServiceLine[], days?: number, now: Date 
   }
   return out;
 }
+
+export interface CncJob { date: string; order: string; minutes: number; revenue: number }
+export interface CncStats { jobs: CncJob[]; minutes: number; revenue: number; avgMinutes: number }
+
+/** Paid CNC time (lines "CNC time" on orders that count), newest job first. */
+export function cncStats(lines: ServiceLine[], days?: number, now: Date = new Date()): CncStats {
+  const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
+  const jobs = lines
+    .filter(l => /^cnc\b/i.test(l.reference) && COUNTED.has(l.orderStatus))
+    .filter(l => !since || (!!l.date && new Date(l.date) >= since))
+    .map(l => ({ date: l.date, order: l.order ?? '', minutes: l.quantity, revenue: l.quantity * l.price }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const minutes = jobs.reduce((s, j) => s + j.minutes, 0);
+  return { jobs, minutes, revenue: jobs.reduce((s, j) => s + j.revenue, 0), avgMinutes: jobs.length ? minutes / jobs.length : 0 };
+}

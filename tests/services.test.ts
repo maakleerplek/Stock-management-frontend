@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { laserStats, lostLaserStats, laserLedger, laserSessionList, sessionUse, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../src/lib/services';
+import { laserStats, lostLaserStats, laserLedger, laserSessionList, sessionUse, cncStats, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../src/lib/services';
 
 const line = (over: Partial<ServiceLine>): ServiceLine => ({
   reference: 'Lasertime', description: '', quantity: 10, price: 0.5, date: '2026-09-20', orderStatus: 30, ...over,
@@ -122,5 +122,19 @@ describe('laserSessionList', () => {
       ['Nerf Gun', 'paid'], ['Art Piece', 'open'], ['Workshop HTL', 'workshop'], ['Robbert', 'paid'],
     ]);
     expect(sessionUse(list)).toEqual({ count: 3, avgMinutes: (3 + 7 + 33) / 3 });   // workshop left out
+  });
+});
+
+describe('cncStats', () => {
+  it('counts paid CNC jobs in the period, newest first', () => {
+    const s = cncStats([
+      line({ reference: 'CNC time', quantity: 30, date: '2026-09-21', order: 'SO-1' }),
+      line({ reference: 'CNC time', quantity: 4, price: 1.25, date: '2026-09-24', order: 'SO-2' }),   // minimum folded in
+      line({ reference: 'CNC time', orderStatus: 40 }),                                               // cancelled
+      line({ reference: 'CNC time', date: '2026-08-01' }),                                            // before the period
+      line({ quantity: 50 }),                                                                         // laser
+    ], 30, now);
+    expect(s.jobs.map(j => j.order)).toEqual(['SO-2', 'SO-1']);
+    expect(s).toMatchObject({ minutes: 34, revenue: 20, avgMinutes: 17 });
   });
 });
