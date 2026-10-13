@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Zap, X, Plus, RotateCcw, ArrowRightLeft, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { useStock } from './StockContext';
+import { useVolunteer } from './VolunteerContext';
 import { laserSessionPrice } from './Extras';
 import LaserAnimation from './components/LaserAnimation';
 import LaserLibrary from './components/LaserLibrary';
@@ -262,11 +263,12 @@ function Step({ n, title, done, children }: { n: number; title: string; done: bo
   );
 }
 
-/** Wood for the laser is sold at the checkout: a small reminder with a photo. */
+/** Wood for the laser is sold at the checkout: a small reminder with a photo. Visitors only. */
 function WoodReminder({ onShop }: { onShop: () => void }) {
   const { items } = useStock();
+  const { isVolunteerMode } = useVolunteer();
   const wood = items.filter(i => /wood|hout/i.test(i.category) && i.quantity > 0 && i.price > 0);
-  if (!wood.length) return null;
+  if (isVolunteerMode || !wood.length) return null;
   const pic = wood.find(i => i.image) ?? wood[0];
   const from = Math.min(...wood.map(i => i.price));
   return (
