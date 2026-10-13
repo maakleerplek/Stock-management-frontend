@@ -7,7 +7,7 @@ import db  # noqa: E402
 
 
 def client(tmp_path):
-    db.connect(str(tmp_path / 'laser.db'))
+    db.connect(str(tmp_path / 'machineusage.db'))
     return laser.app.test_client()
 
 
@@ -115,10 +115,10 @@ def test_seconds_of_laser_time_are_not_logged(tmp_path):
 
 
 def test_old_tiny_discards_are_cleaned_up(tmp_path):
-    db.connect(str(tmp_path / 'laser.db'))
+    db.connect(str(tmp_path / 'machineusage.db'))
     for seconds in (5, 120):
         db.execute("INSERT INTO discarded_time (seconds, source, discarded_at) VALUES (?, 'unassigned', '2026-09-29')", (seconds,))
-    db.connect(str(tmp_path / 'laser.db'))
+    db.connect(str(tmp_path / 'machineusage.db'))
     assert [r['seconds'] for r in db.query('SELECT seconds FROM discarded_time')] == [120]
 
 
@@ -132,3 +132,14 @@ def test_all_sessions_for_analytics(tmp_path):
     body = c.get('/laser/api/sessions/all').json
     assert {s['name']: s['order_ref'] for s in body['sessions']} == {'Ruben': 'SO-0042', 'Wolf': None}
     assert 'unassigned_seconds' in body
+
+
+def test_old_laser_db_is_moved_to_its_new_name(tmp_path):
+    old = tmp_path / 'laser.db'
+    db.connect(str(old))
+    db.execute("INSERT INTO sessions (id, name, created) VALUES ('s1', 'Ruben', '2026-10-13')")
+    db._conn.close()
+    new = tmp_path / 'machineusage.db'
+    db.connect(str(new))
+    assert not old.exists()
+    assert [r['name'] for r in db.query('SELECT name FROM sessions')] == ['Ruben']

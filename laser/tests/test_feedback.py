@@ -60,7 +60,7 @@ LIBRARY = [{'partId': 900, 'material': 'MDF', 'thickness': 3.0, 'group': '',
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
-    db.connect(str(tmp_path / 'laser.db'))
+    db.connect(str(tmp_path / 'machineusage.db'))
     inv = FakeInvenTree()
     monkeypatch.setattr(laser, '_inventree', inv)
     monkeypatch.setattr(inventree, 'materials', lambda client: LIBRARY)

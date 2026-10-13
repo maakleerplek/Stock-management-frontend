@@ -159,7 +159,7 @@ def days_old(report: dict, now: datetime | None = None) -> float:
 
 
 def migrate_from_sqlite(client, db) -> int:
-    """Move reports that are still in laser.db to InvenTree. Each row is
+    """Move reports that are still in machineusage.db to InvenTree. Each row is
     deleted only after it is stored, so a failure halfway loses nothing."""
     moved = 0
     for a in db.query('SELECT * FROM attempts ORDER BY id'):

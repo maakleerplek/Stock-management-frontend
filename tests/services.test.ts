@@ -138,3 +138,21 @@ describe('cncStats', () => {
     expect(s).toMatchObject({ minutes: 34, revenue: 20, avgMinutes: 17 });
   });
 });
+
+describe('volunteer machine use (€0 lines from the kiosk)', () => {
+  it('is not counted as paid, but shows as volunteer use', async () => {
+    const { laserStats, cncStats, volunteerPrints, printsByMaterial, laserSessionList } = await import('../src/lib/services');
+    const lines = [
+      line({ quantity: 10 }), line({ quantity: 6, price: 0, order: 'SO-9' }),                         // laser paid / volunteer
+      line({ reference: 'CNC time', quantity: 30 }), line({ reference: 'CNC time', quantity: 20, price: 0 }),
+      line({ reference: '3D printing', description: 'PLA', quantity: 50, price: 0.1 }),
+      line({ reference: '3D printing', description: 'PLA', quantity: 40, price: 0 }),
+    ];
+    expect(laserStats(lines, undefined, now)).toMatchObject({ minutes: 10, volunteerMinutes: 6 });
+    expect(cncStats(lines, undefined, now)).toMatchObject({ minutes: 30, revenue: 15, volunteerMinutes: 20 });
+    expect(printsByMaterial(lines, undefined, now).get('PLA')?.grams).toBe(50);
+    expect(volunteerPrints(lines, undefined, now)).toEqual({ grams: 40, prints: 1 });
+    const s = laserSessionList([{ name: 'Vol', created: '2026-09-20', total_time: 360, paid_at: '2026-09-20', order_ref: 'SO-9' }], [], lines, undefined, now);
+    expect(s[0].status).toBe('volunteer');
+  });
+});

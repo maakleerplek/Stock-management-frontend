@@ -551,13 +551,13 @@ def delete_attempt(report_id):
 
 
 def migrate_feedback():
-    """Reports used to be in laser.db; move any that are left to InvenTree."""
+    """Reports used to be in the SQLite db; move any that are left to InvenTree."""
     if _inventree is None:
         return
     try:
         moved = feedback.migrate_from_sqlite(_inventree, db)
         if moved:
-            print(f'[feedback] moved {moved} report(s) from laser.db to InvenTree')
+            print(f'[feedback] moved {moved} report(s) from machineusage.db to InvenTree')
     except Exception as e:
         print(f'[feedback] moving reports to InvenTree failed, retried at the next start: {e}')
 

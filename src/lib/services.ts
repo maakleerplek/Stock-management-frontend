@@ -18,6 +18,9 @@ export interface ServiceLine {
 // lost and returned orders are not money in.
 const COUNTED = new Set([20, 30]);
 
+/** A €0 machine line: a volunteer used the machine at the touch kiosk (VOLUNTEER on). Not money in. */
+const isVolunteer = (line: ServiceLine) => line.price <= 0;
+
 export interface PersonUse { name: string; sessions: number; minutes: number; revenue: number }
 
 export interface LaserStats {
@@ -26,6 +29,7 @@ export interface LaserStats {
   minutes: number;        // all billed laser minutes, typed-in ones included
   revenue: number;
   typedMinutes: number;   // laser minutes typed in at the till, without a name
+  volunteerMinutes: number;   // booked at €0 by a volunteer at the kiosk: not in the figures above
   avgPerSession: number;
   perPerson: PersonUse[]; // most minutes first
 }
@@ -42,11 +46,12 @@ const isLaser = (line: ServiceLine) => /^Lasertime\b/.test(line.reference);
 export function laserStats(lines: ServiceLine[], days?: number, now: Date = new Date()): LaserStats {
   const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
   const people = new Map<string, PersonUse>();
-  let minutes = 0, revenue = 0, typedMinutes = 0, sessions = 0;
+  let minutes = 0, revenue = 0, typedMinutes = 0, sessions = 0, volunteerMinutes = 0;
 
   for (const line of lines) {
     if (!isLaser(line) || !COUNTED.has(line.orderStatus)) continue;
     if (since && !(line.date && new Date(line.date) >= since)) continue;
+    if (isVolunteer(line)) { volunteerMinutes += line.quantity; continue; }
     const money = line.quantity * line.price;
     minutes += line.quantity;
     revenue += money;
@@ -69,6 +74,7 @@ export function laserStats(lines: ServiceLine[], days?: number, now: Date = new 
     minutes,
     revenue,
     typedMinutes,
+    volunteerMinutes,
     avgPerSession: sessions ? named / sessions : 0,
     perPerson: [...people.values()].sort((a, b) => b.minutes - a.minutes),
   };
@@ -212,13 +218,16 @@ export function laserSessionList(
   const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
   const inPeriod = (iso: string) => !since || new Date(iso) >= since;
   const counted = new Set(lines.filter(l => isLaser(l) && COUNTED.has(l.orderStatus) && l.order).map(l => l.order));
+  const volunteerOrders = new Set(lines.filter(l => isLaser(l) && isVolunteer(l) && l.order).map(l => l.order));
   const paidRefs = new Set(sessions.map(s => s.order_ref).filter(Boolean));
   const out: LaserSessionUse[] = [];
   for (const s of sessions) {
     if (s.total_time <= 0) continue;
     const date = s.paid_at ?? s.created;
     if (!inPeriod(date)) continue;
-    const status = !s.paid_at ? 'open' : s.order_ref && counted.has(s.order_ref) ? 'paid' : 'unverified';
+    const status = !s.paid_at ? 'open'
+      : s.order_ref && counted.has(s.order_ref) ? (volunteerOrders.has(s.order_ref) ? 'volunteer' : 'paid')
+      : 'unverified';
     out.push({ date, name: s.name, minutes: s.total_time / 60, status, reason: s.order_ref });
   }
   for (const r of discarded) {
@@ -244,7 +253,7 @@ export function printsByMaterial(lines: ServiceLine[], days?: number, now: Date 
   const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
   const out = new Map<string, PrintUse>();
   for (const l of lines) {
-    if (!/^3d print/i.test(l.reference) || !COUNTED.has(l.orderStatus)) continue;
+    if (!/^3d print/i.test(l.reference) || !COUNTED.has(l.orderStatus) || isVolunteer(l)) continue;
     if (since && !(l.date && new Date(l.date) >= since)) continue;
     const name = l.description.trim() || 'Unknown material';
     const p = out.get(name) ?? { grams: 0, revenue: 0, prints: 0 };
@@ -253,17 +262,29 @@ export function printsByMaterial(lines: ServiceLine[], days?: number, now: Date 
   return out;
 }
 
-export interface CncJob { date: string; order: string; minutes: number; revenue: number }
-export interface CncStats { jobs: CncJob[]; minutes: number; revenue: number; avgMinutes: number }
+export interface CncJob { date: string; order: string; minutes: number; revenue: number; volunteer: boolean }
+export interface CncStats { jobs: CncJob[]; minutes: number; revenue: number; avgMinutes: number; volunteerMinutes: number }
 
-/** Paid CNC time (lines "CNC time" on orders that count), newest job first. */
+/** CNC time on orders that count, newest job first. Paid figures leave the €0 volunteer jobs out. */
 export function cncStats(lines: ServiceLine[], days?: number, now: Date = new Date()): CncStats {
   const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
   const jobs = lines
     .filter(l => /^cnc\b/i.test(l.reference) && COUNTED.has(l.orderStatus))
     .filter(l => !since || (!!l.date && new Date(l.date) >= since))
-    .map(l => ({ date: l.date, order: l.order ?? '', minutes: l.quantity, revenue: l.quantity * l.price }))
+    .map(l => ({ date: l.date, order: l.order ?? '', minutes: l.quantity, revenue: l.quantity * l.price, volunteer: isVolunteer(l) }))
     .sort((a, b) => b.date.localeCompare(a.date));
-  const minutes = jobs.reduce((s, j) => s + j.minutes, 0);
-  return { jobs, minutes, revenue: jobs.reduce((s, j) => s + j.revenue, 0), avgMinutes: jobs.length ? minutes / jobs.length : 0 };
+  const paid = jobs.filter(j => !j.volunteer);
+  const minutes = paid.reduce((s, j) => s + j.minutes, 0);
+  return {
+    jobs, minutes, revenue: paid.reduce((s, j) => s + j.revenue, 0), avgMinutes: paid.length ? minutes / paid.length : 0,
+    volunteerMinutes: jobs.filter(j => j.volunteer).reduce((s, j) => s + j.minutes, 0),
+  };
+}
+
+/** 3D prints a volunteer booked at €0 at the kiosk: grams and count. */
+export function volunteerPrints(lines: ServiceLine[], days?: number, now: Date = new Date()): { grams: number; prints: number } {
+  const since = days ? new Date(now.getTime() - days * 86_400_000) : null;
+  const v = lines.filter(l => /^3d print/i.test(l.reference) && COUNTED.has(l.orderStatus) && isVolunteer(l)
+    && (!since || (!!l.date && new Date(l.date) >= since)));
+  return { grams: v.reduce((s, l) => s + l.quantity, 0), prints: v.length };
 }

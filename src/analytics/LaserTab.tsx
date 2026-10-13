@@ -57,12 +57,13 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
         { label: 'Avg per session (excl. workshop / HTL)', value: use.count ? fmtMinutes(use.avgMinutes) : '–', icon: Hourglass, bg: 'bg-brand-beige-dark' },
         { label: 'Paid', value: fmtMinutes(laser.minutes + paidOutside.minutes), sub: `€${(laser.revenue + paidOutside.value).toFixed(2)}`, icon: Euro, bg: 'bg-green-50' },
         { label: 'Workshop / HTL', value: fmtMinutes(workshop.minutes), sub: `€${workshop.value.toFixed(2)}`, icon: Wrench, bg: 'bg-brand-beige-dark' },
-        { label: 'Volunteer (own credit)', value: fmtMinutes(volunteer.minutes), sub: `€${volunteer.value.toFixed(2)}`, icon: Users, bg: 'bg-brand-beige-dark' },
+        // Deleted sessions marked volunteer, plus laser time booked at €0 by a volunteer at the kiosk.
+        { label: 'Volunteer (own credit)', value: fmtMinutes(volunteer.minutes + laser.volunteerMinutes), sub: `€${(volunteer.value + laser.volunteerMinutes * PRICING.LASER_PER_MINUTE).toFixed(2)}`, icon: Users, bg: 'bg-brand-beige-dark' },
         { label: 'Open sessions', value: fmtMinutes(notPaid.minutes), sub: `€${notPaid.value.toFixed(2)}`, icon: Clock, bg: notPaid.minutes ? 'bg-amber-50' : 'bg-brand-beige-dark' },
         { label: 'Not verified', value: fmtMinutes(ledger.unverified.minutes), sub: `€${ledger.unverified.value.toFixed(2)}`, icon: Trash2, bg: ledger.unverified.count ? 'bg-rose-50' : 'bg-brand-beige-dark' },
         {
           label: 'All laser time',
-          value: fmtMinutes(laser.minutes + paidOutside.minutes + workshop.minutes + volunteer.minutes + notPaid.minutes + ledger.unverified.minutes),
+          value: fmtMinutes(laser.minutes + paidOutside.minutes + workshop.minutes + volunteer.minutes + laser.volunteerMinutes + notPaid.minutes + ledger.unverified.minutes),
           icon: Timer,
           bg: 'bg-brand-beige-dark',
         },
