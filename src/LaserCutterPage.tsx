@@ -284,7 +284,7 @@ function WoodReminder({ onShop }: { onShop: () => void }) {
         <p className="text-xs text-grafiet">MDF and poplar sheets for the laser, from €{from.toFixed(2)}.</p>
       </div>
       <button onClick={onShop} className="brutalist-button h-11 px-3 bg-white text-sm font-semibold shrink-0 flex items-center gap-1.5">
-        <ShoppingCart size={16} className="text-emerald-600" aria-hidden /> Buy wood
+        <ShoppingCart size={16} className="text-emerald-600" aria-hidden /> See the wood
       </button>
     </div>
   );
