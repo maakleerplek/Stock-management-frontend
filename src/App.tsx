@@ -22,6 +22,8 @@ import PurchaseOrderPage from './PurchaseOrderPage';
 import AnalyticsPage from './analytics/AnalyticsPage';
 import LaserCutterPage from './LaserCutterPage';
 import BuyCarousel from './components/BuyCarousel';
+import ProductPicker from './components/ProductPicker';
+import { woodCategory } from './lib/picker';
 import CheckoutSteps from './components/CheckoutSteps';
 import { flushPendingPaid, laserApi, useLaserSocket } from './lib/laserApi';
 import {
@@ -88,6 +90,8 @@ function AppContent() {
   const [recentMovements, setRecentMovements] = useState<InvenTreeTrackingEntry[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
   const [mobileCheckoutTab, setMobileCheckoutTab] = useState<'scan' | 'cart'>('scan');
+  // The product grid's category; "Buy wood" on the laser page opens it on the wood.
+  const [shopCategory, setShopCategory] = useState<string | null>(null);
   // Only one checkout layout is mounted. Both used to be, hidden with CSS: two
   // carts on the same localStorage key, and the hidden one wrote stale items back.
   const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -346,6 +350,14 @@ function AppContent() {
     }
   };
 
+  // "Buy wood" on the laser page: the checkout's product grid, on the wood.
+  const showWood = () => {
+    setShopCategory(woodCategory(stockItems));
+    setMobileCheckoutTab('scan');
+    handleViewChange('checkout');
+    setTimeout(() => document.getElementById('product-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  };
+
   const handleViewChange = (view: AppView) => {
     setCurrentPage(view);
   };
@@ -464,7 +476,7 @@ function AppContent() {
           </div>
         )}
 
-        {currentPage === 'laser' && <LaserCutterPage live={laser} onCheckout={handleLaserCheckout} onShop={() => handleViewChange('checkout')} />}
+        {currentPage === 'laser' && <LaserCutterPage live={laser} onCheckout={handleLaserCheckout} onShop={showWood} />}
 
         {currentPage === 'checkout' && !isVolunteerMode && <CheckoutSteps />}
         {currentPage === 'checkout' && (
@@ -505,6 +517,7 @@ function AppContent() {
             )}>
               <BarcodeScannerContainer onItemScanned={handleItemScanned} />
               {!isVolunteerMode && <BuyCarousel onAdd={handleItemScanned} />}
+              <ProductPicker category={shopCategory} onCategory={setShopCategory} onAdd={handleItemScanned} />
             </div>
 
             {/* ── Mobile: cart tab ── */}
@@ -523,9 +536,10 @@ function AppContent() {
 
             {isDesktop && (
                         <div className="hidden lg:flex flex-1 min-h-0">
-              <div className="flex-1 p-6 flex flex-col items-center justify-center gap-6 bg-brand-beige">
+              <div className="flex-1 p-6 flex flex-col items-center gap-6 bg-brand-beige overflow-y-auto">
                 <BarcodeScannerContainer onItemScanned={handleItemScanned} />
                 {!isVolunteerMode && <BuyCarousel onAdd={handleItemScanned} />}
+                <ProductPicker category={shopCategory} onCategory={setShopCategory} onAdd={handleItemScanned} />
               </div>
               <aside className="w-[40%] border-l border-lijn bg-brand-beige flex flex-col">
                 <ShoppingWindow
