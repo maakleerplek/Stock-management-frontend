@@ -147,3 +147,14 @@ describe('a part with no sale price', () => {
         expect(item.price).not.toBeCloseTo(1.0446, 3);
     });
 });
+
+describe('machine time minimum per job', () => {
+  it('charges at least the minimum and keeps minutes × price equal to it', async () => {
+    const { jobPrice, perMinuteWithMinimum } = await import('../src/sendCodeHandler');
+    expect(jobPrice(4, 0.5, 5)).toBe(5);          // 4 min × €0.50 = €2, minimum €5
+    expect(jobPrice(25, 0.5, 5)).toBe(12.5);
+    expect(jobPrice(0, 0.5, 5)).toBe(0);          // nothing used, nothing to pay
+    expect(4 * perMinuteWithMinimum(4, 0.5, 5)).toBeCloseTo(5);
+    expect(perMinuteWithMinimum(25, 0.5, 5)).toBe(0.5);
+  });
+});

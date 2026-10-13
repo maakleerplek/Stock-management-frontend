@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Search, RefreshCw, Box, Euro, Loader2, Plus, Minus, Trash2, CheckCircle, Tag, MapPin, SlidersHorizontal } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
-import { cn } from './lib/utils';
+import { cn, displayName } from './lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { handleAddItem, handleRemoveItem } from './sendCodeHandler';
 import { useToast } from './ToastContext';
@@ -272,7 +272,7 @@ export default function ItemList() {
                     {/* Top row: title + search + refresh */}
                     <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 p-4">
                         <div className="flex items-center gap-3">
-                            <Box className="w-6 h-6 text-brand-black" />
+                            <Box className="w-6 h-6 text-blue-600" aria-hidden />
                             <h2 className="text-lg font-semibold">Stock list</h2>
                         </div>
                         <div className="flex gap-4 items-center flex-grow max-w-full md:max-w-[500px]">
@@ -379,11 +379,11 @@ export default function ItemList() {
                                             <ImageDisplay imagePath={item.image} alt={item.name} width={48} height={48} />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="font-bold text-sm tracking-tight line-clamp-2 break-words">{item.name}</p>
+                                            <p className="font-bold text-sm tracking-tight line-clamp-2 break-words">{displayName(item.name)}</p>
                                             <div className="flex items-center gap-1 mt-0.5 text-brand-black/70">
                                                 <Euro className="w-3 h-3" />
                                                 <span className="font-bold text-xs">{item.price.toFixed(2)}</span>
-                                                {item.cost > 0 && (
+                                                {isVolunteerMode && item.cost > 0 && (
                                                     <span className="text-[10px] font-bold text-brand-black/40">
                                                         (cost {item.cost.toFixed(2)})
                                                     </span>
@@ -399,8 +399,8 @@ export default function ItemList() {
                                                 )}>
                                                     {item.quantity}
                                                 </div>
-                                                <div className="text-[9px] font-semibold text-brand-black/50 mt-0.5">
-                                                    {delta !== 0 ? (delta > 0 ? `+${delta}` : delta) : 'Stock'}
+                                                <div className={cn("text-[10px] font-semibold mt-0.5", item.quantity === 0 ? "text-rose-600" : "text-brand-black/60")}>
+                                                    {delta !== 0 ? (delta > 0 ? `+${delta}` : delta) : item.quantity === 0 ? 'Sold out' : 'in stock'}
                                                 </div>
                                             </div>
                                         </div>
@@ -425,9 +425,12 @@ export default function ItemList() {
                                     <th className="p-3 text-right w-[100px]">
                                         <span className="text-[10px] font-semibold text-brand-black/70">Stock</span>
                                     </th>
-                                    <th className="p-3 text-right w-[100px]">
-                                        <span className="text-[10px] font-semibold text-brand-black/70">Cost</span>
-                                    </th>
+                                    {/* What the lab paid is for volunteers, not visitors. */}
+                                    {isVolunteerMode && (
+                                        <th className="p-3 text-right w-[100px]">
+                                            <span className="text-[10px] font-semibold text-brand-black/70">Cost</span>
+                                        </th>
+                                    )}
                                     <th className="p-3 text-right w-[100px]">
                                         <span className="text-[10px] font-semibold text-brand-black/70">Price</span>
                                     </th>
@@ -455,7 +458,7 @@ export default function ItemList() {
                                                     </div>
                                                 </td>
                                                 <td className="p-3">
-                                                    <p className="font-bold text-sm tracking-tight">{item.name}</p>
+                                                    <p className="font-bold text-sm tracking-tight">{displayName(item.name)}</p>
                                                     <MetaTags category={item.category} location={item.location} className="mt-1.5" />
                                                 </td>
                                                 <td className="p-3 text-right">
@@ -463,7 +466,7 @@ export default function ItemList() {
                                                         "font-semibold text-sm",
                                                         item.quantity === 0 && "text-rose-600"
                                                     )}>
-                                                        {item.quantity}
+                                                        {item.quantity === 0 && !isVolunteerMode ? 'Sold out' : item.quantity}
                                                     </span>
                                                     {delta !== 0 && (
                                                         <span className={cn(
@@ -474,7 +477,7 @@ export default function ItemList() {
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="p-3 text-right">
+                                                {isVolunteerMode && <td className="p-3 text-right">
                                                     {item.cost > 0 ? (
                                                         <div
                                                             className="flex items-center justify-end gap-1 text-brand-black/55"
@@ -491,7 +494,7 @@ export default function ItemList() {
                                                             —
                                                         </span>
                                                     )}
-                                                </td>
+                                                </td>}
                                                 <td className="p-3 text-right">
                                                     <div className="flex items-center justify-end gap-1">
                                                         <Euro className="w-3 h-3 text-brand-black" />

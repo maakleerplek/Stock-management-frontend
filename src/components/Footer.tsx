@@ -1,5 +1,6 @@
 import { Book, Github, MessageSquare, Database } from 'lucide-react';
 import { useState } from 'react';
+import { useVolunteer } from '../VolunteerContext';
 import CacheManager from './CacheManager';
 import { FOOTER_LINKS } from '../constants';
 
@@ -7,6 +8,7 @@ const linkClass = 'flex items-center gap-1.5 hover:text-brand-black underline-of
 
 export default function Footer() {
   const [cacheManagerOpen, setCacheManagerOpen] = useState(false);
+  const { isVolunteerMode } = useVolunteer();
 
   return (
     <>
@@ -22,12 +24,15 @@ export default function Footer() {
                 <MessageSquare size={14} /> <span className="hidden sm:inline">Feedback</span>
               </a>
             )}
-            <a href={FOOTER_LINKS.github} target="_blank" rel="noopener noreferrer" className={linkClass} title="GitHub repository">
-              <Github size={14} /> <span className="hidden sm:inline">GitHub</span>
-            </a>
-            <button onClick={() => setCacheManagerOpen(true)} className={linkClass} title="Manage cache">
-              <Database size={14} /> <span className="hidden sm:inline">Cache</span>
-            </button>
+            {/* Developer tools: not for visitors. */}
+            {isVolunteerMode && (<>
+              <a href={FOOTER_LINKS.github} target="_blank" rel="noopener noreferrer" className={linkClass} title="GitHub repository">
+                <Github size={14} /> <span className="hidden sm:inline">GitHub</span>
+              </a>
+              <button onClick={() => setCacheManagerOpen(true)} className={linkClass} title="Manage cache">
+                <Database size={14} /> <span className="hidden sm:inline">Cache</span>
+              </button>
+            </>)}
           </div>
           <span className="flex-shrink-0">Maakleerplek vzw · beta</span>
         </div>

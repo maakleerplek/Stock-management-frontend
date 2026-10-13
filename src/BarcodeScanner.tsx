@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import { QrCode, StopCircle, Plus, RefreshCw, Camera, AlertTriangle } from 'lucide-react';
+import { QrCode, StopCircle, Plus, RefreshCw, Camera, AlertTriangle, ScanBarcode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ScannerProps {
@@ -225,9 +225,11 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
         compact ? "" : "brutalist-card p-6 sm:p-8"
       )}>
         {!compact && (
-          <div className="flex items-center gap-2 pb-2 border-b border-lijn">
-            <QrCode size={24} className="text-brand-black" />
-            <h3 className="text-base sm:text-lg font-semibold tracking-tight">Barcode Scanner</h3>
+          <div className="pb-2 border-b border-lijn">
+            <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+              <ScanBarcode size={24} className="text-emerald-600" aria-hidden /> Scan your items
+            </h3>
+            <p className="text-sm text-grafiet mt-1">Hold the barcode under the scanner, or type the code below.</p>
           </div>
         )}
 
@@ -257,7 +259,7 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
                 className="brutalist-button btn-primary flex items-center gap-2"
               >
                 <QrCode size={18} />
-                <span className="text-sm sm:text-base">{isLoading ? 'Starting...' : 'Use Camera'}</span>
+                <span className="text-sm sm:text-base">{isLoading ? 'Starting...' : 'Scan with the camera'}</span>
               </button>
             ) : (
               <>
@@ -349,37 +351,38 @@ function BarcodeScanner({ onScan, compact = false }: ScannerProps) {
 
           {/* Manual input - always visible */}
           <form onSubmit={handleManualSubmit} className="w-full">
-            <div className="relative">
+            <label htmlFor="barcode-input" className="sr-only">Barcode</label>
+            <div className="flex gap-2">
               <input
+                id="barcode-input"
                 type="text"
-                placeholder="Type or scan with USB scanner..."
+                placeholder="Scan or type a barcode"
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
                 ref={inputRef}
-                className="brutalist-input w-full pr-10 text-sm"
+                className="brutalist-input flex-1 min-w-0 h-12 text-base"
               />
               <button
                 type="submit"
                 disabled={!manualInput.trim()}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 disabled:opacity-30"
-                aria-label="Submit barcode"
+                className="brutalist-button h-12 px-4 bg-emerald-400 text-brand-black text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40"
               >
-                <Plus size={18} className="text-brand-black" />
+                <Plus size={16} aria-hidden /> Add
               </button>
             </div>
           </form>
 
-          <div className="w-full brutalist-border bg-gray-100 p-3 text-center">
-            <p className="text-xs sm:text-sm text-gray-600 font-bold">
-              Last Scanned:
-              <span className="ml-2 text-brand-black font-semibold">{barcode}</span>
+          {barcode !== 'No result' && (
+            <p className="w-full text-sm text-grafiet" aria-live="polite">
+              Last scanned: <span className="text-brand-black font-semibold">{barcode}</span>
             </p>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Debug Info for Mobile troubleshooting */}
-      {(cameraError || !isScanning) && (
+      {/* Only when the camera cannot work: for whoever fixes it. */}
+      {(cameraError || !isSecure || !hasMediaDevices) && (
         <div className="w-full max-w-[360px] brutalist-border bg-gray-50 p-3">
           <p className="text-[10px] sm:text-xs font-semibold mb-2 text-gray-600">
             Browser Diagnostics:
