@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { LogOut, Settings, X, AlertTriangle, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { LogOut, Lock, X, AlertTriangle, Plus } from 'lucide-react';
 import { useVolunteer } from '../VolunteerContext';
 import htlCube from '../assets/htl-cube-white.png';
 import Clock from './Clock';
@@ -78,11 +77,11 @@ export default function Header({ currentView, onViewChange, onVolunteerClick, on
           )}
           <button
             onClick={handleVolunteerToggle}
-            aria-label={isVolunteerMode ? 'Log out' : 'Admin panel'}
-            className={cn(
-              "brutalist-button flex items-center justify-center gap-2 h-10 md:h-auto w-10 md:w-auto p-0! md:px-4! md:py-2! text-sm",
-              !isVolunteerMode && "btn-primary"
-            )}
+            aria-label={isVolunteerMode ? 'Log out' : 'Volunteer login'}
+            title={isVolunteerMode ? undefined : 'For volunteers: manage the stock'}
+            className={isVolunteerMode
+              ? "brutalist-button bg-white flex items-center justify-center gap-2 h-10 md:h-auto w-10 md:w-auto p-0! md:px-4! md:py-2! text-sm"
+              : "brutalist-button bg-white flex items-center justify-center gap-2 h-10 px-3! md:px-4! text-sm"}
           >
             {isVolunteerMode ? (
               <>
@@ -91,8 +90,8 @@ export default function Header({ currentView, onViewChange, onVolunteerClick, on
               </>
             ) : (
               <>
-                <Settings size={16} />
-                <span className="hidden md:inline">Admin panel</span>
+                <Lock size={16} className="text-amber-700" aria-hidden />
+                <span>Volunteer login</span>
               </>
             )}
           </button>

@@ -94,7 +94,7 @@ function ShoppingCart({
                     ) : (
                         <ShoppingCartIcon className="w-4 h-4" />
                     )}
-                    {isVolunteerMode ? MODE_LABELS[mode].title : "Shopping cart"}
+                    {isVolunteerMode ? MODE_LABELS[mode].title : "Your cart"}
                 </h2>
             </div>
 
@@ -309,9 +309,11 @@ function ShoppingCart({
                                                     {/* Remove button */}
                                                     <button
                                                         onClick={() => handleRemoveItem(item.id)}
-                                                        className="w-11 h-11 flex items-center justify-center bg-red-500 text-white border border-lijn hover:bg-red-600 active:scale-95 transition-all flex-shrink-0"
+                                                        aria-label={`Remove ${item.name}`}
+                                                        title="Remove from the cart"
+                                                        className="h-11 px-3 flex items-center justify-center gap-1.5 bg-white text-red-600 text-xs font-semibold border border-lijn hover:bg-red-50 active:scale-95 transition-all flex-shrink-0"
                                                     >
-                                                        <Trash2 size={16} />
+                                                        <Trash2 size={16} aria-hidden /> <span className="hidden sm:inline">Remove</span>
                                                     </button>
                                                 </div>
 
@@ -321,6 +323,7 @@ function ShoppingCart({
                                                     <div className="flex items-center gap-1">
                                                         <button
                                                             onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity - 1)}
+                                                            aria-label={`One less ${item.name}`}
                                                             className="w-11 h-11 flex items-center justify-center border border-lijn bg-red-400 hover:bg-red-500 active:scale-95 transition-all"
                                                         >
                                                             <Minus size={16} />
@@ -333,6 +336,7 @@ function ShoppingCart({
                                                         </span>
                                                         <button
                                                             onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity + 1)}
+                                                            aria-label={`One more ${item.name}`}
                                                             className="w-11 h-11 flex items-center justify-center border border-lijn bg-emerald-400 hover:bg-emerald-500 active:scale-95 transition-all"
                                                         >
                                                             <Plus size={16} />
@@ -354,10 +358,10 @@ function ShoppingCart({
                                 </div>
                             </>
                         ) : (
-                            <div className="py-12 flex flex-col items-center justify-center bg-brand-beige text-brand-black/40">
-                                <ShoppingCartIcon size={36} className="mb-3 opacity-30" />
-                                <p className="font-semibold text-xs">Cart is empty</p>
-                                <p className="text-[10px] mt-1 opacity-60">Scan items to add</p>
+                            <div className="py-10 px-6 flex flex-col items-center justify-center text-center bg-brand-beige">
+                                <ShoppingCartIcon size={36} className="mb-3 text-emerald-600" aria-hidden />
+                                <p className="font-semibold text-base text-brand-black">Your cart is empty</p>
+                                <p className="text-sm mt-1 text-grafiet max-w-xs">Scan the barcode of what you take, or add the time you used a machine below.</p>
                             </div>
                         )}
 
@@ -378,7 +382,7 @@ function ShoppingCart({
                                     }}
                                     disabled={isCheckingOut}
                                     className={cn(
-                                        "w-full py-3 text-sm font-semibold flex items-center justify-center gap-2 border border-lijn transition-all",
+                                        "w-full py-4 text-base font-semibold flex items-center justify-center gap-2 border border-lijn transition-all",
                                         isVolunteerMode
                                             ? "bg-amber-300 text-brand-black hover:brightness-95"
                                             : "bg-emerald-400 text-brand-black hover:brightness-95",
@@ -391,7 +395,7 @@ function ShoppingCart({
                                             Processing...
                                         </>
                                     ) : (
-                                        isVolunteerMode && cartItems.length > 0 ? (volunteerToPay > 0 ? `Pay €${volunteerToPay.toFixed(2)}` : MODE_LABELS[mode].action) : 'Checkout'
+                                        isVolunteerMode && cartItems.length > 0 ? (volunteerToPay > 0 ? `Pay €${volunteerToPay.toFixed(2)}` : MODE_LABELS[mode].action) : `Pay €${(isVolunteerMode ? volunteerToPay : totalPrice + extraCosts).toFixed(2)}`
                                     )}
                                 </button>
                             </div>

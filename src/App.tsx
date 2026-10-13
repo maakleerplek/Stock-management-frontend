@@ -21,6 +21,8 @@ import ModalFrame from './components/ModalFrame';
 import PurchaseOrderPage from './PurchaseOrderPage';
 import AnalyticsPage from './analytics/AnalyticsPage';
 import LaserCutterPage from './LaserCutterPage';
+import BuyCarousel from './components/BuyCarousel';
+import CheckoutSteps from './components/CheckoutSteps';
 import { flushPendingPaid, laserApi, useLaserSocket } from './lib/laserApi';
 import {
   type InvenTreeTrackingEntry,
@@ -32,7 +34,7 @@ import {
   getErrorMessage,
   parseNumericFields,
 } from './utils/helpers';
-import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, ExternalLink, ShoppingBag, BarChart2, Zap, Plus, Tag, MapPin, Building2 } from 'lucide-react';
+import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, PackageSearch, ShoppingCart, ExternalLink, ShoppingBag, BarChart2, Zap, Plus, Tag, MapPin, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import { describeMovement, isShownMovement } from './lib/stockHistory';
@@ -43,10 +45,11 @@ const VIEWS: AppView[] = ['checkout', 'browse', 'laser', 'volunteer', 'inventory
 
 // Tabs for the top bar (md and up) and the bottom bar (phone). `short` is
 // the label under the icon in the bottom bar.
+// Each tab keeps its own colour: green = paying, blue = looking up stock, laser rust = the lasercutter.
 const PUBLIC_TABS: (NavTab & { short: string })[] = [
-  { id: 'checkout', label: 'Checkout', short: 'Checkout', icon: ScanBarcode },
-  { id: 'browse', label: 'Stock list', short: 'Stock', icon: Package },
-  { id: 'laser', label: 'Lasercutter', short: 'Laser', icon: Zap },
+  { id: 'checkout', label: 'Checkout', short: 'Checkout', icon: ShoppingCart, tone: 'text-emerald-600' },
+  { id: 'browse', label: "What's in stock", short: 'In stock', icon: PackageSearch, tone: 'text-blue-600' },
+  { id: 'laser', label: 'Lasercutter', short: 'Laser', icon: Zap, tone: 'text-laser' },
 ];
 const VOLUNTEER_TABS: (NavTab & { short: string })[] = [
   { id: 'volunteer', label: 'Overview', short: 'Overview', icon: LayoutDashboard },
@@ -58,7 +61,7 @@ const VOLUNTEER_TABS: (NavTab & { short: string })[] = [
 ];
 // The bottom bar has room for four tabs and More.
 const BOTTOM_TAB_COUNT = 4;
-const bottomTab = (t: NavTab & { short: string }): NavTab => ({ id: t.id, label: t.short, icon: t.icon });
+const bottomTab = (t: NavTab & { short: string }): NavTab => ({ id: t.id, label: t.short, icon: t.icon, tone: t.tone });
 
 // The open tab lives in the URL hash (#laser), so a refresh stays on it. A
 // page may add its own sub-tab after a slash (#analytics/laser).
@@ -416,14 +419,15 @@ function AppContent() {
         <button
           key={tab.id}
           onClick={() => setCurrentPage(tab.id as AppView)}
+          aria-current={currentPage === tab.id ? 'page' : undefined}
           className={cn(
-            "px-1 py-3.5 font-medium text-xs sm:text-sm border-b-2 -mb-px transition-colors flex items-center gap-1.5 whitespace-nowrap",
+            "px-1 py-3.5 font-semibold text-sm border-b-[3px] -mb-px transition-colors flex items-center gap-2 whitespace-nowrap",
             currentPage === tab.id
               ? "border-brand-black text-brand-black"
               : "border-transparent text-grafiet hover:text-brand-black"
           )}
         >
-          <tab.icon size={14} className="flex-shrink-0" />
+          <tab.icon size={18} className={cn("flex-shrink-0", tab.tone)} aria-hidden />
           <span>{tab.label}</span>
         </button>
       ))}
@@ -460,8 +464,9 @@ function AppContent() {
           </div>
         )}
 
-        {currentPage === 'laser' && <LaserCutterPage live={laser} onCheckout={handleLaserCheckout} />}
+        {currentPage === 'laser' && <LaserCutterPage live={laser} onCheckout={handleLaserCheckout} onShop={() => handleViewChange('checkout')} />}
 
+        {currentPage === 'checkout' && !isVolunteerMode && <CheckoutSteps />}
         {currentPage === 'checkout' && (
           <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
             {!isDesktop && (<>
@@ -469,34 +474,37 @@ function AppContent() {
             <div className="lg:hidden flex border-b border-lijn bg-brand-beige shrink-0">
               <button
                 onClick={() => setMobileCheckoutTab('scan')}
+                aria-pressed={mobileCheckoutTab === 'scan'}
                 className={cn(
-                  "flex-1 py-3 text-xs font-semibold transition-colors",
+                  "flex-1 h-12 text-sm font-semibold transition-colors flex items-center justify-center gap-2",
                   mobileCheckoutTab === 'scan'
                     ? "bg-brand-black text-white"
                     : "bg-brand-beige text-brand-black"
                 )}
               >
-                Scan
+                <ScanBarcode size={16} aria-hidden /> 1. Scan items
               </button>
               <button
                 onClick={() => setMobileCheckoutTab('cart')}
+                aria-pressed={mobileCheckoutTab === 'cart'}
                 className={cn(
-                  "flex-1 py-3 text-xs font-semibold transition-colors border-l border-lijn",
+                  "flex-1 h-12 text-sm font-semibold transition-colors border-l border-lijn flex items-center justify-center gap-2",
                   mobileCheckoutTab === 'cart'
                     ? "bg-brand-black text-white"
                     : "bg-brand-beige text-brand-black"
                 )}
               >
-                Cart
+                <ShoppingCart size={16} aria-hidden /> 2. Cart &amp; pay
               </button>
             </div>
 
             {/* ── Mobile: scanner tab ── */}
             <div className={cn(
-              "lg:hidden flex-1 flex flex-col items-center justify-center p-4 bg-brand-beige overflow-hidden",
+              "lg:hidden flex-1 flex flex-col items-center justify-start gap-4 p-4 bg-brand-beige overflow-y-auto",
               mobileCheckoutTab !== 'scan' && "hidden"
             )}>
               <BarcodeScannerContainer onItemScanned={handleItemScanned} />
+              {!isVolunteerMode && <BuyCarousel onAdd={handleItemScanned} />}
             </div>
 
             {/* ── Mobile: cart tab ── */}
@@ -515,8 +523,9 @@ function AppContent() {
 
             {isDesktop && (
                         <div className="hidden lg:flex flex-1 min-h-0">
-              <div className="flex-1 p-6 flex flex-col items-center justify-center bg-brand-beige">
+              <div className="flex-1 p-6 flex flex-col items-center justify-center gap-6 bg-brand-beige">
                 <BarcodeScannerContainer onItemScanned={handleItemScanned} />
+                {!isVolunteerMode && <BuyCarousel onAdd={handleItemScanned} />}
               </div>
               <aside className="w-[40%] border-l border-lijn bg-brand-beige flex flex-col">
                 <ShoppingWindow

@@ -3,12 +3,12 @@ import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingC
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
 import { laserApi, markPaidReliably, pendingPaidIds, type LaserSession } from './lib/laserApi';
 import { PRICING } from './constants';
-import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, extraLabel, describeExtra, handleCheckout as bookSale, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine, volunteerSaleLines, linesTotal } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, perMinuteWithMinimum, extraLabel, describeExtra, handleCheckout as bookSale, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine, volunteerSaleLines, linesTotal } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import type { Invoice } from './lib/invoice';
 import ModalFrame from './components/ModalFrame';
-import { AlertCircle, Check, X, Settings } from 'lucide-react';
+import { AlertCircle, Check, X, Timer } from 'lucide-react';
 
 interface ShoppingWindowProps {
     scanEvent: ScanEvent | null;
@@ -44,7 +44,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const extras: ExtraLine[] = [
         ...laserInCheckout.map(s => ({
             name: 'Lasertime', person: s.name, quantity: s.minutes, unit: 'min',
-            unitPrice: PRICING.LASER_PER_MINUTE, laserSessionId: s.id,
+            unitPrice: perMinuteWithMinimum(s.minutes, PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM), laserSessionId: s.id,
         })),
         ...typedExtras,
     ];
@@ -240,7 +240,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                     <div className="border-t border-lijn">
                         <div className="px-4 sm:px-6 py-3 border-b border-lijn bg-brand-beige shrink-0">
                             <h2 className="text-brand-black text-base font-semibold flex items-center gap-2">
-                                <Settings size={14} /> Extra services
+                                <Timer size={16} className="text-laser" aria-hidden /> Used a machine? Add its time
                             </h2>
                         </div>
                         <div className="p-4">

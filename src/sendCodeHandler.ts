@@ -76,6 +76,12 @@ export interface ExtraLine {
     laserSessionId?: string;
 }
 
+/** What a laser / CNC job costs: its minutes, at least the minimum per job. */
+export const jobPrice = (minutes: number, perMinute: number, minimum: number) => (minutes > 0 ? Math.max(minutes * perMinute, minimum) : 0);
+/** The minimum folded into the price per minute, so minutes × price is what is paid (and booked). */
+export const perMinuteWithMinimum = (minutes: number, perMinute: number, minimum: number) =>
+    (minutes > 0 ? jobPrice(minutes, perMinute, minimum) / minutes : perMinute);
+
 export const extraTotal = (extras: ExtraLine[]) => extras.reduce((sum, e) => sum + e.quantity * e.unitPrice, 0);
 export const extraLabel = (e: ExtraLine) => (e.person ? `${e.name} – ${e.person}` : e.name);
 export const describeExtra = (e: ExtraLine) => `${extraLabel(e)} ${e.quantity} ${e.unit}`;

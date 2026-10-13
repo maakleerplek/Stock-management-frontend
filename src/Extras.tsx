@@ -1,16 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Zap } from 'lucide-react';
+import { X, Zap, Drill, Printer, Plus } from 'lucide-react';
 import { PRICING } from './constants';
-import { isFilament, type ExtraLine } from './sendCodeHandler';
+import { isFilament, jobPrice, perMinuteWithMinimum, extraLabel, type ExtraLine } from './sendCodeHandler';
 import { useStock } from './StockContext';
 import { inventreeClient } from './api/inventreeClient';
 import type { LaserSession } from './lib/laserApi';
+import { cn } from './lib/utils';
 
-/** Hand-typed services survive a refresh, like the cart. Cleared after a sale. */
-export const EXTRAS_STORAGE_KEY = 'stockManagerExtras.v1';
+/** Machine time added by hand survives a refresh, like the cart. Cleared after a sale. */
+export const EXTRAS_STORAGE_KEY = 'stockManagerExtras.v2';
 
 interface ExtrasProps {
-    /** The hand-typed services in use, one line each; unused ones are left out. */
+    /** The machine time added to this checkout by hand, one line per job. */
     onExtrasChange: (extras: ExtraLine[]) => void;
     /** Laser sessions in this checkout; their time comes from the laser service. */
     laserSessions: LaserSession[];
@@ -20,21 +21,25 @@ interface ExtrasProps {
     onRemoveLaserSession: (id: string) => void;
 }
 
-function stored(): { laser: number; cnc: number; print: number; printPart: number | null } {
-    const empty = { laser: 0, cnc: 0, print: 0, printPart: null };
+function stored(): ExtraLine[] {
     try {
-        return { ...empty, ...JSON.parse(localStorage.getItem(EXTRAS_STORAGE_KEY) || '{}') };
+        const v = JSON.parse(localStorage.getItem(EXTRAS_STORAGE_KEY) || '[]');
+        return Array.isArray(v) ? v : [];
     } catch {
-        return empty;
+        return [];
     }
 }
 
+const eur = (n: number) => `€${n.toFixed(2)}`;
+export const laserSessionPrice = (minutes: number) => jobPrice(minutes, PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM);
+
 export default function Extras({ onExtrasChange, laserSessions, openLaserSessions, onAddLaserSession, onRemoveLaserSession }: ExtrasProps) {
-    const [lasertimeMinutes, setLasertimeMinutes] = useState(() => stored().laser);
-    const [cncMinutes, setCncMinutes] = useState(() => stored().cnc);
-    const [printingGrams, setPrintingGrams] = useState(() => stored().print);
+    const [added, setAdded] = useState<ExtraLine[]>(stored);
+    const [laserMin, setLaserMin] = useState(0);
+    const [cncMin, setCncMin] = useState(0);
+    const [grams, setGrams] = useState(0);
     // 3D print: which filament (part id) and its price per gram (InvenTree parameter, else the default).
-    const [printPart, setPrintPart] = useState<number | null>(() => stored().printPart);
+    const [printPart, setPrintPart] = useState<number | null>(null);
     const [printPrices, setPrintPrices] = useState<Record<number, number>>({});
     useEffect(() => { void inventreeClient.getPrintPricePerGram().then(setPrintPrices); }, []);
     const { items } = useStock();
@@ -44,138 +49,143 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
         return [...byPart].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
     }, [items]);
     const printFilament = filaments.find(f => f.id === printPart);
-    const printPricePerGram = (printPart != null && printPrices[printPart]) || PRICING.PRINTING_PER_GRAM;
-
-    const lasertimeCost = lasertimeMinutes * PRICING.LASER_PER_MINUTE;
-    const cncCost = cncMinutes * PRICING.CNC_PER_MINUTE;
-    const printingCost = printingGrams * printPricePerGram;
+    const perGram = (printPart != null && printPrices[printPart]) || PRICING.PRINTING_PER_GRAM;
 
     useEffect(() => {
-        localStorage.setItem(EXTRAS_STORAGE_KEY, JSON.stringify({ laser: lasertimeMinutes, cnc: cncMinutes, print: printingGrams, printPart }));
-        const lines: ExtraLine[] = [
-            { name: 'Lasertime', quantity: lasertimeMinutes, unit: 'min', unitPrice: PRICING.LASER_PER_MINUTE },
-            { name: 'CNC time', quantity: cncMinutes, unit: 'min', unitPrice: PRICING.CNC_PER_MINUTE },
-            // The filament is booked as the line's description: analytics per material.
-            { name: '3D printing', quantity: printingGrams, unit: 'g', unitPrice: printPricePerGram, person: printFilament?.name },
-        ];
-        onExtrasChange(lines.filter(l => l.quantity > 0));
-    }, [lasertimeMinutes, cncMinutes, printingGrams, printPart, printFilament, printPricePerGram, onExtrasChange]);
+        localStorage.setItem(EXTRAS_STORAGE_KEY, JSON.stringify(added));
+        onExtrasChange(added);
+    }, [added, onExtrasChange]);
+
+    const add = (line: ExtraLine) => setAdded(a => [...a, line]);
 
     return (
         <div className="space-y-4">
-        {openLaserSessions.length > 0 && (
-            <label className="flex items-center gap-2 border border-lijn p-3 bg-brand-beige">
-                <Zap size={14} className="shrink-0" />
-                <span className="text-xs font-semibold text-brand-black/60 shrink-0">Laser session</span>
-                <select
-                    value=""
-                    onChange={e => { if (e.target.value) onAddLaserSession(e.target.value); }}
-                    className="flex-1 min-w-0 h-9 px-2 border border-lijn bg-white text-sm"
-                >
-                    <option value="">Add a laser session to this checkout…</option>
-                    {openLaserSessions.map(s => (
-                        <option key={s.id} value={s.id} disabled={s.minutes <= 0}>
-                            {s.name} · {s.minutes} min{s.minutes > 0 ? ` · €${(s.minutes * PRICING.LASER_PER_MINUTE).toFixed(2)}` : ' (no time assigned yet)'}
-                        </option>
+            {openLaserSessions.length > 0 && (
+                <label className="flex items-center gap-2 border-2 border-laser p-3 bg-laser-licht/40">
+                    <Zap size={16} className="shrink-0 text-laser" aria-hidden />
+                    <span className="text-sm font-semibold shrink-0">Pay a laser session</span>
+                    <select
+                        value=""
+                        onChange={e => { if (e.target.value) onAddLaserSession(e.target.value); }}
+                        className="flex-1 min-w-0 h-11 px-2 border border-lijn bg-white text-sm"
+                    >
+                        <option value="">Pick your session…</option>
+                        {openLaserSessions.map(s => (
+                            <option key={s.id} value={s.id} disabled={s.minutes <= 0}>
+                                {s.name} · {s.minutes} min{s.minutes > 0 ? ` · ${eur(laserSessionPrice(s.minutes))}` : ' (no time yet)'}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+            )}
+
+            {(laserSessions.length > 0 || added.length > 0) && (
+                <ul className="space-y-2" aria-label="Machine time in this checkout">
+                    {laserSessions.map(s => (
+                        <Row key={s.id} icon={Zap} tone="text-laser" title={`Lasercut · ${s.name}`}
+                            detail={`${s.minutes} min, from the laser timer`} price={laserSessionPrice(s.minutes)}
+                            onRemove={() => onRemoveLaserSession(s.id)} />
                     ))}
-                </select>
-            </label>
-        )}
-        {laserSessions.length > 0 && (
-            <div className="space-y-2">
-                {laserSessions.map(s => (
-                    <div key={s.id} className="flex items-center justify-between gap-3 border border-lijn p-3 bg-brand-beige-dark">
-                        <div className="flex items-center gap-2 min-w-0">
-                            <Zap size={14} className="shrink-0" />
-                            <div className="min-w-0">
-                                <div className="text-sm font-semibold truncate">Lasertime – {s.name}</div>
-                                <div className="text-[10px] font-mono text-brand-black/60">{s.minutes} min × €{PRICING.LASER_PER_MINUTE.toFixed(2)} · from the laser</div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-lg font-semibold tabular-nums">€{(s.minutes * PRICING.LASER_PER_MINUTE).toFixed(2)}</span>
-                            <button onClick={() => onRemoveLaserSession(s.id)} title="Take out of the checkout" className="p-1 hover:bg-brand-accent">
-                                <X size={16} />
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Lasertime Input */}
-            <div className="space-y-1 border border-lijn p-3 bg-brand-beige">
-                <div className="flex justify-between items-end border-b border-lijn pb-2 mb-2">
-                    <label className="text-[10px] font-semibold block text-brand-black/60">Lasertime (min)</label>
-                    <span className="text-[10px] font-mono opacity-50 font-bold">€{PRICING.LASER_PER_MINUTE.toFixed(2)}/min</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    <input
-                        type="number"
-                        value={lasertimeMinutes || ''}
-                        onChange={(e) => setLasertimeMinutes(Math.max(0, parseInt(e.target.value) || 0))}
-                        min="0"
-                        className="brutalist-input w-full font-mono bg-brand-beige h-9 px-3 border border-lijn focus:border-sky-500 focus:bg-sky-50/10 transition-all outline-none text-sm"
-                        placeholder="0"
-                    />
-                    <div className="text-lg font-semibold whitespace-nowrap tabular-nums text-brand-black">
-                        €{lasertimeCost.toFixed(2)}
-                    </div>
-                </div>
-            </div>
+                    {added.map((l, i) => (
+                        <Row key={i} icon={l.unit === 'g' ? Printer : l.name === 'CNC time' ? Drill : Zap}
+                            tone={l.unit === 'g' ? 'text-blue-600' : l.name === 'CNC time' ? 'text-cnc' : 'text-laser'}
+                            title={extraLabel(l)} detail={`${l.quantity} ${l.unit}`} price={l.quantity * l.unitPrice}
+                            onRemove={() => setAdded(a => a.filter((_, j) => j !== i))} />
+                    ))}
+                </ul>
+            )}
 
-            {/* CNC Time Input */}
-            <div className="space-y-1 border border-lijn p-3 bg-brand-beige">
-                <div className="flex justify-between items-end border-b border-lijn pb-2 mb-2">
-                    <label className="text-[10px] font-semibold block text-brand-black/60">CNC Time (min)</label>
-                    <span className="text-[10px] font-mono opacity-50 font-bold">€{PRICING.CNC_PER_MINUTE.toFixed(2)}/min</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    <input
-                        type="number"
-                        value={cncMinutes || ''}
-                        onChange={(e) => setCncMinutes(Math.max(0, parseInt(e.target.value) || 0))}
-                        min="0"
-                        className="brutalist-input w-full font-mono bg-brand-beige h-9 px-3 border border-lijn focus:border-sky-500 focus:bg-sky-50/10 transition-all outline-none text-sm"
-                        placeholder="0"
-                    />
-                    <div className="text-lg font-semibold whitespace-nowrap tabular-nums text-brand-black">
-                        €{cncCost.toFixed(2)}
-                    </div>
-                </div>
-            </div>
-
-            {/* 3D Printing Input */}
-            <div className="space-y-1 border border-lijn p-3 bg-brand-beige">
-                <div className="flex justify-between items-end border-b border-lijn pb-2 mb-2">
-                    <label className="text-[10px] font-semibold block text-brand-black/60">3D Printing (g)</label>
-                    <span className="text-[10px] font-mono opacity-50 font-bold">€{printPricePerGram.toFixed(2)}/g</span>
-                </div>
-                <select
-                    value={printPart ?? ''}
-                    onChange={e => setPrintPart(e.target.value ? Number(e.target.value) : null)}
-                    aria-label="Filament"
-                    className="w-full h-9 px-2 mb-2 border border-lijn bg-white text-sm"
-                >
-                    <option value="">Which filament?</option>
-                    {filaments.map(f => <option key={f.id} value={f.id}>{f.name}{printPrices[f.id] ? ` · €${printPrices[f.id].toFixed(2)}/g` : ''}</option>)}
-                </select>
-                <div className="flex items-center gap-3">
-                    <input
-                        type="number"
-                        value={printingGrams || ''}
-                        onChange={(e) => setPrintingGrams(Math.max(0, parseFloat(e.target.value) || 0))}
-                        min="0"
-                        step="1"
-                        className="brutalist-input w-full font-mono bg-brand-beige h-9 px-3 border border-lijn focus:border-sky-500 focus:bg-sky-50/10 transition-all outline-none text-sm"
-                        placeholder="0"
-                    />
-                    <div className="text-lg font-semibold whitespace-nowrap tabular-nums text-brand-black">
-                        €{printingCost.toFixed(2)}
-                    </div>
-                </div>
+            <div className="grid grid-cols-1 gap-3">
+                <Machine icon={Zap} tone="text-laser" border="border-laser" name="Lasercut" unit="min"
+                    rate={`${eur(PRICING.LASER_PER_MINUTE)}/min · min. ${eur(PRICING.LASER_MINIMUM)}`}
+                    value={laserMin} onChange={setLaserMin} price={jobPrice(laserMin, PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM)}
+                    onAdd={() => { add({ name: 'Lasertime', quantity: laserMin, unit: 'min', unitPrice: perMinuteWithMinimum(laserMin, PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM) }); setLaserMin(0); }} />
+                <Machine icon={Drill} tone="text-cnc" border="border-cnc" name="CNC" unit="min"
+                    rate={`${eur(PRICING.CNC_PER_MINUTE)}/min · min. ${eur(PRICING.CNC_MINIMUM)}`}
+                    value={cncMin} onChange={setCncMin} price={jobPrice(cncMin, PRICING.CNC_PER_MINUTE, PRICING.CNC_MINIMUM)}
+                    onAdd={() => { add({ name: 'CNC time', quantity: cncMin, unit: 'min', unitPrice: perMinuteWithMinimum(cncMin, PRICING.CNC_PER_MINUTE, PRICING.CNC_MINIMUM) }); setCncMin(0); }} />
+                <Machine icon={Printer} tone="text-blue-600" border="border-blue-600" name="3D print" unit="g"
+                    rate={`${eur(perGram)}/g`} value={grams} onChange={setGrams} price={grams * perGram}
+                    disabledReason={printFilament ? undefined : 'Pick the filament first'}
+                    onAdd={() => {
+                        // The filament is booked as the line's description: analytics per material.
+                        add({ name: '3D printing', quantity: grams, unit: 'g', unitPrice: perGram, person: printFilament?.name });
+                        setGrams(0);
+                    }}>
+                    <select
+                        value={printPart ?? ''}
+                        onChange={e => setPrintPart(e.target.value ? Number(e.target.value) : null)}
+                        aria-label="Filament"
+                        className="w-full h-11 px-2 border border-lijn bg-white text-sm"
+                    >
+                        <option value="">Which filament?</option>
+                        {filaments.map(f => <option key={f.id} value={f.id}>{f.name}{printPrices[f.id] ? ` · ${eur(printPrices[f.id])}/g` : ''}</option>)}
+                    </select>
+                </Machine>
             </div>
         </div>
+    );
+}
+
+function Row({ icon: Icon, tone, title, detail, price, onRemove }: {
+    icon: React.ElementType; tone: string; title: string; detail: string; price: number; onRemove: () => void;
+}) {
+    return (
+        <li className="flex items-center justify-between gap-3 border border-lijn p-3 bg-white">
+            <div className="flex items-center gap-2 min-w-0">
+                <Icon size={18} className={cn('shrink-0', tone)} aria-hidden />
+                <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate">{title}</div>
+                    <div className="text-xs text-grafiet">{detail}</div>
+                </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+                <span className="text-lg font-semibold tabular-nums">{eur(price)}</span>
+                <button onClick={onRemove} className="h-11 px-3 border border-lijn bg-white text-xs font-semibold flex items-center gap-1 hover:bg-red-50 text-red-600">
+                    <X size={14} aria-hidden /> Remove
+                </button>
+            </div>
+        </li>
+    );
+}
+
+/** One machine: type the minutes (or grams), see the price, add it to the checkout. */
+function Machine({ icon: Icon, tone, border, name, unit, rate, value, onChange, price, onAdd, disabledReason, children }: {
+    icon: React.ElementType; tone: string; border: string; name: string; unit: string; rate: string;
+    value: number; onChange: (n: number) => void; price: number; onAdd: () => void; disabledReason?: string; children?: React.ReactNode;
+}) {
+    const id = `extra-${name.replace(/\W/g, '').toLowerCase()}`;
+    const reason = disabledReason ?? (value > 0 ? undefined : `Type the ${unit === 'g' ? 'grams' : 'minutes'} first`);
+    return (
+        <div className={cn('border-t-4 border border-lijn bg-white p-3 flex flex-col gap-2', border)}>
+            <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2 font-semibold"><Icon size={18} className={tone} aria-hidden />{name}</span>
+                <span className="text-xs text-grafiet">{rate}</span>
+            </div>
+            {children}
+            <label htmlFor={id} className="text-xs font-semibold text-grafiet">{unit === 'g' ? 'Grams of your print' : 'Minutes the machine ran'}</label>
+            <div className="flex items-center gap-2">
+                <input
+                    id={id}
+                    type="number"
+                    inputMode="numeric"
+                    value={value || ''}
+                    onChange={e => onChange(Math.max(0, unit === 'g' ? parseFloat(e.target.value) || 0 : parseInt(e.target.value) || 0))}
+                    min="0"
+                    className="w-full h-11 px-3 border border-lijn bg-white text-base font-mono focus:border-brand-black outline-none"
+                    placeholder="0"
+                />
+                <span className="text-sm text-grafiet">{unit}</span>
+                <span className="text-lg font-semibold tabular-nums whitespace-nowrap">{eur(price)}</span>
+            </div>
+            <button
+                onClick={onAdd}
+                disabled={!!reason}
+                title={reason}
+                className="h-11 brutalist-button bg-emerald-400 text-brand-black text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+                <Plus size={16} aria-hidden /> {reason ?? 'Add to cart'}
+            </button>
         </div>
     );
 }

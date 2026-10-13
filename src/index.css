@@ -11,6 +11,11 @@
   --color-lijn: #D8D7D1;              /* rules and borders */
   --color-lijn-zacht: #E9E8E3;
   --color-rood: #B3261E;
+  /* Machines, the same colours as their bands on the touch kiosk. */
+  --color-laser: #A8401A;
+  --color-laser-licht: #F6C9B4;
+  --color-cnc: #34505E;
+  --color-cnc-licht: #C9D3D8;
 
   --font-sans: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
   --font-serif: "Literata", Georgia, "Times New Roman", serif;
