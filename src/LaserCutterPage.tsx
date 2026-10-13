@@ -124,12 +124,22 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
         {sessions.length > 0 && (
           <div role="radiogroup" aria-label="Session to put the time on" className="flex flex-wrap gap-2">
             {sessions.map(s => (
-              <button key={s.id} role="radio" aria-checked={s.id === selected} onClick={() => setSelected(s.id)}
-                className={cn('h-11 px-3 border text-sm font-semibold flex items-center gap-2',
-                  s.id === selected ? 'bg-brand-black text-white border-brand-black' : 'bg-white border-lijn hover:bg-brand-beige-dark')}>
-                {s.id === selected && <Check size={14} aria-hidden />}{s.name}
-                <span className={cn('font-mono text-xs', s.id === selected ? 'text-white/70' : 'text-grafiet')}>{formatDuration(s.total_time)}</span>
-              </button>
+              <div key={s.id} className="flex">
+                <button role="radio" aria-checked={s.id === selected} onClick={() => setSelected(s.id)}
+                  className={cn('h-11 px-3 border text-sm font-semibold flex items-center gap-2',
+                    s.id === selected ? 'bg-brand-black text-white border-brand-black' : 'bg-white border-lijn hover:bg-brand-beige-dark')}>
+                  {s.id === selected && <Check size={14} aria-hidden />}{s.name}
+                  <span className={cn('font-mono text-xs', s.id === selected ? 'text-white/70' : 'text-grafiet')}>{formatDuration(s.total_time)}</span>
+                </button>
+                {/* No laser time on it: nothing to account for, so it goes without a reason. With time: step 3. */}
+                {s.total_time <= 0 && (
+                  <button onClick={() => run(() => laserApi.deleteSession(s.id))} disabled={busy}
+                    aria-label={`Delete the session ${s.name}`}
+                    className="h-11 px-2 border border-l-0 border-lijn bg-white text-red-600 text-xs font-semibold flex items-center gap-1 hover:bg-red-50 disabled:opacity-40">
+                    <Trash2 size={14} aria-hidden /> Delete
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -234,13 +244,6 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
             ))}
           </div>
         )}
-        {/* Sessions without time yet can only be deleted. */}
-        {sessions.filter(s => s.total_time <= 0).map(s => (
-          <div key={s.id} className="flex items-center justify-between gap-2 text-xs text-grafiet">
-            <span>{s.name}: no laser time yet</span>
-            <button className="underline underline-offset-4" onClick={() => run(() => laserApi.deleteSession(s.id))}>Delete</button>
-          </div>
-        ))}
       </Step>
 
       <WoodReminder onShop={onShop} />
