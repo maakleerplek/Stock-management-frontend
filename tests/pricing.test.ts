@@ -158,3 +158,12 @@ describe('machine time minimum per job', () => {
     expect(perMinuteWithMinimum(25, 0.5, 5)).toBe(0.5);
   });
 });
+
+describe('filamentType', () => {
+  it('splits the InvenTree name into type and colour, like the kiosk', async () => {
+    const { filamentType } = await import('../src/sendCodeHandler');
+    expect(filamentType('PLA Matt Black (1 kg)')).toEqual({ type: 'PLA', colour: 'Matt Black' });
+    expect(filamentType('Refill PLA Grey Beige (750 g)')).toEqual({ type: 'PLA', colour: 'Grey Beige (refill)' });
+    expect(filamentType('rTPU 95A Traffic White (1 kg)')).toEqual({ type: 'rTPU 95A', colour: 'Traffic White' });
+  });
+});

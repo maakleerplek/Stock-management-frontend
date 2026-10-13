@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, Zap, Drill, Printer, Plus } from 'lucide-react';
 import { PRICING } from './constants';
-import { isFilament, jobPrice, perMinuteWithMinimum, extraLabel, type ExtraLine } from './sendCodeHandler';
+import { isFilament, filamentType, jobPrice, perMinuteWithMinimum, extraLabel, type ExtraLine } from './sendCodeHandler';
 import { useStock } from './StockContext';
 import { inventreeClient } from './api/inventreeClient';
 import type { LaserSession } from './lib/laserApi';
@@ -38,7 +38,8 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
     const [laserMin, setLaserMin] = useState(0);
     const [cncMin, setCncMin] = useState(0);
     const [grams, setGrams] = useState(0);
-    // 3D print: which filament (part id) and its price per gram (InvenTree parameter, else the default).
+    // 3D print: the type, then its colour (part id); both optional. Price per gram from InvenTree, else the default.
+    const [printType, setPrintType] = useState<string | null>(null);
     const [printPart, setPrintPart] = useState<number | null>(null);
     const [printPrices, setPrintPrices] = useState<Record<number, number>>({});
     useEffect(() => { void inventreeClient.getPrintPricePerGram().then(setPrintPrices); }, []);
@@ -46,10 +47,15 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
     const filaments = useMemo(() => {
         const byPart = new Map<number, string>();
         for (const i of items) if (i.part_id != null && isFilament(i)) byPart.set(i.part_id, i.name);
-        return [...byPart].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+        return [...byPart].map(([id, name]) => ({ id, name, ...filamentType(name) })).sort((a, b) => a.name.localeCompare(b.name));
     }, [items]);
+    const types = [...new Set(filaments.map(f => f.type))].sort((a, b) => a.localeCompare(b));
+    const priceOf = (id: number) => printPrices[id] || PRICING.PRINTING_PER_GRAM;
     const printFilament = filaments.find(f => f.id === printPart);
-    const perGram = (printPart != null && printPrices[printPart]) || PRICING.PRINTING_PER_GRAM;
+    // Only a type: its cheapest filament. Only grams: the default price.
+    const ofType = filaments.filter(f => f.type === printType);
+    const perGram = printFilament ? priceOf(printFilament.id)
+        : ofType.length ? Math.min(...ofType.map(f => priceOf(f.id))) : PRICING.PRINTING_PER_GRAM;
 
     useEffect(() => {
         localStorage.setItem(EXTRAS_STORAGE_KEY, JSON.stringify(added));
@@ -106,24 +112,41 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
                     onAdd={() => { add({ name: 'CNC time', quantity: cncMin, unit: 'min', unitPrice: perMinuteWithMinimum(cncMin, PRICING.CNC_PER_MINUTE, PRICING.CNC_MINIMUM) }); setCncMin(0); }} />
                 <Machine icon={Printer} tone="text-blue-600" border="border-blue-600" name="3D print" unit="g"
                     rate={`${eur(perGram)}/g`} value={grams} onChange={setGrams} price={grams * perGram}
-                    disabledReason={printFilament ? undefined : 'Pick the filament first'}
                     onAdd={() => {
-                        // The filament is booked as the line's description: analytics per material.
-                        add({ name: '3D printing', quantity: grams, unit: 'g', unitPrice: perGram, person: printFilament?.name });
+                        // Booked as the line's description, for the analytics per filament: the filament,
+                        // only its type, or nothing.
+                        add({ name: '3D printing', quantity: grams, unit: 'g', unitPrice: perGram, person: printFilament?.name ?? printType ?? undefined });
                         setGrams(0);
                     }}>
-                    <select
-                        value={printPart ?? ''}
-                        onChange={e => setPrintPart(e.target.value ? Number(e.target.value) : null)}
-                        aria-label="Filament"
-                        className="w-full h-11 px-2 border border-lijn bg-white text-sm"
-                    >
-                        <option value="">Which filament?</option>
-                        {filaments.map(f => <option key={f.id} value={f.id}>{f.name}{printPrices[f.id] ? ` · ${eur(printPrices[f.id])}/g` : ''}</option>)}
-                    </select>
+                    <Chips label="Filament (optional)" options={types.map(t => ({ key: t, text: t }))} value={printType}
+                        onChange={t => { setPrintType(t); setPrintPart(null); }} />
+                    {printType && (
+                        <Chips label="Colour (optional)" options={ofType.map(f => ({ key: String(f.id), text: f.colour, sub: `${eur(priceOf(f.id))}/g` }))}
+                            value={printPart != null ? String(printPart) : null} onChange={k => setPrintPart(k ? Number(k) : null)} />
+                    )}
                 </Machine>
             </div>
         </div>
+    );
+}
+
+/** Tap-to-pick buttons, like the shop's sections; tapping the picked one again clears it. */
+function Chips({ label, options, value, onChange }: {
+    label: string; options: { key: string; text: string; sub?: string }[]; value: string | null; onChange: (key: string | null) => void;
+}) {
+    return (
+        <fieldset>
+            <legend className="text-xs font-semibold text-grafiet mb-1">{label}</legend>
+            <div className="flex flex-wrap gap-1.5">
+                {options.map(o => (
+                    <button key={o.key} type="button" aria-pressed={value === o.key} onClick={() => onChange(value === o.key ? null : o.key)}
+                        className={cn('min-h-11 px-3 border text-sm font-semibold text-left',
+                            value === o.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-lijn hover:bg-blue-100')}>
+                        {o.text}{o.sub && <span className={cn('ml-1.5 text-xs font-normal', value === o.key ? 'text-white/80' : 'text-grafiet')}>{o.sub}</span>}
+                    </button>
+                ))}
+            </div>
+        </fieldset>
     );
 }
 
