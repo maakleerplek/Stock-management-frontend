@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Drill, Clock, Euro, Hourglass } from 'lucide-react';
+import { Drill, Clock, Euro, Hourglass, Users } from 'lucide-react';
 import { cncStats, type ServiceLine } from '../lib/services';
 import { Section, Empty, StatCards } from './ui';
 import type { DateRange } from './AnalyticsPage';
@@ -18,10 +18,11 @@ export default function CncTab({ serviceLines, loading, dateRange }: { serviceLi
   return (
     <div className="space-y-6">
       <StatCards cards={[
-        { label: 'Jobs paid', value: cnc.jobs.length, icon: Drill, bg: 'bg-brand-beige-dark' },
+        { label: 'Jobs paid', value: cnc.jobs.filter(j => !j.volunteer).length, icon: Drill, bg: 'bg-brand-beige-dark' },
         { label: 'CNC time paid', value: fmtMinutes(cnc.minutes), icon: Clock, bg: 'bg-brand-beige-dark' },
         { label: 'Revenue', value: `€${cnc.revenue.toFixed(2)}`, icon: Euro, bg: 'bg-green-50' },
-        { label: 'Avg per job', value: cnc.jobs.length ? fmtMinutes(cnc.avgMinutes) : '–', icon: Hourglass, bg: 'bg-brand-beige-dark' },
+        { label: 'Avg per paid job', value: cnc.minutes ? fmtMinutes(cnc.avgMinutes) : '–', icon: Hourglass, bg: 'bg-brand-beige-dark' },
+        { label: 'Volunteer use (free, at the kiosk)', value: fmtMinutes(cnc.volunteerMinutes), icon: Users, bg: 'bg-brand-beige-dark' },
       ]} />
       <Section title="CNC jobs" icon={Drill}>
         {cnc.jobs.length === 0 ? <Empty text="No CNC time paid in this period. It is paid in the checkout under CNC, or at the touch kiosk." /> : (
@@ -41,7 +42,7 @@ export default function CncTab({ serviceLines, loading, dateRange }: { serviceLi
                     <td className="py-1.5 tabular-nums whitespace-nowrap">{j.date ? new Date(j.date).toLocaleDateString('nl-BE') : '–'}</td>
                     <td className="py-1.5 font-mono">{j.order || '–'}</td>
                     <td className="py-1.5 text-right tabular-nums">{fmtMinutes(j.minutes)}</td>
-                    <td className="py-1.5 text-right tabular-nums">€{j.revenue.toFixed(2)}</td>
+                    <td className="py-1.5 text-right tabular-nums">{j.volunteer ? 'Volunteer' : `€${j.revenue.toFixed(2)}`}</td>
                   </tr>
                 ))}
               </tbody>

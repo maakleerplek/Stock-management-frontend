@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Printer, Euro, Weight, Package } from 'lucide-react';
+import { Printer, Euro, Weight, Package, Users } from 'lucide-react';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { itemAnalytics } from '../lib/itemAnalytics';
-import { laserLedger, printsByMaterial, type ServiceLine } from '../lib/services';
+import { laserLedger, printsByMaterial, volunteerPrints, type ServiceLine } from '../lib/services';
 import { buildTotals, type PrintMaterial, type Printing } from '../lib/totals';
 import { PRICING } from '../constants';
 import { inventreeClient } from '../api/inventreeClient';
@@ -36,6 +36,7 @@ export default function PrintTab({ trackingEntries, serviceLines, loading, dateR
     pricePerGram,
   ).printing, [trackingEntries, partLookup, serviceLines, days, pricePerGram]);
 
+  const vol = volunteerPrints(serviceLines, days);
   if (loading) {
     return <div className="flex items-center justify-center p-8"><span className="text-xs font-semibold text-brand-black/50 animate-pulse">Loading 3D printing data...</span></div>;
   }
@@ -57,6 +58,7 @@ export default function PrintTab({ trackingEntries, serviceLines, loading, dateR
         { label: 'Paid at the till', value: g(p.paidGrams), sub: eur(p.paidRevenue), icon: Euro, bg: 'bg-green-50' },
         { label: 'Avg price per gram', value: p.paidGrams ? `€${(p.paidRevenue / p.paidGrams).toFixed(3)}` : '–', icon: Weight, bg: 'bg-brand-beige-dark' },
         { label: 'Filament taken for the printers', value: g(p.grams), sub: `cost ${eur(p.cost)}`, icon: Package, bg: p.grams > p.paidGrams ? 'bg-amber-50' : 'bg-brand-beige-dark' },
+        { label: 'Volunteer prints (free, at the kiosk)', value: g(vol.grams), sub: `${vol.prints} print${vol.prints === 1 ? '' : 's'}`, icon: Users, bg: 'bg-brand-beige-dark' },
       ]} />
       <Section title="3D printing per filament" icon={Printer}>
         <div className="border border-lijn overflow-x-auto">

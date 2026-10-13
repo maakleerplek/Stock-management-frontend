@@ -1,4 +1,4 @@
-"""SQLite storage: live laser data (sessions, time cleared without a session).
+"""SQLite storage: live machine-use data (laser sessions, time cleared without a session).
 
 Lasting data is in InvenTree and so in its backup: the material library
 (inventree.py) and the "how did it go" reports (feedback.py).
@@ -8,7 +8,8 @@ import sqlite3
 import threading
 
 DATA_DIR = os.environ.get('DATA_DIR', os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(DATA_DIR, 'laser.db')
+DB_PATH = os.path.join(DATA_DIR, 'machineusage.db')
+OLD_NAME = 'laser.db'   # its name until 2026-10; moved once on start
 
 # Less laser time than this (it shows as "0 min") is no real use of the laser,
 # just a test pulse. It is not logged as thrown away and not kept as a session.
@@ -18,9 +19,20 @@ _lock = threading.Lock()
 _conn: sqlite3.Connection | None = None
 
 
+def move_old_name(path: str) -> None:
+    """laser.db (with its WAL files) becomes machineusage.db, unless that exists already."""
+    old = os.path.join(os.path.dirname(path) or '.', OLD_NAME)
+    if os.path.exists(path) or not os.path.exists(old):
+        return
+    for suffix in ('', '-wal', '-shm'):
+        if os.path.exists(old + suffix):
+            os.replace(old + suffix, path + suffix)
+
+
 def connect(path: str = DB_PATH) -> sqlite3.Connection:
     global _conn
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+    move_old_name(path)
     _conn = sqlite3.connect(path, check_same_thread=False)
     _conn.row_factory = sqlite3.Row
     _conn.execute('PRAGMA journal_mode = WAL')
