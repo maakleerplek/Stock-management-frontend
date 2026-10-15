@@ -2,8 +2,10 @@
 
 Time tracking comes from LC-logger (branch server-esp, server/app.py): the
 ESP32 on the laser (LC-logger esp/monitorOTA, 10.72.3.81) sends UDP straight
-to this service on port 5005, {"state": "ON"|"OFF"} on every
-change and {"type": "heartbeat"} every 10 s, which we answer with an ACK.
+to this service on port 5005, {"state": "ON"|"OFF", "on_ms": …, "boot": …}
+every second and on every change, and {"type": "heartbeat"} every 10 s, which
+we answer with an ACK. The ESP is the clock: on_ms is its laser-on total since
+boot, and we add the difference, so a lost packet costs nothing.
 Laser-on time adds up in a global counter until someone assigns it to their
 session. Settings advice comes from LaserLog (see recommend.py).
 
@@ -50,6 +52,8 @@ laser_on = False
 on_since: datetime | None = None
 esp_ip: str | None = None
 esp_last_seen = 0.0
+esp_boot = None          # boot id and on_ms of the last counter packet
+esp_on_ms = 0
 
 
 def current_time() -> float:
@@ -73,7 +77,7 @@ def set_laser(on: bool):
     global global_time, laser_on, on_since
     with state_lock:
         now = datetime.now()
-        if laser_on and not on:
+        if laser_on and not on and on_since:
             global_time += (now - on_since).total_seconds()
             on_since = None
         elif not laser_on and on:
@@ -81,6 +85,25 @@ def set_laser(on: bool):
         laser_on = on
         payload = time_payload()
     socketio.emit('time_update', payload)
+
+
+def esp_counter(on: bool, on_ms: int, boot):
+    """Add the laser-on ms the ESP counted since its last packet that reached us."""
+    global global_time, laser_on, on_since, esp_boot, esp_on_ms
+    with state_lock:
+        if boot != esp_boot:
+            # ESP rebooted: its counter restarted at 0. Right after our own start
+            # we don't know what was already counted, so only take the baseline.
+            added = on_ms if esp_boot is not None else 0
+        else:
+            added = max(0, on_ms - esp_on_ms)
+        esp_boot, esp_on_ms = boot, on_ms
+        changed = added > 0 or laser_on != on or on_since is not None
+        global_time += added / 1000
+        laser_on, on_since = on, None  # the counter is the time, nothing runs here
+        payload = time_payload()
+    if changed:
+        socketio.emit('time_update', payload)
 
 
 def take_time() -> float:
@@ -108,7 +131,9 @@ def udp_server():
             esp_ip, esp_last_seen = addr[0], time.time()
             if message.get('type') == 'heartbeat':
                 sock.sendto(json.dumps({'type': 'ack'}).encode(), addr)
-            elif message.get('state') in ('ON', 'OFF'):
+            elif message.get('state') in ('ON', 'OFF') and 'on_ms' in message:
+                esp_counter(message['state'] == 'ON', int(message['on_ms']), message.get('boot'))
+            elif message.get('state') in ('ON', 'OFF'):  # old firmware: time by arrival
                 set_laser(message['state'] == 'ON')
         except Exception as e:
             print(f'[udp] {e}')

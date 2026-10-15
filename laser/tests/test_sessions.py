@@ -60,6 +60,20 @@ def test_silent_esp_closes_the_running_block(tmp_path):
     laser.global_time = 0.0
 
 
+def test_esp_counter_survives_lost_packets():
+    laser.global_time, laser.esp_boot = 0.0, None
+    laser.esp_counter(True, 1000, 7)       # first packet after our start: baseline
+    assert laser.global_time == 0
+    laser.esp_counter(False, 61000, 7)     # packets in between lost, OFF still counts
+    assert abs(laser.global_time - 60) < 0.001 and laser.laser_on is False
+    laser.esp_counter(False, 61000, 7)     # repeats add nothing
+    laser.esp_counter(False, 500, 7)       # never negative
+    assert abs(laser.global_time - 60) < 0.001
+    laser.esp_counter(True, 5000, 8)       # ESP rebooted: its whole new count
+    assert abs(laser.global_time - 65) < 0.001 and laser.on_since is None
+    laser.global_time, laser.esp_boot, laser.laser_on = 0.0, None, False
+
+
 def test_time_cannot_go_to_a_paid_session(tmp_path):
     c = client(tmp_path)
     sid = c.post('/laser/api/sessions', json={'name': 'Ruben'}).json['id']
