@@ -113,7 +113,9 @@ Volunteers sign in with their maakleerplek account through Authentik
 (`auth.maakleerplek.be`); being signed in is what makes someone a volunteer.
 oauth2-proxy runs the sign-in next to the app, and nginx asks it on every
 volunteer-only call. Signing out ends the Authentik session too, so a shared
-till is safe to hand over. The sign-in only works on `PUBLIC_URL`.
+till is safe to hand over. The sign-in works on every address registered as a
+redirect URI in Authentik: `stock.int.maakleerplek.be` on site and
+`https://<tailscale IP>:8086` over the VPN.
 
 Without a volunteer sign-in the app can read the catalogue and run a checkout,
 nothing else. The rules are in `src/lib/apiAccess.ts` and

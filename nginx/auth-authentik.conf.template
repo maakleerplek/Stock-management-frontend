@@ -16,7 +16,7 @@ location /oauth/ {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Host $http_host;   # with the port, for the callback URL
     proxy_set_header X-Auth-Request-Redirect $request_uri;
     proxy_set_header Authorization "";
     # The session cookie carries the ID token and can be large.
@@ -32,7 +32,7 @@ location = /oauth/auth {
     proxy_set_header Content-Length "";
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Host $http_host;   # with the port, for the callback URL
     proxy_set_header Authorization "";
     proxy_buffer_size 16k;
     proxy_buffers 8 16k;
