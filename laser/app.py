@@ -54,6 +54,7 @@ esp_ip: str | None = None
 esp_last_seen = 0.0
 esp_boot = None          # boot id and on_ms of the last counter packet
 esp_on_ms = 0
+esp_counter_at = 0.0     # when that packet came in
 
 
 def current_time() -> float:
@@ -89,15 +90,22 @@ def set_laser(on: bool):
 
 def esp_counter(on: bool, on_ms: int, boot):
     """Add the laser-on ms the ESP counted since its last packet that reached us."""
-    global global_time, laser_on, on_since, esp_boot, esp_on_ms
+    global global_time, laser_on, on_since, esp_boot, esp_on_ms, esp_counter_at
+    now = time.time()
     with state_lock:
         if boot != esp_boot:
             # ESP rebooted: its counter restarted at 0. Right after our own start
             # we don't know what was already counted, so only take the baseline.
             added = on_ms if esp_boot is not None else 0
+            print(f'[esp] boot {boot}: counter at {on_ms / 1000:.1f} s, added {added / 1000:.1f} s')
         else:
             added = max(0, on_ms - esp_on_ms)
-        esp_boot, esp_on_ms = boot, on_ms
+            # A packet comes every second: a longer gap means packets got lost.
+            if now - esp_counter_at > 3:
+                print(f'[esp] {now - esp_counter_at:.0f} s without packets, caught up {added / 1000:.1f} s')
+        if on != laser_on:
+            print(f'[esp] {"ON" if on else "OFF"}: counter {on_ms / 1000:.1f} s, unassigned {global_time + added / 1000:.1f} s')
+        esp_boot, esp_on_ms, esp_counter_at = boot, on_ms, now
         changed = added > 0 or laser_on != on or on_since is not None
         global_time += added / 1000
         laser_on, on_since = on, None  # the counter is the time, nothing runs here
@@ -134,6 +142,7 @@ def udp_server():
             elif message.get('state') in ('ON', 'OFF') and 'on_ms' in message:
                 esp_counter(message['state'] == 'ON', int(message['on_ms']), message.get('boot'))
             elif message.get('state') in ('ON', 'OFF'):  # old firmware: time by arrival
+                print(f"[esp] old firmware packet: {message['state']}")
                 set_laser(message['state'] == 'ON')
         except Exception as e:
             print(f'[udp] {e}')

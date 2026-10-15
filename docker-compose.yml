@@ -1,3 +1,10 @@
+# Docker keeps container logs forever by default; cap them (10 MB x 3 per service).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   frontend:
     build:
@@ -51,6 +58,7 @@ services:
       # entrypoint.sh allows AUTH_MODE=password only on the test server's host.
       - /etc/hostname:/host/hostname:ro
     restart: unless-stopped
+    logging: *logging
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
@@ -68,6 +76,7 @@ services:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.4
     container_name: stock-oauth2-proxy
     restart: unless-stopped
+    logging: *logging
     environment:
       OAUTH2_PROXY_PROVIDER: oidc
       OAUTH2_PROXY_PROVIDER_DISPLAY_NAME: Maakleerplek
@@ -120,6 +129,7 @@ services:
     volumes:
       - laser-data:/data
     restart: unless-stopped
+    logging: *logging
 
 volumes:
   ssl-certs:
