@@ -82,6 +82,7 @@ export default defineConfig(({ mode }) => {
       svgr(),
       VitePWA({
         registerType: 'autoUpdate',
+        injectRegister: false, // main.tsx registers it, except in the laser timer bar
         includeAssets: ['favicon.png', 'favicon.ico', 'apple-touch-icon.png'],
         workbox: {
           // The service worker answers page navigations with the app shell.
