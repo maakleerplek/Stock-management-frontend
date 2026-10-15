@@ -18,6 +18,22 @@ export interface ServiceLine {
 // lost and returned orders are not money in.
 const COUNTED = new Set([20, 30]);
 
+/** One row in "Recent activity": a stock movement or a paid machine service. */
+export type Activity<M> = { kind: 'stock'; date: string; move: M } | { kind: 'service'; date: string; line: ServiceLine };
+
+/**
+ * Stock movements and machine services together, newest first. Services only
+ * carry their order's day: they sort above that day's movements, so a fresh
+ * payment is not pushed out by the drinks sold the same day.
+ */
+export function mergeActivity<M extends { date: string }>(moves: M[], lines: ServiceLine[], n = 5): Activity<M>[] {
+  const key = (a: Activity<M>) => (a.kind === 'service' ? `${a.date} 99:99` : a.date);
+  return [
+    ...moves.map(move => ({ kind: 'stock' as const, date: move.date, move })),
+    ...lines.filter(l => COUNTED.has(l.orderStatus)).map(line => ({ kind: 'service' as const, date: line.date, line })),
+  ].sort((a, b) => key(b).localeCompare(key(a))).slice(0, n);
+}
+
 /** A €0 machine line: a volunteer used the machine at the touch kiosk (VOLUNTEER on). Not money in. */
 const isVolunteer = (line: ServiceLine) => line.price <= 0;
 

@@ -40,6 +40,7 @@ import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, Pack
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import { describeMovement, isShownMovement } from './lib/stockHistory';
+import { mergeActivity, type Activity } from './lib/services';
 import './index.css';
 
 export type AppView = 'checkout' | 'browse' | 'laser' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
@@ -87,7 +88,7 @@ function AppContent() {
   const [suppliers, setSuppliers] = useState<SelectOption[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InvenTreePartListResponse['results']>([]);
   const [lowStockOrderPartIds, setLowStockOrderPartIds] = useState<number[]>([]);
-  const [recentMovements, setRecentMovements] = useState<InvenTreeTrackingEntry[]>([]);
+  const [recentActivity, setRecentActivity] = useState<Activity<InvenTreeTrackingEntry>[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
   const [mobileCheckoutTab, setMobileCheckoutTab] = useState<'scan' | 'cart'>('scan');
   // The product grid's category; "Buy wood" on the laser page opens it on the wood.
@@ -179,12 +180,14 @@ function AppContent() {
 
       if (isVolunteerMode) {
         console.log('[App] Fetching dashboard metrics...');
-        const [lowStockResp, trackingResp] = await Promise.all([
+        const [lowStockResp, trackingResp, serviceLines] = await Promise.all([
           inventreeClient.getLowStockParts(),
           inventreeClient.getStockTracking(20),
+          // Machine payments are extra lines, not stock: without them the list still works.
+          inventreeClient.getRecentServiceLines(10).catch(() => []),
         ]);
         setLowStockItems(lowStockResp.results || []);
-        setRecentMovements((trackingResp.results || []).filter(isShownMovement).slice(0, 5));
+        setRecentActivity(mergeActivity((trackingResp.results || []).filter(isShownMovement), serviceLines));
       }
 
     } catch (error) {
@@ -681,9 +684,28 @@ function AppContent() {
                           Recent activity
                         </h3>
                         <div className="border border-lijn overflow-hidden">
-                          {recentMovements.length > 0 ? (
+                          {recentActivity.length > 0 ? (
                             <div className="divide-y divide-lijn">
-                              {recentMovements.map((move) => {
+                              {recentActivity.map((activity, i) => {
+                                if (activity.kind === 'service') {
+                                  const { line } = activity;
+                                  const total = line.quantity * line.price;
+                                  return (
+                                    <div key={`service-${i}-${line.order}`} className="p-3 flex justify-between items-center bg-amber-50">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className="text-base leading-none flex-shrink-0 text-amber-600">€</span>
+                                        <div className="min-w-0">
+                                          <span className="text-xs font-bold">{line.reference} ×{line.quantity}</span>
+                                          <p className="text-[10px] text-brand-black/60 mt-0.5 truncate">
+                                            {total > 0 ? `paid €${total.toFixed(2)}` : 'volunteer use'}{line.description && ` · ${line.description}`}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <span className="text-[10px] font-mono text-brand-black/50 flex-shrink-0 ml-2">{line.date}</span>
+                                    </div>
+                                  );
+                                }
+                                const { move } = activity;
                                 const { quantity, what, direction } = describeMovement(move);
                                 const isAdd = direction === 'in';
                                 const isRemove = direction === 'out';

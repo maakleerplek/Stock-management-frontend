@@ -124,6 +124,11 @@ export async function handleCheckout(lines: CheckoutLine[], extras: ExtraLine[])
         void sendChangelogEvent('checkout', l.name, l.quantity, 'checkout',
             l.unitPrice > 0 ? parseFloat((l.unitPrice * l.quantity).toFixed(2)) : undefined);
     }
+    // Same shape as the touch kiosk's ("Lasertime · 15 min" ×1). No person: the TV is public.
+    for (const e of extras) {
+        void sendChangelogEvent('checkout', `${e.name} · ${e.quantity} ${e.unit}`, 1, 'checkout',
+            e.unitPrice > 0 ? parseFloat((e.unitPrice * e.quantity).toFixed(2)) : undefined);
+    }
     return result.reference;
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { laserStats, lostLaserStats, laserLedger, laserSessionList, sessionUse, cncStats, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../src/lib/services';
+import { mergeActivity, laserStats, lostLaserStats, laserLedger, laserSessionList, sessionUse, cncStats, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../src/lib/services';
 
 const line = (over: Partial<ServiceLine>): ServiceLine => ({
   reference: 'Lasertime', description: '', quantity: 10, price: 0.5, date: '2026-09-20', orderStatus: 30, ...over,
@@ -154,5 +154,13 @@ describe('volunteer machine use (€0 lines from the kiosk)', () => {
     expect(volunteerPrints(lines, undefined, now)).toEqual({ grams: 40, prints: 1 });
     const s = laserSessionList([{ name: 'Vol', created: '2026-09-20', total_time: 360, paid_at: '2026-09-20', order_ref: 'SO-9' }], [], lines, undefined, now);
     expect(s[0].status).toBe('volunteer');
+  });
+});
+
+describe('mergeActivity', () => {
+  it('puts a service above the same day\'s movements and drops cancelled orders', () => {
+    const moves = [{ date: '2026-10-15 16:57' }, { date: '2026-10-14 10:00' }];
+    const merged = mergeActivity(moves, [line({ date: '2026-10-15' }), line({ date: '2026-10-15', orderStatus: 40 }), line({ date: '2026-10-13' })], 3);
+    expect(merged.map(a => a.kind)).toEqual(['service', 'stock', 'stock']);
   });
 });

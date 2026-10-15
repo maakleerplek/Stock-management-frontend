@@ -1176,17 +1176,33 @@ export class InvenTreeClient {
      * its order's status and dates. Pages through the API like the tracking log.
      */
     async getAllServiceLines(pageSize: number = 500): Promise<ServiceLine[]> {
+        const all: ServiceLine[] = [];
+        for (let offset = 0; ; offset += pageSize) {
+            const page = await this.serviceLinePage(pageSize, offset);
+            all.push(...page.lines);
+            if (page.lines.length < pageSize || all.length >= page.count) return all;
+        }
+    }
+
+    /** The newest extra lines, newest first. The endpoint ignores ?ordering, so read the last page. */
+    async getRecentServiceLines(limit: number = 10): Promise<ServiceLine[]> {
+        const { count } = await this.serviceLinePage(1, 0);
+        const { lines } = await this.serviceLinePage(limit, Math.max(0, count - limit));
+        return lines.reverse();
+    }
+
+    private async serviceLinePage(limit: number, offset: number): Promise<{ count: number; lines: ServiceLine[] }> {
         type Row = {
             reference: string; description: string; quantity: number | string; price: number | string | null;
             order_detail?: { reference?: string; status: number; creation_date?: string | null; issue_date?: string | null; shipment_date?: string | null };
         };
-        const all: ServiceLine[] = [];
-        for (let offset = 0; ; offset += pageSize) {
-            const path = `/order/so-extra-line/?limit=${pageSize}&offset=${offset}&order_detail=true`;
-            const page = await this.request<{ count: number; results: Row[] }>(path, 'GET', undefined, false, false);
-            for (const r of page.results) {
+        const path = `/order/so-extra-line/?limit=${limit}&offset=${offset}&order_detail=true`;
+        const page = await this.request<{ count: number; results: Row[] }>(path, 'GET', undefined, false, false);
+        return {
+            count: page.count,
+            lines: page.results.map(r => {
                 const o = r.order_detail;
-                all.push({
+                return {
                     reference: r.reference,
                     description: r.description ?? '',
                     quantity: Number(r.quantity) || 0,
@@ -1194,10 +1210,9 @@ export class InvenTreeClient {
                     date: o?.shipment_date || o?.issue_date || o?.creation_date || '',
                     orderStatus: o?.status ?? 0,
                     order: o?.reference ?? '',
-                });
-            }
-            if (page.results.length < pageSize || all.length >= page.count) return all;
-        }
+                };
+            }),
+        };
     }
 
     /**
