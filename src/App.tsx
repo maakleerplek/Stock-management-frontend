@@ -144,6 +144,19 @@ function AppContent() {
     return () => { clearTimeout(timer); events.forEach(e => window.removeEventListener(e, arm)); };
   }, [checkoutResult, currentPage]);
 
+  // The laser timer bar never restarts, so it would keep the build it started
+  // with: on the Lasercutter tab, reload once index.html points at a new bundle.
+  useEffect(() => {
+    if (!('LASER_SERVER' in window) || currentPage !== 'laser') return;
+    const bundle = (html: string) => html.match(/assets\/index-[\w-]+\.js/)?.[0];
+    const mine = bundle(document.documentElement.outerHTML);
+    const id = window.setInterval(async () => {
+      const latest = bundle(await fetch('/', { cache: 'no-store' }).then(r => r.text()).catch(() => ''));
+      if (mine && latest && latest !== mine) window.location.reload();
+    }, 5 * 60_000);
+    return () => clearInterval(id);
+  }, [currentPage]);
+
   // Warn before refresh if checkout result or any create modal is active
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {

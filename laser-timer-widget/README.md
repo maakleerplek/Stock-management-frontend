@@ -2,7 +2,7 @@
 
 The stock app's Lasercutter page (`#laser`) in a bar docked on the right edge of the lasercutter PC, so the laser timer and Assign & pay are always in view.
 
-- **It's just the website.** Change the Lasercutter page in the stock app, deploy, and the PC shows it. No reinstall needed.
+- **It's just the website.** Change the Lasercutter page in the stock app, deploy, and the bar reloads itself within 5 minutes (when on the Lasercutter tab). No reinstall needed.
 - Always on top, full height, 400 px wide. Windows reserves that strip (it is an app bar), so a maximized LightBurn stops next to it.
 - It can't be closed or minimized (Alt+F4 and the X do nothing). The only way is ending `laser-timer.exe` in Task Manager. It starts again at the next login.
 
