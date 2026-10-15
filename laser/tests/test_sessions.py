@@ -157,3 +157,13 @@ def test_old_laser_db_is_moved_to_its_new_name(tmp_path):
     db.connect(str(new))
     assert not old.exists()
     assert [r['name'] for r in db.query('SELECT name FROM sessions')] == ['Ruben']
+
+
+def test_rename_open_session_only(tmp_path):
+    c = client(tmp_path)
+    sid = c.post('/laser/api/sessions', json={'name': 'Ruben'}).json['id']
+    assert c.patch(f'/laser/api/sessions/{sid}', json={'name': 'x'}).status_code == 400
+    assert c.patch(f'/laser/api/sessions/{sid}', json={'name': '  Box for Jan  '}).status_code == 200
+    assert c.get('/laser/api/sessions').json['sessions'][0]['name'] == 'Box for Jan'
+    db.execute('UPDATE sessions SET paid_at = ? WHERE id = ?', ('2026-10-15', sid))
+    assert c.patch(f'/laser/api/sessions/{sid}', json={'name': 'Later'}).status_code == 404

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Zap, X, Plus, RotateCcw, ArrowRightLeft, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check } from 'lucide-react';
+import { Zap, X, Plus, RotateCcw, ArrowRightLeft, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Pencil } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { useStock } from './StockContext';
 import { useVolunteer } from './VolunteerContext';
@@ -66,6 +66,8 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const [busy, setBusy] = useState(false);
   // What the throw-away confirm is open for: the unassigned time or one session.
   const [discarding, setDiscarding] = useState<'unassigned' | string | null>(null);
+  // The session whose name is being edited, and the new name.
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
 
   // Keep a valid selection when sessions come and go.
   useEffect(() => {
@@ -83,6 +85,11 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
     const { id } = await laserApi.createSession(newName);
     setNewName('');
     setSelected(id);
+  });
+
+  const renameSession = () => renaming && run(async () => {
+    await laserApi.renameSession(renaming.id, renaming.name);
+    setRenaming(null);
   });
 
   const laserOn = time?.laser_state ?? false;
@@ -123,13 +130,30 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
         </form>
         {sessions.length > 0 && (
           <div role="radiogroup" aria-label="Session to put the time on" className="flex flex-wrap gap-2">
-            {sessions.map(s => (
+            {sessions.map(s => renaming?.id === s.id ? (
+              <form key={s.id} className="flex" onSubmit={e => { e.preventDefault(); renameSession(); }}>
+                <label htmlFor="laser-rename" className="sr-only">New name for {s.name}</label>
+                <input id="laser-rename" autoFocus value={renaming.name} maxLength={80}
+                  onChange={e => setRenaming({ id: s.id, name: e.target.value })}
+                  onKeyDown={e => { if (e.key === 'Escape') setRenaming(null); }}
+                  className="h-11 w-48 min-w-0 px-3 border border-lijn bg-white text-base" />
+                <button type="submit" disabled={busy || renaming.name.trim().length < 2}
+                  className="h-11 px-3 border border-l-0 border-lijn bg-brand-black text-white text-xs font-semibold disabled:opacity-40">Save</button>
+                <button type="button" onClick={() => setRenaming(null)} aria-label="Cancel renaming"
+                  className="h-11 px-2 border border-l-0 border-lijn bg-white"><X size={14} aria-hidden /></button>
+              </form>
+            ) : (
               <div key={s.id} className="flex">
                 <button role="radio" aria-checked={s.id === selected} onClick={() => setSelected(s.id)}
                   className={cn('h-11 px-3 border text-sm font-semibold flex items-center gap-2',
                     s.id === selected ? 'bg-brand-black text-white border-brand-black' : 'bg-white border-lijn hover:bg-brand-beige-dark')}>
                   {s.id === selected && <Check size={14} aria-hidden />}{s.name}
                   <span className={cn('font-mono text-xs', s.id === selected ? 'text-white/70' : 'text-grafiet')}>{formatDuration(s.total_time)}</span>
+                </button>
+                <button onClick={() => setRenaming({ id: s.id, name: s.name })} disabled={busy}
+                  aria-label={`Rename the session ${s.name}`}
+                  className="h-11 px-2 border border-l-0 border-lijn bg-white text-grafiet hover:bg-brand-beige-dark disabled:opacity-40">
+                  <Pencil size={14} aria-hidden />
                 </button>
                 {/* No laser time on it: nothing to account for, so it goes without a reason. With time: step 3. */}
                 {s.total_time <= 0 && (

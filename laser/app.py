@@ -228,6 +228,18 @@ def create_session():
     return {'id': sid}
 
 
+@app.patch('/laser/api/sessions/<sid>')
+def rename_session(sid):
+    name = ((request.json or {}).get('name') or '').strip()
+    if len(name) < 2:
+        return {'error': 'Enter at least 2 characters'}, 400
+    if not db.query('SELECT id FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,)):
+        return {'error': 'Session not found'}, 404
+    db.execute('UPDATE sessions SET name = ? WHERE id = ?', (name[:80], sid))
+    broadcast_sessions()
+    return {'ok': True}
+
+
 def reason_from_body() -> str | None:
     return (((request.get_json(silent=True) or {}).get('reason') or '').strip()[:200]) or None
 

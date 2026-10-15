@@ -151,6 +151,7 @@ async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T>
 export const laserApi = {
   config: () => call<{ costPerMin: number; maxPower: number; simulate: boolean }>('/config'),
   createSession: (name: string) => call<{ id: string }>('/sessions', 'POST', { name }),
+  renameSession: (id: string, name: string) => call('/sessions/' + encodeURIComponent(id), 'PATCH', { name }),
   deleteSession: (id: string, reason?: string, kind?: DiscardKind) => call('/sessions/' + encodeURIComponent(id), 'DELETE', { reason, kind }),
   setCheckout: (id: string, on: boolean) => call(`/sessions/${encodeURIComponent(id)}/checkout`, 'POST', { on }),
   markPaid: (id: string, order: string) => call(`/sessions/${encodeURIComponent(id)}/paid`, 'POST', { order }),
