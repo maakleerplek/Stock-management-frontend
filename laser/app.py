@@ -57,6 +57,24 @@ esp_on_ms = 0
 esp_counter_at = 0.0     # when that packet came in
 
 
+def save_state():
+    """Keep the unassigned time and the ESP counter in the database (call with state_lock held):
+    a restart or deploy used to lose the time not yet on a session."""
+    db.save_state({'global_time': global_time, 'esp_boot': esp_boot, 'esp_on_ms': esp_on_ms})
+
+
+def restore_state():
+    """Back where the last run stopped. With the ESP's counter position known, the time it
+    counted while this service was down is added with its next packet."""
+    global global_time, esp_boot, esp_on_ms
+    saved = db.load_state()
+    with state_lock:
+        global_time = float(saved.get('global_time', 0.0))
+        esp_boot = saved.get('esp_boot')
+        esp_on_ms = int(saved.get('esp_on_ms', 0))
+    print(f'[state] restored: unassigned {global_time:.1f} s, ESP boot {esp_boot} at {esp_on_ms / 1000:.1f} s')
+
+
 def current_time() -> float:
     """Unassigned seconds, including the block that is running now."""
     if laser_on and on_since:
@@ -81,6 +99,7 @@ def set_laser(on: bool):
         if laser_on and not on and on_since:
             global_time += (now - on_since).total_seconds()
             on_since = None
+            save_state()
         elif not laser_on and on:
             on_since = now
         laser_on = on
@@ -93,9 +112,10 @@ def esp_counter(on: bool, on_ms: int, boot):
     global global_time, laser_on, on_since, esp_boot, esp_on_ms, esp_counter_at
     now = time.time()
     with state_lock:
-        if boot != esp_boot:
+        boot_changed = boot != esp_boot
+        if boot_changed:
             # ESP rebooted: its counter restarted at 0. Right after our own start
-            # we don't know what was already counted, so only take the baseline.
+            # we don't know what was already counted (nothing saved yet), so only take the baseline.
             added = on_ms if esp_boot is not None else 0
             print(f'[esp] boot {boot}: counter at {on_ms / 1000:.1f} s, added {added / 1000:.1f} s')
         else:
@@ -109,6 +129,8 @@ def esp_counter(on: bool, on_ms: int, boot):
         changed = added > 0 or laser_on != on or on_since is not None
         global_time += added / 1000
         laser_on, on_since = on, None  # the counter is the time, nothing runs here
+        if added > 0 or boot_changed:
+            save_state()
         payload = time_payload()
     if changed:
         socketio.emit('time_update', payload)
@@ -120,6 +142,7 @@ def take_time() -> float:
     with state_lock:
         seconds = current_time()
         global_time = 0.0
+        save_state()
         if laser_on:
             on_since = datetime.now()
         return seconds
@@ -162,6 +185,7 @@ def stop_if_esp_silent(now: float | None = None):
         last = datetime.fromtimestamp(esp_last_seen)
         global_time += max(0.0, (last - on_since).total_seconds())
         laser_on, on_since = False, None
+        save_state()
     print('[udp] ESP32 silent while the laser was on: block closed at its last heartbeat')
 
 
@@ -631,6 +655,7 @@ def migrate_feedback():
 
 if __name__ == '__main__':
     db.connect()
+    restore_state()
     threading.Thread(target=udp_server, daemon=True).start()
     threading.Thread(target=ticker, daemon=True).start()
     threading.Thread(target=migrate_feedback, daemon=True).start()

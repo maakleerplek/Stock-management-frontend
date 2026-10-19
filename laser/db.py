@@ -3,6 +3,7 @@
 Lasting data is in InvenTree and so in its backup: the material library
 (inventree.py) and the "how did it go" reports (feedback.py).
 """
+import json
 import os
 import sqlite3
 import threading
@@ -37,6 +38,10 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
     _conn.row_factory = sqlite3.Row
     _conn.execute('PRAGMA journal_mode = WAL')
     _conn.executescript('''
+        CREATE TABLE IF NOT EXISTS laser_state (  -- unassigned time and ESP counter, kept across restarts
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
         CREATE TABLE IF NOT EXISTS sessions (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -108,3 +113,15 @@ def execute(sql: str, params: tuple = ()) -> int:
         cur = _conn.execute(sql, params)
         _conn.commit()
         return cur.lastrowid
+
+
+def load_state() -> dict:
+    """The saved laser state (key -> JSON-decoded value); empty on a new database."""
+    return {r['key']: json.loads(r['value']) for r in query('SELECT key, value FROM laser_state')}
+
+
+def save_state(values: dict) -> None:
+    with _lock:
+        _conn.executemany('INSERT OR REPLACE INTO laser_state (key, value) VALUES (?, ?)',
+                          [(k, json.dumps(v)) for k, v in values.items()])
+        _conn.commit()
