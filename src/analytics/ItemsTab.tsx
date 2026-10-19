@@ -106,6 +106,7 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
       ['Total Units Out', String(analytics.totalRemoved)],
       ['Volunteer Drinks', String(analytics.totalGiven)],
       ['Volunteer Drinks Cost (€)', analytics.givenCost.toFixed(2)],
+      ['Internal Use Cost (€)', analytics.usedCost.toFixed(2)],
       ['Total Units In', String(analytics.totalAdded)],
       ['Total Revenue (€)', analytics.totalRevenue.toFixed(2)],
       ['Total Profit (€)', analytics.totalProfit.toFixed(2)],
@@ -165,7 +166,9 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
     {
       label: analytics.hasCostPrices ? 'Profit' : 'Profit*',
       value: `€${analytics.totalProfit.toFixed(2)}`,
-      sub: hasGiven && analytics.givenCost > 0 ? `after €${analytics.givenCost.toFixed(2)} volunteer drinks` : undefined,
+      sub: analytics.givenCost + analytics.usedCost > 0
+        ? `after €${(analytics.givenCost + analytics.usedCost).toFixed(2)} volunteer & lab usage`
+        : undefined,
       icon: Percent,
       bg: 'bg-emerald-50',
     },

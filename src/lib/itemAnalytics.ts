@@ -16,11 +16,11 @@ export interface PartAnalytics extends PartPrice {
   partId: number;
   removed: number;      // paid + volunteer drinks + internal use, within the selected kind
   given: number;        // volunteer drinks: out of stock, never paid
-  used: number;         // internal use (filament for the open labs): out of stock, not a loss
+  used: number;         // internal use (wood, filament for the open labs): out of stock, never paid
   added: number;
   revenue: number;
   paidCost: number;     // paid × min(costPrice, sellingPrice)
-  profit: number;       // (sellingPrice - costPrice) × paid - costPrice × given
+  profit: number;       // (sellingPrice - costPrice) × paid - costPrice × (given + used)
 }
 
 /** Items sold, per stock category. */
@@ -31,13 +31,13 @@ export interface ItemAnalytics {
   totalRemoved: number;
   totalGiven: number;
   givenCost: number;
-  /** Internal use: what it cost, shown apart, not taken off the profit. */
+  /** Internal use (lab / workshop): taken off the profit like volunteer drinks. */
   totalUsed: number;
   usedCost: number;
   byCategory: CategorySales[];
   totalAdded: number;
   totalRevenue: number;
-  /** What the paid units cost: paid × min(supplier price, sale price), so revenue - paidCost - givenCost = totalProfit. */
+  /** What the paid units cost: paid × min(supplier price, sale price), so revenue - paidCost - givenCost - usedCost = totalProfit. */
   paidCost: number;
   totalProfit: number;
   totalTransactions: number;
@@ -53,8 +53,8 @@ export function filterByDays(entries: InvenTreeTrackingEntry[], days?: number, n
 }
 
 // Profit = (sale price - supplier cost) × units paid, minus the supplier cost
-// of every volunteer drink. Internal use is counted apart and not taken off:
-// the material goes into the open labs, it is not lost.
+// of every volunteer drink and every unit of internal use (wood, filament, ...):
+// both are the lab's own costs, never paid.
 export function itemAnalytics(
   entries: InvenTreeTrackingEntry[],
   parts: Map<number, PartPrice>,
@@ -103,7 +103,7 @@ export function itemAnalytics(
       added: prev.added + added,
       revenue: prev.revenue + paid * sellingPrice,
       paidCost: prev.paidCost + cost,
-      profit: prev.profit + paid * margin - given * costPrice,
+      profit: prev.profit + paid * margin - (given + used) * costPrice,
     });
   }
 
