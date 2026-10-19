@@ -92,7 +92,10 @@ services:
       OAUTH2_PROXY_EMAIL_DOMAINS: "*"            # who may sign in is decided in Authentik
       # Paths live under /oauth/ (the callback registered in Authentik is /oauth/callback).
       OAUTH2_PROXY_PROXY_PREFIX: /oauth
-      OAUTH2_PROXY_REDIRECT_URL: ${PUBLIC_URL}/oauth/callback
+      # Path only: the callback goes back to the address the browser used
+      # (stock.int on site, the Tailscale IP over the VPN). Authentik only
+      # accepts the redirect URIs registered on the provider.
+      OAUTH2_PROXY_REDIRECT_URL: /oauth/callback
       OAUTH2_PROXY_WHITELIST_DOMAINS: ${OIDC_LOGOUT_HOST:-}
       OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_COOKIE_SECRET}
       OAUTH2_PROXY_COOKIE_NAME: _stock_session
