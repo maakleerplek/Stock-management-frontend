@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Drill, Package, Printer, RefreshCw, Sigma, Zap } from 'lucide-react';
+import { Drill, GraduationCap, Package, Printer, RefreshCw, Sigma, Zap } from 'lucide-react';
 import inventreeClient from '../api/inventreeClient';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { laserApi } from '../lib/laserApi';
@@ -11,6 +11,7 @@ import LaserTab from './LaserTab';
 import TotalsTab from './TotalsTab';
 import PrintTab from './PrintTab';
 import CncTab from './CncTab';
+import WorkshopsTab from './WorkshopsTab';
 import { useStock } from '../StockContext';
 
 const DATE_RANGES = [
@@ -29,6 +30,7 @@ const TABS = [
   { id: 'laser', label: 'Laser', icon: Zap, subtitle: 'Laser time, paid via a session or not' },
   { id: 'print', label: '3D printing', icon: Printer, subtitle: 'Prints paid per filament, against the filament used' },
   { id: 'cnc', label: 'CNC', icon: Drill, subtitle: 'CNC time paid, per job' },
+  { id: 'workshops', label: 'Workshops', icon: GraduationCap, subtitle: 'HTL workshops on the agenda' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -159,6 +161,7 @@ export default function AnalyticsPage() {
         {tab === 'print' && (
           <PrintTab trackingEntries={trackingEntries} serviceLines={serviceLines} loading={trackingLoading} dateRange={dateRange} />
         )}
+        {tab === 'workshops' && <WorkshopsTab refreshKey={refreshKey} />}
         {tab === 'cnc' && <CncTab serviceLines={serviceLines} loading={laserLoading} dateRange={dateRange} />}
         {tab === 'laser' && (
           <LaserTab serviceLines={serviceLines} discarded={discarded} laserSessions={laserSessions} loading={laserLoading} dateRange={dateRange} refreshKey={refreshKey} />

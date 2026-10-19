@@ -184,6 +184,13 @@ server {
         proxy_set_header Authorization "";
     }
 
+    # HTL workshops for analytics: the TV already scrapes the public agenda.
+    location = /tv/api/screen-data {
+        limit_except GET { deny all; }
+        proxy_pass ${TV_PRESENTATION_URL}/api/screen-data;
+        proxy_set_header Authorization "";
+    }
+
     # Everything else (users, settings, admin, ...) is volunteers only.
     location /api/ {
         auth_request /oauth/auth;
