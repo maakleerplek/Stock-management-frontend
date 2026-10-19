@@ -157,6 +157,13 @@ describe('machine time minimum per job', () => {
     expect(4 * perMinuteWithMinimum(4, 0.5, 5)).toBeCloseTo(5);
     expect(perMinuteWithMinimum(25, 0.5, 5)).toBe(0.5);
   });
+
+  it('notes the original price under a line the minimum raised', async () => {
+    const { priced, minimumNote } = await import('../src/sendCodeHandler');
+    const line = (q: number) => ({ name: '3D printing', unit: 'g', quantity: q, ...priced(q, 0.1, 5) });
+    expect(minimumNote(line(15))).toBe('Original €1.50, €5.00 minimum');   // 15 g × €0.10
+    expect(minimumNote(line(80))).toBeNull();                               // €8, above the minimum
+  });
 });
 
 describe('filamentType', () => {

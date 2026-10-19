@@ -3,7 +3,7 @@ import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingC
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
 import { laserApi, markPaidReliably, pendingPaidIds, type LaserSession } from './lib/laserApi';
 import { PRICING } from './constants';
-import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, perMinuteWithMinimum, extraLabel, describeExtra, handleCheckout as bookSale, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine, volunteerSaleLines, linesTotal } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, priced, minimumNote, extraLabel, describeExtra, handleCheckout as bookSale, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine, volunteerSaleLines, linesTotal } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import type { Invoice } from './lib/invoice';
@@ -44,7 +44,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const extras: ExtraLine[] = [
         ...laserInCheckout.map(s => ({
             name: 'Lasertime', person: s.name, quantity: s.minutes, unit: 'min',
-            unitPrice: perMinuteWithMinimum(s.minutes, PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM), laserSessionId: s.id,
+            ...priced(s.minutes, PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM), laserSessionId: s.id,
         })),
         ...typedExtras,
     ];
@@ -289,6 +289,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                         <div className="flex flex-col">
                                             <span className="font-semibold text-sm">{extraLabel(extra)}</span>
                                             <span className="text-[10px] font-bold text-brand-black/60">{extra.quantity} {extra.unit} × €{extra.unitPrice.toFixed(2)}</span>
+                                            {minimumNote(extra) && <span className="text-[10px] text-grafiet">{minimumNote(extra)}</span>}
                                         </div>
                                         <div className="font-semibold text-sm">€{(extra.quantity * extra.unitPrice).toFixed(2)}</div>
                                     </div>

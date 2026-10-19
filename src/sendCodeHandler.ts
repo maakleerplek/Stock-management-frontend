@@ -74,13 +74,24 @@ export interface ExtraLine {
     person?: string;
     /** Laser time from a session on the laser service, marked paid after the sale. */
     laserSessionId?: string;
+    /** The price before the minimum, when the minimum raised it. */
+    original?: number;
 }
 
-/** What a laser / CNC job costs: its minutes, at least the minimum per job. */
+/** What a laser / CNC / 3D print job costs: its minutes (or grams), at least the minimum per job. */
 export const jobPrice = (minutes: number, perMinute: number, minimum: number) => (minutes > 0 ? Math.max(minutes * perMinute, minimum) : 0);
 /** The minimum folded into the price per minute, so minutes × price is what is paid (and booked). */
 export const perMinuteWithMinimum = (minutes: number, perMinute: number, minimum: number) =>
     (minutes > 0 ? jobPrice(minutes, perMinute, minimum) / minutes : perMinute);
+
+/** The line's price per unit with the minimum folded in, and its original price when the minimum raised it. */
+export const priced = (quantity: number, rate: number, minimum: number): Pick<ExtraLine, 'unitPrice' | 'original'> => ({
+    unitPrice: perMinuteWithMinimum(quantity, rate, minimum),
+    original: quantity * rate < minimum ? quantity * rate : undefined,
+});
+/** Under a line the minimum raised: "Original €1.50, €5.00 minimum". */
+export const minimumNote = (e: ExtraLine) =>
+    e.original === undefined ? null : `Original €${e.original.toFixed(2)}, €${(e.quantity * e.unitPrice).toFixed(2)} minimum`;
 
 export const extraTotal = (extras: ExtraLine[]) => extras.reduce((sum, e) => sum + e.quantity * e.unitPrice, 0);
 export const extraLabel = (e: ExtraLine) => (e.person ? `${e.name} – ${e.person}` : e.name);
