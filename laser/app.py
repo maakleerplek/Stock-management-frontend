@@ -193,12 +193,33 @@ def broadcast_sessions():
     socketio.emit('sessions', {'sessions': all_sessions()})
 
 
+def client_name() -> str:
+    """Who is on the other end, for the log: address and a short user agent."""
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr or '?').split(',')[0].strip()
+    return f"{ip} {request.headers.get('User-Agent', '?')[-60:]}"
+
+
 @socketio.on('connect')
 def on_connect():
+    print(f'[socket] connect {request.sid} from {client_name()}')
     with state_lock:
         payload = time_payload()
     socketio.emit('time_update', payload, to=request.sid)
     socketio.emit('sessions', {'sessions': all_sessions()}, to=request.sid)
+
+
+@socketio.on('disconnect')
+def on_disconnect(*_):
+    print(f'[socket] disconnect {request.sid}')
+
+
+@app.post('/laser/api/client-log')
+def client_log():
+    """What a page shows of the laser (on/off, connection, its build), so a page that
+    disagrees with the [esp] lines can be found in the log afterwards."""
+    body = json.dumps(request.get_json(silent=True) or {}, ensure_ascii=False)[:400]
+    print(f'[client] {client_name()}: {body}')
+    return {'ok': True}
 
 
 @app.get('/laser/api/health')

@@ -239,6 +239,15 @@ export async function flushPendingPaid(): Promise<void> {
   }
 }
 
+/** Tell the laser service what this page sees, for its log (debugging a page that shows the wrong state). */
+function clientLog(event: string, extra: Record<string, unknown> = {}) {
+  const bundle = document.querySelector<HTMLScriptElement>('script[src*="assets/index-"]')?.src.split('/').pop();
+  void fetch(`${BASE}/client-log`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+    body: JSON.stringify({ event, widget: 'LASER_SERVER' in window, bundle, ...extra }),
+  }).catch(() => {});
+}
+
 /** Live laser state and sessions over Socket.IO. */
 export function useLaserSocket() {
   const [connected, setConnected] = useState(false);
@@ -247,9 +256,17 @@ export function useLaserSocket() {
 
   useEffect(() => {
     const socket = io({ path: '/laser/socket.io' });
-    socket.on('connect', () => setConnected(true));
-    socket.on('disconnect', () => setConnected(false));
-    socket.on('time_update', (t: LaserTime) => setTime(t));
+    // Logged on every change of what the page shows, not on every tick.
+    let shownOn: boolean | undefined;
+    socket.on('connect', () => { setConnected(true); clientLog('connect', { transport: socket.io.engine.transport.name }); });
+    socket.on('disconnect', reason => { setConnected(false); clientLog('disconnect', { reason }); });
+    socket.on('time_update', (t: LaserTime) => {
+      setTime(t);
+      if (t.laser_state !== shownOn) {
+        shownOn = t.laser_state;
+        clientLog('laser_state', { laser_state: t.laser_state, global_time: Math.round(t.global_time), esp_connected: t.esp_connected });
+      }
+    });
     socket.on('sessions', (d: { sessions: LaserSession[] }) => setSessions(d.sessions));
     return () => { socket.disconnect(); };
   }, []);
