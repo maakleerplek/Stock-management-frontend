@@ -117,7 +117,9 @@ export default function LaserAnimation({ active, className }: { active: boolean;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const g = canvas.getContext('2d')!;
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // The laser PC runs Windows on "best performance" (animations off), which reads as reduced
+    // motion; in its timer bar this canvas is a status light, so it moves there anyway.
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches && !('LASER_SERVER' in window);
 
     // The pieces between the cuts, as [x, width].
     const pieces: [number, number][] = [];
@@ -191,9 +193,10 @@ export default function LaserAnimation({ active, className }: { active: boolean;
 
     const frame = () => {
       tick++;
-      const on = activeRef.current && !reduceMotion;
-      if (on) advance();
-      const beam = on && phase === 'cut';
+      const on = activeRef.current;
+      if (on && !reduceMotion) advance();
+      // Reduced motion: still a beam on the plate while it cuts, without the moving parts.
+      const beam = on && (reduceMotion || phase === 'cut');
 
       if (on !== wasOn || tick - messageAt >= MESSAGE_TICKS) {
         message = pick(on ? BUSY : IDLE);
@@ -228,7 +231,7 @@ export default function LaserAnimation({ active, className }: { active: boolean;
       g.fillRect(hx - 1, HEAD_Y + 17, 3, 2);                 // tip
 
       if (beam) {
-        const depth = kerfs[cutIndex];
+        const depth = reduceMotion ? 0 : kerfs[cutIndex];
         g.fillStyle = BEAM[tick % 2];
         g.fillRect(hx, NOZZLE_TIP, 1, PLATE.y + depth - NOZZLE_TIP);
         g.fillStyle = SPARK[tick % 3];
