@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, Zap, Drill, Printer, Plus } from 'lucide-react';
 import { PRICING } from './constants';
-import { isFilament, filamentType, jobPrice, priced, minimumNote, extraLabel, type ExtraLine } from './sendCodeHandler';
+import { isFilament, filamentType, priced, topUp, extraLabel, type ExtraLine } from './sendCodeHandler';
 import { useStock } from './StockContext';
 import { inventreeClient } from './api/inventreeClient';
 import type { LaserSession } from './lib/laserApi';
@@ -31,7 +31,9 @@ function stored(): ExtraLine[] {
 }
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
-export const laserSessionPrice = (minutes: number) => jobPrice(minutes, PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM);
+export const laserSessionPrice = (minutes: number) => minutes * PRICING.LASER_PER_MINUTE;
+/** Under each machine: its minimum counts once per payment, for all machine use together. */
+const minimumText = (minimum: number) => `min. ${eur(minimum)} per payment`;
 
 export default function Extras({ onExtrasChange, laserSessions, openLaserSessions, onAddLaserSession, onRemoveLaserSession }: ExtrasProps) {
     const [added, setAdded] = useState<ExtraLine[]>(stored);
@@ -63,6 +65,10 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
     }, [added, onExtrasChange]);
 
     const add = (line: ExtraLine) => setAdded(a => [...a, line]);
+    // The top-up over everything in this checkout: the laser sessions and the added lines.
+    const inCheckout: ExtraLine[] = [...laserSessions.map(s => ({ name: 'Lasertime', quantity: s.minutes, unit: 'min', ...priced(PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM) })), ...added];
+    const top = topUp(inCheckout);
+    const minimum = Math.max(0, ...inCheckout.map(e => e.minimum ?? 0));
 
     return (
         <div className="space-y-4">
@@ -90,33 +96,38 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
                     {laserSessions.map(s => (
                         <Row key={s.id} icon={Zap} tone="text-laser" title={`Lasercut · ${s.name}`}
                             detail={`${s.minutes} min, from the laser timer`} price={laserSessionPrice(s.minutes)}
-                            note={minimumNote({ name: '', unit: 'min', quantity: s.minutes, ...priced(s.minutes, PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM) })}
                             onRemove={() => onRemoveLaserSession(s.id)} />
                     ))}
                     {added.map((l, i) => (
                         <Row key={i} icon={l.unit === 'g' ? Printer : l.name === 'CNC time' ? Drill : Zap}
                             tone={l.unit === 'g' ? 'text-blue-600' : l.name === 'CNC time' ? 'text-cnc' : 'text-laser'}
-                            title={extraLabel(l)} detail={`${l.quantity} ${l.unit}`} price={l.quantity * l.unitPrice} note={minimumNote(l)}
+                            title={extraLabel(l)} detail={`${l.quantity} ${l.unit}`} price={l.quantity * l.unitPrice}
                             onRemove={() => setAdded(a => a.filter((_, j) => j !== i))} />
                     ))}
+                    {top > 0 && (
+                        <li className="flex items-center justify-between gap-2 border border-lijn bg-white p-3 text-sm">
+                            <span><span className="font-semibold">Minimum per payment</span> · machine use together is at least {eur(minimum)}</span>
+                            <span className="font-semibold">{eur(top)}</span>
+                        </li>
+                    )}
                 </ul>
             )}
 
             <div className="grid grid-cols-1 gap-3">
                 <Machine icon={Zap} tone="text-laser" border="border-laser" name="Lasercut" unit="min"
-                    rate={`${eur(PRICING.LASER_PER_MINUTE)}/min · min. ${eur(PRICING.LASER_MINIMUM)}`}
-                    value={laserMin} onChange={setLaserMin} price={jobPrice(laserMin, PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM)}
-                    onAdd={() => { add({ name: 'Lasertime', quantity: laserMin, unit: 'min', ...priced(laserMin, PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM) }); setLaserMin(0); }} />
+                    rate={`${eur(PRICING.LASER_PER_MINUTE)}/min · ${minimumText(PRICING.LASER_MINIMUM)}`}
+                    value={laserMin} onChange={setLaserMin} price={laserMin * PRICING.LASER_PER_MINUTE}
+                    onAdd={() => { add({ name: 'Lasertime', quantity: laserMin, unit: 'min', ...priced(PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM) }); setLaserMin(0); }} />
                 <Machine icon={Drill} tone="text-cnc" border="border-cnc" name="CNC" unit="min"
-                    rate={`${eur(PRICING.CNC_PER_MINUTE)}/min · min. ${eur(PRICING.CNC_MINIMUM)}`}
-                    value={cncMin} onChange={setCncMin} price={jobPrice(cncMin, PRICING.CNC_PER_MINUTE, PRICING.CNC_MINIMUM)}
-                    onAdd={() => { add({ name: 'CNC time', quantity: cncMin, unit: 'min', ...priced(cncMin, PRICING.CNC_PER_MINUTE, PRICING.CNC_MINIMUM) }); setCncMin(0); }} />
+                    rate={`${eur(PRICING.CNC_PER_MINUTE)}/min · ${minimumText(PRICING.CNC_MINIMUM)}`}
+                    value={cncMin} onChange={setCncMin} price={cncMin * PRICING.CNC_PER_MINUTE}
+                    onAdd={() => { add({ name: 'CNC time', quantity: cncMin, unit: 'min', ...priced(PRICING.CNC_PER_MINUTE, PRICING.CNC_MINIMUM) }); setCncMin(0); }} />
                 <Machine icon={Printer} tone="text-blue-600" border="border-blue-600" name="3D print" unit="g"
-                    rate={`${eur(perGram)}/g · min. ${eur(PRICING.PRINTING_MINIMUM)}`} value={grams} onChange={setGrams} price={jobPrice(grams, perGram, PRICING.PRINTING_MINIMUM)}
+                    rate={`${eur(perGram)}/g · ${minimumText(PRICING.PRINTING_MINIMUM)}`} value={grams} onChange={setGrams} price={grams * perGram}
                     onAdd={() => {
                         // Booked as the line's description, for the analytics per filament: the filament,
                         // only its type, or nothing.
-                        add({ name: '3D printing', quantity: grams, unit: 'g', ...priced(grams, perGram, PRICING.PRINTING_MINIMUM), person: printFilament?.name ?? printType ?? undefined });
+                        add({ name: '3D printing', quantity: grams, unit: 'g', ...priced(perGram, PRICING.PRINTING_MINIMUM), person: printFilament?.name ?? printType ?? undefined });
                         setGrams(0);
                     }}>
                     <Chips label="Filament (optional)" options={types.map(t => ({ key: t, text: t }))} value={printType}
@@ -151,8 +162,8 @@ function Chips({ label, options, value, onChange }: {
     );
 }
 
-function Row({ icon: Icon, tone, title, detail, price, note, onRemove }: {
-    icon: React.ElementType; tone: string; title: string; detail: string; price: number; note?: string | null; onRemove: () => void;
+function Row({ icon: Icon, tone, title, detail, price, onRemove }: {
+    icon: React.ElementType; tone: string; title: string; detail: string; price: number; onRemove: () => void;
 }) {
     return (
         <li className="flex items-center justify-between gap-3 border border-lijn p-3 bg-white">
@@ -161,7 +172,6 @@ function Row({ icon: Icon, tone, title, detail, price, note, onRemove }: {
                 <div className="min-w-0">
                     <div className="text-sm font-semibold truncate">{title}</div>
                     <div className="text-xs text-grafiet">{detail}</div>
-                    {note && <div className="text-xs text-grafiet">{note}</div>}
                 </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">

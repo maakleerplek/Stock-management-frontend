@@ -148,21 +148,25 @@ describe('a part with no sale price', () => {
     });
 });
 
-describe('machine time minimum per job', () => {
-  it('charges at least the minimum and keeps minutes × price equal to it', async () => {
-    const { jobPrice, perMinuteWithMinimum } = await import('../src/sendCodeHandler');
-    expect(jobPrice(4, 0.5, 5)).toBe(5);          // 4 min × €0.50 = €2, minimum €5
-    expect(jobPrice(25, 0.5, 5)).toBe(12.5);
-    expect(jobPrice(0, 0.5, 5)).toBe(0);          // nothing used, nothing to pay
-    expect(4 * perMinuteWithMinimum(4, 0.5, 5)).toBeCloseTo(5);
-    expect(perMinuteWithMinimum(25, 0.5, 5)).toBe(0.5);
+describe('machine minimum per payment', () => {
+  const line = (name: string, quantity: number, rate: number) => ({ name, unit: 'min', quantity, unitPrice: rate, minimum: 5 });
+  const total = (extras: ReturnType<typeof line>[], m: typeof import('../src/sendCodeHandler')) => m.extraTotal(extras) + m.topUp(extras);
+
+  it('counts the minimum once for all machine use together', async () => {
+    const m = await import('../src/sendCodeHandler');
+    expect(total([line('Lasertime', 8, 0.5), line('3D printing', 30, 0.1)], m)).toBeCloseTo(7);   // €4 + €3
+    expect(total([line('Lasertime', 4, 0.5), line('Lasertime', 4, 0.5)], m)).toBeCloseTo(5);      // two €2 jobs: €5, not €10
+    expect(total([line('3D printing', 15, 0.1)], m)).toBeCloseTo(5);                              // a print alone too
+    expect(total([line('CNC time', 25, 0.5)], m)).toBeCloseTo(12.5);                              // above it: as is
+    expect(total([], m)).toBe(0);
   });
 
-  it('notes the original price under a line the minimum raised', async () => {
-    const { priced, minimumNote } = await import('../src/sendCodeHandler');
-    const line = (q: number) => ({ name: '3D printing', unit: 'g', quantity: q, ...priced(q, 0.1, 5) });
-    expect(minimumNote(line(15))).toBe('Original €1.50, €5.00 minimum');   // 15 g × €0.10
-    expect(minimumNote(line(80))).toBeNull();                               // €8, above the minimum
+  it('books the top-up spread over the machines in proportion', async () => {
+    const { withMinimum } = await import('../src/sendCodeHandler');
+    const [laser, print] = withMinimum([line('Lasertime', 4, 0.5), line('3D printing', 10, 0.1)]);   // €2 + €1
+    expect(laser.quantity * laser.unitPrice).toBeCloseTo(10 / 3);
+    expect(print.quantity * print.unitPrice).toBeCloseTo(5 / 3);
+    expect(laser.quantity).toBe(4);   // minutes stay, the price per minute carries the share
   });
 });
 
