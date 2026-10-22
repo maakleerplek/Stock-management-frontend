@@ -3,7 +3,7 @@ import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingC
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
 import { laserApi, markPaidReliably, pendingPaidIds, type LaserSession } from './lib/laserApi';
 import { PRICING } from './constants';
-import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, priced, minimumNote, extraLabel, describeExtra, handleCheckout as bookSale, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine, volunteerSaleLines, linesTotal } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, priced, topUp, extraLabel, describeExtra, handleCheckout as bookSale, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine, volunteerSaleLines, linesTotal } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import type { Invoice } from './lib/invoice';
@@ -44,11 +44,13 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const extras: ExtraLine[] = [
         ...laserInCheckout.map(s => ({
             name: 'Lasertime', person: s.name, quantity: s.minutes, unit: 'min',
-            ...priced(s.minutes, PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM), laserSessionId: s.id,
+            ...priced(PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM), laserSessionId: s.id,
         })),
         ...typedExtras,
     ];
-    const extraCosts = extraTotal(extras);
+    // Machine lines at their own price, plus the top-up to the minimum per payment.
+    const minimumTopUp = topUp(extras);
+    const extraCosts = extraTotal(extras) + minimumTopUp;
     const [mode, setMode] = useState<VolunteerCartMode>('adjust');
     const modeRef = useRef(mode);
     modeRef.current = mode;
@@ -156,6 +158,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
             lines: [
                 ...lines.map(l => ({ name: l.name, quantity: l.quantity, unitPrice: l.unitPrice })),
                 ...extras.map(e => ({ name: `${extraLabel(e)} (${e.unit})`, quantity: e.quantity, unitPrice: e.unitPrice })),
+                ...(minimumTopUp > 0 ? [{ name: 'Minimum per payment (machines)', quantity: 1, unitPrice: minimumTopUp }] : []),
             ],
         });
         const total = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0) + extraCosts;
@@ -289,11 +292,20 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                         <div className="flex flex-col">
                                             <span className="font-semibold text-sm">{extraLabel(extra)}</span>
                                             <span className="text-[10px] font-bold text-brand-black/60">{extra.quantity} {extra.unit} × €{extra.unitPrice.toFixed(2)}</span>
-                                            {minimumNote(extra) && <span className="text-[10px] text-grafiet">{minimumNote(extra)}</span>}
                                         </div>
                                         <div className="font-semibold text-sm">€{(extra.quantity * extra.unitPrice).toFixed(2)}</div>
                                     </div>
                                 ))}
+
+                                {minimumTopUp > 0 && (
+                                    <div className="flex justify-between items-center p-3 border border-lijn bg-brand-beige-dark">
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-sm">Minimum per payment</span>
+                                            <span className="text-[10px] font-bold text-brand-black/60">Machine use is at least €{(extraTotal(extras) + minimumTopUp).toFixed(2)} per payment</span>
+                                        </div>
+                                        <div className="font-semibold text-sm">€{minimumTopUp.toFixed(2)}</div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="border-t-[3px] border-lijn pt-6 flex flex-col items-end">

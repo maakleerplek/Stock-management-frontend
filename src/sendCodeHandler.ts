@@ -74,24 +74,30 @@ export interface ExtraLine {
     person?: string;
     /** Laser time from a session on the laser service, marked paid after the sale. */
     laserSessionId?: string;
-    /** The price before the minimum, when the minimum raised it. */
-    original?: number;
+    /** Least a payment with this machine in it costs (bank costs). It counts once per payment, see topUp. */
+    minimum?: number;
 }
 
-/** What a laser / CNC / 3D print job costs: its minutes (or grams), at least the minimum per job. */
-export const jobPrice = (minutes: number, perMinute: number, minimum: number) => (minutes > 0 ? Math.max(minutes * perMinute, minimum) : 0);
-/** The minimum folded into the price per minute, so minutes × price is what is paid (and booked). */
-export const perMinuteWithMinimum = (minutes: number, perMinute: number, minimum: number) =>
-    (minutes > 0 ? jobPrice(minutes, perMinute, minimum) / minutes : perMinute);
+/** A machine line at its own rate; the minimum is applied per payment by topUp / withMinimum. */
+export const priced = (rate: number, minimum: number): Pick<ExtraLine, 'unitPrice' | 'minimum'> => ({ unitPrice: rate, minimum });
 
-/** The line's price per unit with the minimum folded in, and its original price when the minimum raised it. */
-export const priced = (quantity: number, rate: number, minimum: number): Pick<ExtraLine, 'unitPrice' | 'original'> => ({
-    unitPrice: perMinuteWithMinimum(quantity, rate, minimum),
-    original: quantity * rate < minimum ? quantity * rate : undefined,
-});
-/** Under a line the minimum raised: "Original €1.50, €5.00 minimum". */
-export const minimumNote = (e: ExtraLine) =>
-    e.original === undefined ? null : `Original €${e.original.toFixed(2)}, €${(e.quantity * e.unitPrice).toFixed(2)} minimum`;
+/** What the machine lines together miss to reach the highest minimum among them. */
+export const topUp = (extras: ExtraLine[]) =>
+    Math.max(0, Math.max(0, ...extras.map(e => e.minimum ?? 0)) - extraTotal(extras));
+
+/**
+ * The machine lines with the top-up spread over them in proportion to their price, folded into
+ * the price per unit: booked like that, the analytics give each machine its share.
+ */
+export const withMinimum = (extras: ExtraLine[]): ExtraLine[] => {
+    const top = topUp(extras), sum = extraTotal(extras);
+    if (top === 0) return extras;
+    return extras.map(e => {
+        const price = e.quantity * e.unitPrice;
+        const share = sum > 0 ? top * price / sum : top / extras.length;
+        return { ...e, unitPrice: (price + share) / e.quantity };
+    });
+};
 
 export const extraTotal = (extras: ExtraLine[]) => extras.reduce((sum, e) => sum + e.quantity * e.unitPrice, 0);
 export const extraLabel = (e: ExtraLine) => (e.person ? `${e.name} – ${e.person}` : e.name);
@@ -117,7 +123,8 @@ export const linesTotal = (lines: CheckoutLine[]) => lines.reduce((sum, l) => su
  * Book a till sale as one InvenTree sales order.
  * Returns the order reference, or throws with a message for the user.
  */
-export async function handleCheckout(lines: CheckoutLine[], extras: ExtraLine[]): Promise<string> {
+export async function handleCheckout(lines: CheckoutLine[], rawExtras: ExtraLine[]): Promise<string> {
+    const extras = withMinimum(rawExtras);
     const description = [
         ...lines.map(l => `${l.name} x${l.quantity}`),
         ...extras.map(describeExtra),
