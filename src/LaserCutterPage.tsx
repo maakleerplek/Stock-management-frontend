@@ -223,7 +223,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
 
       <Step n={3} title="Pay when you are done" done={false}>
         {toPay.length === 0 ? (
-          <p className="text-sm text-grafiet">Your session shows up here once it has laser time. A job costs {`€${PRICING.LASER_PER_MINUTE.toFixed(2)}`}/min, at least {`€${PRICING.LASER_MINIMUM.toFixed(2)}`}.</p>
+          <p className="text-sm text-grafiet">Your session shows up here once it has laser time. Laser time costs {`€${PRICING.LASER_PER_MINUTE.toFixed(2)}`}/min; machine use is at least {`€${PRICING.LASER_MINIMUM.toFixed(2)}`} per payment.</p>
         ) : (
           <div className="space-y-2">
             {toPay.map(s => (
