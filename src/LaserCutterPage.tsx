@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Zap, X, Plus, RotateCcw, ArrowRightLeft, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Pencil } from 'lucide-react';
+import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { useStock } from './StockContext';
 import { useVolunteer } from './VolunteerContext';
@@ -11,14 +11,13 @@ import { cn } from './lib/utils';
 import { PRICING } from './constants';
 import { DISCARD_KIND_LABELS, type DiscardKind } from './lib/services';
 import {
-  laserApi, useLaserSocket, formatDuration,
+  laserApi, useLaserSocket, shortDuration, type LaserSession,
   type LaserMaterial, type LaserOperation, type LaserOutcome, type LaserSetting,
 } from './lib/laserApi';
 
 interface LaserCutterPageProps {
-  /** Put the session's minutes in the checkout and go there. */
-  /** Put the session in the checkout (on the laser service) and go there. */
-  onCheckout: (sessionId: string) => void;
+  /** Put the ticked cuts in the checkout (on the laser service) and go there. */
+  onCheckout: (sessionIds: string[]) => void;
   /** Go to the checkout, to buy material. */
   onShop: () => void;
   live: ReturnType<typeof useLaserSocket>;
@@ -63,19 +62,10 @@ export default function LaserCutterPage({ onCheckout, onShop, live }: LaserCutte
 function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const { connected, time, sessions } = live;
   const { addToast } = useToast();
-  const [selected, setSelected] = useState('');
-  const [newName, setNewName] = useState('');
+  // The cuts this visitor ticked. Unticking removes nothing: a cut stays until it is paid or deleted.
+  const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
-  // What the throw-away confirm is open for: the unassigned time or one session.
-  const [discarding, setDiscarding] = useState<'unassigned' | string | null>(null);
-  // The session whose name is being edited, and the new name.
-  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
-
-  // Keep a valid selection when sessions come and go.
-  useEffect(() => {
-    if (sessions.length && !sessions.some(s => s.id === selected)) setSelected(sessions[0].id);
-    if (!sessions.length) setSelected('');
-  }, [sessions, selected]);
+  const [deleting, setDeleting] = useState(false);
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -83,212 +73,176 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
     finally { setBusy(false); }
   };
 
-  const createSession = () => run(async () => {
-    const { id } = await laserApi.createSession(newName);
-    setNewName('');
-    setSelected(id);
-  });
-
-  const renameSession = () => renaming && run(async () => {
-    await laserApi.renameSession(renaming.id, renaming.name);
-    setRenaming(null);
-  });
-
   const laserOn = time?.laser_state ?? false;
-  const pending = time?.global_time ?? 0;
-  const target = sessions.find(s => s.id === selected);
+  const openCut = time?.global_time ?? 0;   // laser time not booked as a cut yet
   const sensorOk = connected && (time?.esp_connected || time?.simulate);
-  const assignBlocked = !target ? 'Start a session first (step 1)' : pending <= 0 ? 'No new laser time yet' : null;
-  const toPay = sessions.filter(s => s.total_time > 0);
+  const cuts = sessions.filter(s => s.total_time > 0);
+  const dayAgo = Date.now() - 86_400_000;
+  const recent = cuts.filter(s => new Date(s.created).getTime() >= dayAgo);
+  const older = cuts.filter(s => new Date(s.created).getTime() < dayAgo);
+  const picked = cuts.filter(s => ticked.has(s.id) && !s.checkout_at);
+  const pickedSeconds = picked.reduce((sum, s) => sum + s.total_time, 0);
+  const pickedPrice = Math.max(laserSessionPrice(Math.ceil(pickedSeconds / 60)), PRICING.LASER_MINIMUM);
+
+  // Forget ticks of cuts that are paid, deleted or in the checkout.
+  useEffect(() => {
+    setTicked(prev => {
+      const open = new Set(sessions.filter(s => s.total_time > 0 && !s.checkout_at).map(s => s.id));
+      const next = new Set([...prev].filter(id => open.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [sessions]);
+  useEffect(() => { if (!picked.length) setDeleting(false); }, [picked.length]);
+
+  const toggle = (id: string) => setTicked(prev => {
+    const next = new Set(prev);
+    if (!next.delete(id)) next.add(id);
+    return next;
+  });
+
+  const row = (s: LaserSession) => (
+    <CutRow key={s.id} cut={s} ticked={ticked.has(s.id)} busy={busy} onToggle={() => toggle(s.id)}
+      onTakeOut={() => run(() => laserApi.setCheckout(s.id, false))} />
+  );
 
   return (
-    <section className="p-4 sm:p-6 space-y-4">
-      <div className="flex items-center justify-between gap-2 border-b border-lijn pb-3">
-        <h2 className="text-lg font-semibold text-brand-black flex items-center gap-2"><Zap size={20} className="text-laser" aria-hidden /> Laser time</h2>
-        <span className={cn('text-xs font-semibold flex items-center gap-1.5 px-2 py-1 border',
-          sensorOk ? 'bg-emerald-50 border-emerald-600 text-emerald-700' : 'bg-amber-50 border-amber-500 text-amber-800')}>
-          {sensorOk ? <Wifi size={14} aria-hidden /> : <WifiOff size={14} aria-hidden />}
-          {!connected ? 'Laser service offline' : time?.esp_connected ? 'Timer connected' : time?.simulate ? 'Test mode (no sensor)' : 'Timer not connected'}
-        </span>
-      </div>
-
-      <Step n={1} title="Start a session" done={sessions.length > 0}>
-        <p className="text-sm text-grafiet">Your name or project, so the laser time is yours.</p>
-        <form className="flex gap-2" onSubmit={e => { e.preventDefault(); createSession(); }}>
-          <label htmlFor="laser-session-name" className="sr-only">Your name or project</label>
-          <input
-            id="laser-session-name"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            placeholder="Your name or project"
-            className="flex-1 min-w-0 h-11 px-3 border border-lijn bg-white text-base"
-            maxLength={80}
-          />
-          <button type="submit" disabled={busy || newName.trim().length < 2}
-            className={cn('brutalist-button h-11 px-4 text-sm font-semibold flex items-center gap-2 shrink-0 whitespace-nowrap disabled:opacity-40',
-              sessions.length ? 'bg-white' : 'bg-brand-black text-white')}>
-            <Plus size={16} aria-hidden /> Start session
-          </button>
-        </form>
-        {sessions.length > 0 && (
-          <div role="radiogroup" aria-label="Session to put the time on" className="flex flex-wrap gap-2">
-            {sessions.map(s => renaming?.id === s.id ? (
-              <form key={s.id} className="flex" onSubmit={e => { e.preventDefault(); renameSession(); }}>
-                <label htmlFor="laser-rename" className="sr-only">New name for {s.name}</label>
-                <input id="laser-rename" autoFocus value={renaming.name} maxLength={80}
-                  onChange={e => setRenaming({ id: s.id, name: e.target.value })}
-                  onKeyDown={e => { if (e.key === 'Escape') setRenaming(null); }}
-                  className="h-11 w-48 min-w-0 px-3 border border-lijn bg-white text-base" />
-                <button type="submit" disabled={busy || renaming.name.trim().length < 2}
-                  className="h-11 px-3 border border-l-0 border-lijn bg-brand-black text-white text-xs font-semibold disabled:opacity-40">Save</button>
-                <button type="button" onClick={() => setRenaming(null)} aria-label="Cancel renaming"
-                  className="h-11 px-2 border border-l-0 border-lijn bg-white"><X size={14} aria-hidden /></button>
-              </form>
-            ) : (
-              <div key={s.id} className="flex">
-                <button role="radio" aria-checked={s.id === selected} onClick={() => setSelected(s.id)}
-                  className={cn('h-11 px-3 border text-sm font-semibold flex items-center gap-2',
-                    s.id === selected ? 'bg-brand-black text-white border-brand-black' : 'bg-white border-lijn hover:bg-brand-beige-dark')}>
-                  {s.id === selected && <Check size={14} aria-hidden />}{s.name}
-                  <span className={cn('font-mono text-xs', s.id === selected ? 'text-white/70' : 'text-grafiet')}>{formatDuration(s.total_time)}</span>
-                </button>
-                <button onClick={() => setRenaming({ id: s.id, name: s.name })} disabled={busy}
-                  aria-label={`Rename the session ${s.name}`}
-                  className="h-11 px-2 border border-l-0 border-lijn bg-white text-grafiet hover:bg-brand-beige-dark disabled:opacity-40">
-                  <Pencil size={14} aria-hidden />
-                </button>
-                {/* No laser time on it: nothing to account for, so it goes without a reason. With time: step 3. */}
-                {s.total_time <= 0 && (
-                  <button onClick={() => run(() => laserApi.deleteSession(s.id))} disabled={busy}
-                    aria-label={`Delete the session ${s.name}`}
-                    className="h-11 px-2 border border-l-0 border-lijn bg-white text-red-600 text-xs font-semibold flex items-center gap-1 hover:bg-red-50 disabled:opacity-40">
-                    <Trash2 size={14} aria-hidden /> Delete
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </Step>
-
-      <Step n={2} title="Put the laser time on your session" done={false}>
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 px-4 py-3 border border-lijn bg-white">
-          {/* Phone (and the laser PC's side bar): the time on top, the animation full width under it, so its text stays readable. */}
-          <div className="order-last sm:order-first min-w-0 w-full sm:max-w-[304px]">
-            <LaserAnimation active={laserOn} />
-          </div>
-          <div className="text-left sm:text-right shrink-0">
-            <div className={cn('text-xs font-semibold flex items-center sm:justify-end gap-1.5 mb-1', laserOn ? 'text-laser' : 'text-grafiet')}>
-              <span className={cn('inline-block w-2 h-2', laserOn ? 'bg-laser' : 'bg-lijn')} />
-              {laserOn ? 'Laser is cutting' : 'Laser idle'}
+    <section className="flex flex-col min-h-full">
+      <div className={cn('px-4 sm:px-6 pt-3 pb-2 border-b bg-brand-beige-dark', laserOn ? 'border-b-[3px] border-laser' : 'border-lijn')}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 font-semibold text-brand-black">
+              <span className={cn('inline-block w-2.5 h-2.5 border', laserOn ? 'bg-laser border-laser' : 'bg-lijn border-grafiet')} />
+              {laserOn ? 'Cutting' : 'Laser idle'}
             </div>
-            <div className="text-3xl font-mono tabular-nums text-brand-black">{formatDuration(pending)}</div>
-            <div className="text-xs text-grafiet">new laser time, not on a session yet</div>
+            <span className={cn('mt-1 text-xs font-semibold inline-flex items-center gap-1.5', sensorOk ? 'text-emerald-700' : 'text-amber-800')}>
+              {sensorOk ? <Wifi size={13} aria-hidden /> : <WifiOff size={13} aria-hidden />}
+              {!connected ? 'Laser service offline' : time?.esp_connected ? 'Timer connected' : time?.simulate ? 'Test mode (no sensor)' : 'Timer not connected'}
+            </span>
           </div>
+          {openCut > 0 && <div className="text-3xl font-semibold tabular-nums text-brand-black leading-none">{shortDuration(openCut)}</div>}
         </div>
-
+        <div className="mx-auto w-full max-w-[304px] mt-1"><LaserAnimation active={laserOn} /></div>
         {time?.simulate && (
-          <div className="flex gap-2 text-xs">
+          <div className="flex gap-2 text-xs pb-1">
             <span className="text-grafiet self-center">Test:</span>
             <button className="brutalist-button px-3 py-1.5 bg-white" onClick={() => run(() => laserApi.simulate(!laserOn))}>
               Laser {laserOn ? 'off' : 'on'}
             </button>
           </div>
         )}
+      </div>
 
-        <button
-          className="w-full brutalist-button h-12 bg-laser text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-          disabled={busy || !!assignBlocked}
-          onClick={() => run(() => laserApi.flush(selected))}
-        >
-          <ArrowRightLeft size={16} aria-hidden /> {assignBlocked ?? `Put ${formatDuration(pending)} on ${target!.name}`}
-        </button>
-        {pending > 0 && (
-          <button
-            className="text-xs font-semibold text-grafiet underline underline-offset-4 flex items-center gap-1.5 disabled:opacity-40"
-            disabled={busy}
-            onClick={() => setDiscarding(discarding === 'unassigned' ? null : 'unassigned')}
-          >
-            <RotateCcw size={12} aria-hidden /> Not your time? Clear it
-          </button>
-        )}
-        {discarding === 'unassigned' && pending > 0 && (
-          <DiscardConfirm
-            what={`Clear ${formatDuration(pending)} that is not on a session`}
-            value={laserSessionPrice(Math.ceil(pending / 60))}
-            busy={busy}
-            onCancel={() => setDiscarding(null)}
-            onConfirm={reason => run(async () => { await laserApi.reset(reason); setDiscarding(null); })}
-          />
-        )}
-      </Step>
-
-      <Step n={3} title="Pay when you are done" done={false}>
-        {toPay.length === 0 ? (
-          <p className="text-sm text-grafiet">Your session shows up here once it has laser time. Laser time costs {`€${PRICING.LASER_PER_MINUTE.toFixed(2)}`}/min; machine use is at least {`€${PRICING.LASER_MINIMUM.toFixed(2)}`} per payment.</p>
-        ) : (
-          <div className="space-y-2">
-            {toPay.map(s => (
-              <div key={s.id} className="border border-lijn bg-white">
-                <div className="p-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold text-sm truncate">{s.name}</div>
-                    <div className="text-xs text-grafiet font-mono">{formatDuration(s.total_time)} · {s.minutes} min</div>
-                    {s.checkout_at && <div className="text-xs font-semibold text-emerald-700 mt-0.5">In the checkout</div>}
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    {s.checkout_at ? (
-                      <button className="brutalist-button h-11 px-3 bg-white text-xs font-semibold flex items-center gap-1.5"
-                        onClick={() => run(() => laserApi.setCheckout(s.id, false))}>
-                        <X size={14} aria-hidden /> Take out
-                      </button>
-                    ) : (
-                      <button className="brutalist-button h-11 px-3 bg-emerald-400 text-brand-black text-sm font-semibold flex items-center gap-1.5"
-                        onClick={() => onCheckout(s.id)}>
-                        <ShoppingCart size={16} aria-hidden /> Pay €{laserSessionPrice(s.minutes).toFixed(2)}
-                      </button>
-                    )}
-                    <button className="brutalist-button h-11 px-3 bg-white text-xs text-red-600" aria-label={`Delete the session of ${s.name}`} title="Delete session"
-                      onClick={() => setDiscarding(discarding === s.id ? null : s.id)}>
-                      <Trash2 size={16} aria-hidden />
-                    </button>
-                  </div>
-                </div>
-                {discarding === s.id && (
-                  <div className="px-3 pb-3">
-                    <DiscardConfirm
-                      what={`Delete ${s.name} with ${formatDuration(s.total_time)} unpaid`}
-                      value={laserSessionPrice(s.minutes)}
-                      askKind
-                      busy={busy}
-                      onCancel={() => setDiscarding(null)}
-                      onConfirm={(reason, kind) => run(async () => { await laserApi.deleteSession(s.id, reason, kind); setDiscarding(null); })}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
+      <div className="flex-1 p-4 sm:p-6 space-y-3">
+        <div>
+          <h2 className="text-base font-semibold text-brand-black">Open cuts</h2>
+          {cuts.length > 0 && <p className="text-sm text-grafiet">Tick the cuts that are yours.</p>}
+        </div>
+        {openCut > 0 && (
+          <div className="flex items-center gap-3 px-3 py-2.5 border border-lijn bg-brand-beige-dark">
+            <span className="w-6 h-6 shrink-0 border-2 border-dashed border-grafiet" aria-hidden />
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm">{laserOn ? 'Cutting now' : 'Laser stopped'}</div>
+              <div className="text-xs text-grafiet">{laserOn ? `Shows up as a cut ${time?.cut_gap ?? 5} s after the laser stops` : 'Becomes a cut in a moment'}</div>
+            </div>
+            <div className="font-semibold tabular-nums">{shortDuration(openCut)}</div>
           </div>
         )}
-      </Step>
+        {cuts.length === 0 && openCut <= 0 && (
+          <p className="border border-dashed border-lijn p-4 text-center text-sm text-grafiet">
+            No open cuts. When the laser stops, your cut shows up here.
+          </p>
+        )}
+        {recent.length > 0 && <ul className="border border-lijn divide-y divide-lijn bg-white">{recent.map(row)}</ul>}
+        {older.length > 0 && (
+          <details className="border border-lijn bg-brand-beige-dark">
+            <summary className="px-3 py-3 font-semibold text-sm cursor-pointer">Older than a day ({older.length})</summary>
+            <ul className="border-t border-lijn divide-y divide-lijn bg-white">{older.map(row)}</ul>
+          </details>
+        )}
+        <p className="text-sm text-grafiet">
+          Laser time costs {`€${PRICING.LASER_PER_MINUTE.toFixed(2)}`}/min; machine use is at least {`€${PRICING.LASER_MINIMUM.toFixed(2)}`} per payment.
+        </p>
+        <WoodReminder onShop={onShop} />
+      </div>
 
-      <WoodReminder onShop={onShop} />
+      {picked.length > 0 && (
+        <div className="sticky bottom-0 border-t-2 border-brand-black bg-white px-4 sm:px-6 py-3 space-y-2">
+          {deleting && (
+            <DiscardConfirm
+              what={`Delete ${picked.length === 1 ? '1 cut' : `${picked.length} cuts`} with ${shortDuration(pickedSeconds)} unpaid`}
+              value={laserSessionPrice(Math.ceil(pickedSeconds / 60))}
+              askKind
+              busy={busy}
+              onCancel={() => setDeleting(false)}
+              onConfirm={(reason, kind) => run(async () => {
+                for (const s of picked) await laserApi.deleteSession(s.id, reason, kind);
+                setDeleting(false);
+              })}
+            />
+          )}
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span>{picked.length === 1 ? '1 cut' : `${picked.length} cuts`}, {shortDuration(pickedSeconds)} laser time</span>
+            <span className="font-semibold">€{pickedPrice.toFixed(2)}</span>
+          </div>
+          <div className="flex gap-2">
+            <button className="flex-1 brutalist-button h-12 bg-emerald-400 text-brand-black font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
+              disabled={busy} onClick={() => onCheckout(picked.map(s => s.id))}>
+              <ShoppingCart size={16} aria-hidden /> Pay €{pickedPrice.toFixed(2)}
+            </button>
+            <button className={cn('brutalist-button h-12 w-12 shrink-0 flex items-center justify-center text-red-600', deleting ? 'bg-rose-50' : 'bg-white')}
+              aria-label={`Delete the ${picked.length === 1 ? 'ticked cut' : `${picked.length} ticked cuts`} without paying`} title="Delete without paying"
+              disabled={busy} onClick={() => setDeleting(d => !d)}>
+              <Trash2 size={18} aria-hidden />
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
 
-/** A numbered step of the laser flow; done steps get a check. */
-function Step({ n, title, done, children }: { n: number; title: string; done: boolean; children: React.ReactNode }) {
+/** The line under a cut's name: the day (a cut's name holds its start time), or day and time for an old named session. */
+function cutStart(name: string, iso: string) {
+  const d = new Date(iso);
+  const day = d.toDateString() === new Date().toDateString() ? 'Today' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  return /^Cut \d\d:\d\d$/.test(name) ? day : `${day} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+/** One open cut: tick it to pay or delete it; in the checkout it can be taken out again. */
+function CutRow({ cut, ticked, busy, onToggle, onTakeOut }: {
+  cut: LaserSession; ticked: boolean; busy: boolean; onToggle: () => void; onTakeOut: () => void;
+}) {
+  const info = (
+    <>
+      <span className="flex-1 min-w-0">
+        <span className="block font-semibold text-sm truncate">{cut.name}</span>
+        <span className="block text-xs text-grafiet">{cut.checkout_at ? 'In the checkout' : cutStart(cut.name, cut.created)}</span>
+      </span>
+      <span className="font-semibold tabular-nums">{shortDuration(cut.total_time)}</span>
+    </>
+  );
+  if (cut.checkout_at) {
+    return (
+      <li className="flex items-center gap-3 px-3 py-2.5 bg-emerald-50">
+        <ShoppingCart size={18} className="text-emerald-700 shrink-0" aria-hidden />
+        {info}
+        <button className="brutalist-button h-10 px-3 bg-white text-xs font-semibold flex items-center gap-1.5" disabled={busy} onClick={onTakeOut}>
+          <X size={14} aria-hidden /> Take out
+        </button>
+      </li>
+    );
+  }
   return (
-    <div className="border border-lijn bg-brand-beige p-3 sm:p-4 space-y-3">
-      <h3 className="flex items-center gap-2 font-semibold text-brand-black">
-        <span className={cn('w-7 h-7 shrink-0 flex items-center justify-center text-sm', done ? 'bg-emerald-600 text-white' : 'bg-brand-black text-white')}>
-          {done ? <Check size={16} aria-label="done" /> : n}
+    <li>
+      <label className={cn('flex items-center gap-3 px-3 py-2.5 min-h-14 cursor-pointer', ticked ? 'bg-laser-licht/40' : 'hover:bg-brand-beige-dark')}>
+        <input type="checkbox" checked={ticked} onChange={onToggle} className="sr-only peer" />
+        <span aria-hidden className={cn('w-6 h-6 shrink-0 border-2 border-brand-black flex items-center justify-center peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2',
+          ticked ? 'bg-brand-black text-white' : 'bg-white')}>
+          {ticked && <Check size={16} />}
         </span>
-        {title}
-      </h3>
-      {children}
-    </div>
+        {info}
+      </label>
+    </li>
   );
 }
 
@@ -362,7 +316,7 @@ function DiscardConfirm({ what, value, askKind = false, busy, onCancel, onConfir
       <div className="flex justify-end gap-2">
         <button type="button" className="brutalist-button px-3 py-1.5 bg-white text-xs" onClick={onCancel}>Cancel</button>
         <button type="submit" disabled={busy || missing} className="brutalist-button px-3 py-1.5 bg-brand-black text-white text-xs font-semibold disabled:opacity-40">
-          {value !== null ? 'Clear' : 'Delete'}
+          {value !== null && !askKind ? 'Clear' : 'Delete'}
         </button>
       </div>
       {value !== null && <p className="text-[10px] text-grafiet">Shown in Analytics → Laser{askKind ? '; paid outside checkout counts as paid.' : ' as time not verified.'}</p>}

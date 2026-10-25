@@ -40,7 +40,7 @@ ESP_ALLOWED_IPS = {ip.strip() for ip in os.environ.get('ESP_ALLOWED_IPS', '').sp
 # Laser time is split into cuts: once the laser is off this long, the time so far is one cut.
 # On the real laser 87 of 128 pauses inside the same month were under 5 s, 34 over 30 s.
 CUT_GAP_S = float(os.environ.get('CUT_GAP_S', '5'))
-MIN_CUT_SECONDS = 2.0    # shorter is a test pulse, not a job: dropped
+MIN_CUT_SECONDS = db.MIN_LOGGED_SECONDS   # shorter is a test pulse, not a job: dropped
 
 app = Flask(__name__)
 socketio = SocketIO(app, path='/laser/socket.io', async_mode='threading', cors_allowed_origins='*')  # only nginx reaches it

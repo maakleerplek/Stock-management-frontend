@@ -120,17 +120,21 @@ def test_empty_session_is_never_billed_or_kept(tmp_path):
     assert db.query('SELECT id FROM discarded_time') == []
 
 
-def test_seconds_of_laser_time_are_not_logged(tmp_path):
+def test_a_test_pulse_is_not_logged_but_a_short_cut_is(tmp_path):
     c = client(tmp_path)
-    sid = c.post('/laser/api/sessions', json={'name': 'Test'}).json['id']
-    db.execute('UPDATE sessions SET total_time = 5 WHERE id = ?', (sid,))
-    c.delete(f'/laser/api/sessions/{sid}')
+    pulse = c.post('/laser/api/sessions', json={'name': 'Test'}).json['id']
+    db.execute('UPDATE sessions SET total_time = 1 WHERE id = ?', (pulse,))
+    c.delete(f'/laser/api/sessions/{pulse}')
     assert db.query('SELECT id FROM discarded_time') == []
+    cut = c.post('/laser/api/sessions', json={'name': 'Cut 14:32'}).json['id']
+    db.execute('UPDATE sessions SET total_time = 5 WHERE id = ?', (cut,))
+    c.delete(f'/laser/api/sessions/{cut}', json={'kind': 'workshop'})
+    assert [(r['seconds'], r['kind']) for r in db.query('SELECT seconds, kind FROM discarded_time')] == [(5, 'workshop')]
 
 
 def test_old_tiny_discards_are_cleaned_up(tmp_path):
     db.connect(str(tmp_path / 'machineusage.db'))
-    for seconds in (5, 120):
+    for seconds in (1, 120):
         db.execute("INSERT INTO discarded_time (seconds, source, discarded_at) VALUES (?, 'unassigned', '2026-09-29')", (seconds,))
     db.connect(str(tmp_path / 'machineusage.db'))
     assert [r['seconds'] for r in db.query('SELECT seconds FROM discarded_time')] == [120]

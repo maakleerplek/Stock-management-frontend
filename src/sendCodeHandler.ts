@@ -72,8 +72,8 @@ export interface ExtraLine {
     unitPrice: number;
     /** Who used it (the laser session's name). Booked as the line's description. */
     person?: string;
-    /** Laser time from a session on the laser service, marked paid after the sale. */
-    laserSessionId?: string;
+    /** Laser cuts (sessions on the laser service) in this line, marked paid after the sale. */
+    laserSessionIds?: string[];
     /** Least a payment with this machine in it costs (bank costs). It counts once per payment, see topUp. */
     minimum?: number;
 }

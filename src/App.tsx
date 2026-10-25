@@ -355,9 +355,9 @@ function AppContent() {
     []
   );
 
-  const handleLaserCheckout = async (sessionId: string) => {
+  const handleLaserCheckout = async (sessionIds: string[]) => {
     try {
-      await laserApi.setCheckout(sessionId, true);
+      for (const id of sessionIds) await laserApi.setCheckout(id, true);
       setMobileCheckoutTab('cart');
       // A volunteer's cart is on the Scan tab; the checkout sends them to the overview.
       setCurrentPage(isVolunteerMode ? 'scan' : 'checkout');

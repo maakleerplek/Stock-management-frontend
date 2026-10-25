@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingCart';
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
-import { laserApi, markPaidReliably, pendingPaidIds, type LaserSession } from './lib/laserApi';
+import { laserApi, laserMinutes, markPaidReliably, pendingPaidIds, type LaserSession } from './lib/laserApi';
 import { PRICING } from './constants';
 import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, priced, topUp, extraLabel, describeExtra, handleCheckout as bookSale, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine, volunteerSaleLines, linesTotal } from './sendCodeHandler';
 import { useToast } from './ToastContext';
@@ -42,10 +42,12 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const pendingPaid = pendingPaidIds();
     const laserInCheckout = laserSessions.filter(s => s.checkout_at && s.total_time > 0 && !pendingPaid.has(s.id));
     const extras: ExtraLine[] = [
-        ...laserInCheckout.map(s => ({
-            name: 'Lasertime', person: s.name, quantity: s.minutes, unit: 'min',
-            ...priced(PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM), laserSessionId: s.id,
-        })),
+        // All laser cuts as one line, rounded up to whole minutes once.
+        ...(laserInCheckout.length ? [{
+            name: 'Lasertime', person: laserInCheckout.map(s => s.name).join(', ').slice(0, 120),
+            quantity: laserMinutes(laserInCheckout), unit: 'min',
+            ...priced(PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM), laserSessionIds: laserInCheckout.map(s => s.id),
+        }] : []),
         ...typedExtras,
     ];
     // Machine lines at their own price, plus the top-up to the minimum per payment.
@@ -147,10 +149,11 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const sell = async (lines: CheckoutLine[]) => {
         const reference = await bookSale(lines, extras);
         for (const extra of extras) {
-            if (!extra.laserSessionId) continue;
-            void markPaidReliably(extra.laserSessionId, reference).then(ok => {
-                if (!ok) addToast(`Sold, but laser session "${extra.person}" could not be marked paid yet. It is retried automatically.`, 'warning');
-            });
+            for (const id of extra.laserSessionIds ?? []) {
+                void markPaidReliably(id, reference).then(ok => {
+                    if (!ok) addToast('Sold, but a laser cut could not be marked paid yet. It is retried automatically.', 'warning');
+                });
+            }
         }
         localStorage.removeItem(EXTRAS_STORAGE_KEY);
         setInvoice({
@@ -288,7 +291,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                 ))}
 
                                 {extras.map((extra) => (
-                                    <div key={extra.laserSessionId ?? extra.name} className="flex justify-between items-center p-3 border border-lijn bg-brand-beige-dark">
+                                    <div key={extra.laserSessionIds?.join() ?? extra.name} className="flex justify-between items-center p-3 border border-lijn bg-brand-beige-dark">
                                         <div className="flex flex-col">
                                             <span className="font-semibold text-sm">{extraLabel(extra)}</span>
                                             <span className="text-[10px] font-bold text-brand-black/60">{extra.quantity} {extra.unit} × €{extra.unitPrice.toFixed(2)}</span>

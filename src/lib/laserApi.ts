@@ -42,7 +42,12 @@ export interface DiscardedTime {
 }
 
 export interface LaserTime {
+  /** The open cut: laser seconds not booked as a cut yet. */
   global_time: number;
+  /** When the open cut began (ISO), null when there is none. */
+  cut_started: string | null;
+  /** Seconds the laser has to be off before the open cut is booked. */
+  cut_gap: number;
   laser_state: boolean;
   esp_connected: boolean;
   esp_ip: string | null;
@@ -273,6 +278,13 @@ export function useLaserSocket() {
 
   return { connected, time, sessions };
 }
+
+/** Whole minutes the till charges for these cuts together: rounded up once, not per cut. */
+export const laserMinutes = (sessions: Pick<LaserSession, 'total_time'>[]) =>
+  Math.ceil(Math.round(sessions.reduce((t, s) => t + s.total_time, 0) * 1000) / 1000 / 60);
+
+/** Laser time as 3:12 or 1:05:40, as on the cut rows. */
+export const shortDuration = (seconds: number) => formatDuration(seconds).replace(/^00:/, '').replace(/^0(\d:)/, '$1');
 
 export function formatDuration(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));

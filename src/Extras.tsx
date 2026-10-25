@@ -4,7 +4,7 @@ import { PRICING } from './constants';
 import { isFilament, filamentType, priced, topUp, extraLabel, type ExtraLine } from './sendCodeHandler';
 import { useStock } from './StockContext';
 import { inventreeClient } from './api/inventreeClient';
-import type { LaserSession } from './lib/laserApi';
+import { laserMinutes, shortDuration, type LaserSession } from './lib/laserApi';
 import { cn } from './lib/utils';
 
 /** Machine time added by hand survives a refresh, like the cart. Cleared after a sale. */
@@ -66,38 +66,49 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
 
     const add = (line: ExtraLine) => setAdded(a => [...a, line]);
     // The top-up over everything in this checkout: the laser sessions and the added lines.
-    const inCheckout: ExtraLine[] = [...laserSessions.map(s => ({ name: 'Lasertime', quantity: s.minutes, unit: 'min', ...priced(PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM) })), ...added];
+    // The laser cuts are one line, rounded up once (as ShoppingWindow books them).
+    const cutMinutes = laserMinutes(laserSessions);
+    const inCheckout: ExtraLine[] = [...(laserSessions.length ? [{ name: 'Lasertime', quantity: cutMinutes, unit: 'min', ...priced(PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM) }] : []), ...added];
     const top = topUp(inCheckout);
     const minimum = Math.max(0, ...inCheckout.map(e => e.minimum ?? 0));
 
     return (
         <div className="space-y-4">
             {openLaserSessions.length > 0 && (
-                <label className="flex items-center gap-2 border-2 border-laser p-3 bg-laser-licht/40">
-                    <Zap size={16} className="shrink-0 text-laser" aria-hidden />
-                    <span className="text-sm font-semibold shrink-0">Pay a laser session</span>
-                    <select
-                        value=""
-                        onChange={e => { if (e.target.value) onAddLaserSession(e.target.value); }}
-                        className="flex-1 min-w-0 h-11 px-2 border border-lijn bg-white text-sm"
-                    >
-                        <option value="">Pick your session…</option>
+                <div className="border-2 border-laser bg-laser-licht/40">
+                    <div className="flex items-center justify-between gap-2 px-3 py-2">
+                        <span className="text-sm font-semibold flex items-center gap-2"><Zap size={16} className="text-laser" aria-hidden /> Laser cuts not paid yet</span>
+                        {openLaserSessions.length > 1 && (
+                            <button onClick={() => openLaserSessions.forEach(s => onAddLaserSession(s.id))}
+                                className="h-9 px-3 border border-brand-black bg-white text-xs font-semibold">Add all ({openLaserSessions.length})</button>
+                        )}
+                    </div>
+                    <ul className="divide-y divide-lijn border-t border-lijn bg-white">
                         {openLaserSessions.map(s => (
-                            <option key={s.id} value={s.id} disabled={s.minutes <= 0}>
-                                {s.name} · {s.minutes} min{s.minutes > 0 ? ` · ${eur(laserSessionPrice(s.minutes))}` : ' (no time yet)'}
-                            </option>
+                            <li key={s.id} className="flex items-center gap-3 px-3 py-2">
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-semibold truncate">{s.name}</div>
+                                    <div className="text-xs text-grafiet">{new Date(s.created).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
+                                </div>
+                                <span className="font-semibold tabular-nums">{shortDuration(s.total_time)}</span>
+                                <button onClick={() => onAddLaserSession(s.id)}
+                                    className="h-11 px-3 border border-brand-black bg-white text-xs font-semibold flex items-center gap-1">
+                                    <Plus size={14} aria-hidden /> Add
+                                </button>
+                            </li>
                         ))}
-                    </select>
-                </label>
+                    </ul>
+                </div>
             )}
 
             {(laserSessions.length > 0 || added.length > 0) && (
                 <ul className="space-y-2" aria-label="Machine time in this checkout">
-                    {laserSessions.map(s => (
-                        <Row key={s.id} icon={Zap} tone="text-laser" title={`Lasercut · ${s.name}`}
-                            detail={`${s.minutes} min, from the laser timer`} price={laserSessionPrice(s.minutes)}
-                            onRemove={() => onRemoveLaserSession(s.id)} />
-                    ))}
+                    {laserSessions.length > 0 && (
+                        <Row icon={Zap} tone="text-laser"
+                            title={`Lasercut · ${laserSessions.length === 1 ? laserSessions[0].name : `${laserSessions.length} cuts`}`}
+                            detail={`${cutMinutes} min, from the laser timer`} price={laserSessionPrice(cutMinutes)}
+                            onRemove={() => laserSessions.forEach(s => onRemoveLaserSession(s.id))} />
+                    )}
                     {added.map((l, i) => (
                         <Row key={i} icon={l.unit === 'g' ? Printer : l.name === 'CNC time' ? Drill : Zap}
                             tone={l.unit === 'g' ? 'text-blue-600' : l.name === 'CNC time' ? 'text-cnc' : 'text-laser'}

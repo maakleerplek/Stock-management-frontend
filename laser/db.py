@@ -12,9 +12,10 @@ DATA_DIR = os.environ.get('DATA_DIR', os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(DATA_DIR, 'machineusage.db')
 OLD_NAME = 'laser.db'   # its name until 2026-10; moved once on start
 
-# Less laser time than this (it shows as "0 min") is no real use of the laser,
-# just a test pulse. It is not logged as thrown away and not kept as a session.
-MIN_LOGGED_SECONDS = 30
+# Less laser time than this is no real use of the laser, just a test pulse. It
+# does not become a cut and is not logged as thrown away. (Was 30 s before cuts:
+# a short engrave is a real cut now.)
+MIN_LOGGED_SECONDS = 2
 
 _lock = threading.Lock()
 _conn: sqlite3.Connection | None = None
