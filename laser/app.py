@@ -13,6 +13,8 @@ the visitor ticks and pays. Settings advice comes from LaserLog (see recommend.p
 Everything is under /laser/ because nginx proxies that path here.
 """
 import base64
+import gzip
+import io
 import json
 import math
 import os
@@ -28,6 +30,7 @@ from flask_socketio import SocketIO
 import db
 import feedback
 import inventree
+import lbrn
 from recommend import MAX_POWER, Point, recommend
 
 COST_PER_MIN = float(os.environ.get('COST_PER_MIN', '0.50'))
@@ -340,8 +343,9 @@ def config():
 
 @app.post('/laser/api/lightburn')
 def post_lightburn():
-    """The watcher on the laser PC: the file LightBurn has open, with its thumbnail (PNG, base64).
-    Without a thumbnail the last one of the same file is kept."""
+    """The watcher on the laser PC: the file LightBurn has open, with its thumbnail (PNG, base64),
+    or, for a working copy without one, the project itself (gzip, base64) to draw it from.
+    With neither, the last picture of the same file is kept."""
     global lightburn
     b = request.get_json(silent=True) or {}
     name = str(b.get('name') or '').strip()[:120]
@@ -355,6 +359,13 @@ def post_lightburn():
             return {'error': 'thumb must be base64'}, 400
         if not thumb.startswith(b'\x89PNG') or len(thumb) > 512_000:
             return {'error': 'thumb must be a PNG under 500 kB'}, 400
+    elif b.get('lbrn'):
+        try:
+            with gzip.GzipFile(fileobj=io.BytesIO(base64.b64decode(b['lbrn'], validate=True))) as f:
+                xml = f.read(80_000_000)   # a 14 MB autosave is normal; this is the cap
+            thumb = lbrn.render(xml.decode('utf-8', 'replace'))
+        except Exception as e:   # a half-written autosave: keep the last picture
+            print(f'[lightburn] could not draw {name}: {e}')
     with state_lock:
         if thumb is None and lightburn and lightburn['name'] == name:
             thumb = lightburn['thumb']

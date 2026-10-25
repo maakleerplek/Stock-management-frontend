@@ -57,6 +57,17 @@ function Get-Thumbnail($file) {
     if ($text -match '<Thumbnail Source="([A-Za-z0-9+/=]+)"') { $Matches[1] }
 }
 
+function Get-Packed($file) {
+    # The whole project gzipped (a 14 MB autosave of numbers packs to a few MB), as base64.
+    $stream = [IO.File]::Open($file.FullName, 'Open', 'Read', 'ReadWrite')
+    $packed = New-Object IO.MemoryStream
+    try {
+        $gz = New-Object IO.Compression.GZipStream($packed, [IO.Compression.CompressionMode]::Compress, $true)
+        $stream.CopyTo($gz); $gz.Close()
+    } finally { $stream.Close() }
+    [Convert]::ToBase64String($packed.ToArray())
+}
+
 $lastPid = 0; $sent = ''; $sentAt = [datetime]::MinValue
 while ($true) {
     try {
@@ -75,10 +86,11 @@ while ($true) {
                 $body = @{ name = $(if ($name -eq '<untitled>') { 'Untitled' } else { $name }); unsaved = $unsaved }
                 if ($key -ne $sent -and $copy) {
                     $thumb = Get-Thumbnail $copy
-                    if ($thumb) { $body.thumb = $thumb }
+                    # Autosave and _backup copies have no thumbnail: send the project, the service draws it.
+                    if ($thumb) { $body.thumb = $thumb } else { $body.lbrn = Get-Packed $copy }
                 }
                 Invoke-RestMethod -Method Post -Uri "$server/laser/api/lightburn" -ContentType 'application/json' `
-                    -Body ($body | ConvertTo-Json -Compress) -TimeoutSec 5 | Out-Null
+                    -Body ($body | ConvertTo-Json -Compress) -TimeoutSec 30 | Out-Null
                 $sent = $key; $sentAt = Get-Date
             }
         }

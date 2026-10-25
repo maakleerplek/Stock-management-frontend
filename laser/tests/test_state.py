@@ -126,3 +126,32 @@ def test_lightburn_input_is_checked(tmp_path):
     c = laser.app.test_client()
     assert c.post('/laser/api/lightburn', json={}).status_code == 400
     assert c.post('/laser/api/lightburn', json={'name': 'x', 'thumb': 'bm90IGEgcG5n'}).status_code == 400   # "not a png"
+
+
+LBRN = '''<?xml version="1.0" encoding="UTF-8"?>
+<LightBurnProject AppVersion="2.1.04" MirrorX="True" MirrorY="True">
+    <Shape Type="Rect" CutIndex="2" W="100" H="50" Cr="0"><XForm>1 0 0 1 50 25</XForm></Shape>
+    <Shape Type="Group" CutIndex="0"><XForm>1 0 0 1 10 0</XForm><Children>
+        <Shape Type="Path" CutIndex="0" VertID="1" PrimID="1"><XForm>1 0 0 1 0 0</XForm>
+            <VertList>V0 0c0x1c1x1V20 0c0x1c1x1V20 20c0x30c0y30c1x1</VertList><PrimList>L0 1B1 2</PrimList></Shape>
+        <Shape Type="Path" CutIndex="0" VertID="1" PrimID="1"><XForm>1 0 0 1 40 0</XForm></Shape>
+    </Children></Shape>
+</LightBurnProject>'''
+
+
+def test_a_project_without_thumbnail_is_drawn(tmp_path):
+    import base64
+    import gzip
+    import lbrn
+    lines, mirror_x, mirror_y = lbrn.strokes(LBRN)
+    assert (mirror_x, mirror_y) == (True, True)
+    assert len(lines) == 3   # the rect, and the path twice: the second reuses VertID/PrimID 1
+    assert lines[2][1][0] == (50.0, 0.0)   # group (+10) and its own XForm (+40)
+    _fresh(tmp_path)
+    c = laser.app.test_client()
+    body = {'name': 'Untitled', 'unsaved': True, 'lbrn': base64.b64encode(gzip.compress(LBRN.encode())).decode()}
+    assert c.post('/laser/api/lightburn', json=body).status_code == 200
+    assert laser.lightburn['thumb'].startswith(b'\x89PNG')
+    # A broken autosave keeps the picture it had.
+    assert c.post('/laser/api/lightburn', json={'name': 'Untitled', 'lbrn': base64.b64encode(gzip.compress(b'<half')).decode()}).status_code == 200
+    assert laser.lightburn['thumb'].startswith(b'\x89PNG')
