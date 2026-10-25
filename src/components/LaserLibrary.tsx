@@ -64,7 +64,7 @@ function toDraft(t: RowText): LibraryDraft | { error: string } {
 /** A new row that is not in InvenTree yet. */
 interface NewRow { key: number; text: RowText }
 
-export default function LaserLibrary() {
+export default function LaserLibrary({ onSaved }: { onSaved?: () => void }) {
   const { addToast } = useToast();
   const { isVolunteerMode } = useVolunteer();
   const [rows, setRows] = useState<LibraryRow[] | null>(null);
@@ -165,6 +165,7 @@ export default function LaserLibrary() {
     await load();
 
     const ok = done.updates.size + done.creates.size + done.deletes.size;
+    if (ok) onSaved?.();
     if (Object.keys(failed).length) addToast(`${ok} saved, ${Object.keys(failed).length} failed: see the rows in red.`, 'error');
     else addToast(`${ok} change${ok === 1 ? '' : 's'} saved to the library.`, 'success');
   };

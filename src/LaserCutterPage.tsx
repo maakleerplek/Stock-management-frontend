@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Zap, X, Plus, RotateCcw, ArrowRightLeft, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Pencil } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { useStock } from './StockContext';
@@ -47,12 +47,14 @@ const CONFIDENCE: Record<LaserSetting['confidence'], string> = {
 };
 
 export default function LaserCutterPage({ onCheckout, onShop, live }: LaserCutterPageProps) {
+  // Goes up after every library save, so the settings panel loads the new materials and thicknesses.
+  const [libraryVersion, setLibraryVersion] = useState(0);
   return (
     <div className="flex-1 overflow-auto bg-brand-beige">
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-lijn min-h-full">
         <TimePanel onCheckout={onCheckout} onShop={onShop} live={live} />
-        <SettingsPanel />
-        <LaserLibrary />
+        <SettingsPanel libraryVersion={libraryVersion} />
+        <LaserLibrary onSaved={() => setLibraryVersion(v => v + 1)} />
       </div>
     </div>
   );
@@ -368,11 +370,13 @@ function DiscardConfirm({ what, value, askKind = false, busy, onCancel, onConfir
   );
 }
 
-function SettingsPanel() {
+function SettingsPanel({ libraryVersion }: { libraryVersion: number }) {
   const { addToast } = useToast();
   const [materials, setMaterials] = useState<LaserMaterial[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [material, setMaterial] = useState('');
+  const materialRef = useRef(material);
+  materialRef.current = material;
   const [thickness, setThickness] = useState<number | null>(null);
   const [ops, setOps] = useState<LaserOperation[]>(['cut']);
   const [strength, setStrength] = useState(50);
@@ -385,13 +389,13 @@ function SettingsPanel() {
     laserApi.materials()
       .then(d => {
         setMaterials(d.materials);
-        if (d.materials[0]) {
-          setMaterial(d.materials[0].name);
-          setThickness(d.materials[0].thicknesses[0] ?? null);
-        }
+        // After a library save, keep what the visitor picked if that material still exists.
+        if (d.materials.some(m => m.name === materialRef.current)) return;
+        setMaterial(d.materials[0]?.name ?? '');
+        setThickness(d.materials[0]?.thicknesses[0] ?? null);
       })
       .catch(e => setLoadError(e instanceof Error ? e.message : String(e)));
-  }, []);
+  }, [libraryVersion]);
 
   useEffect(() => {
     if (!material || thickness === null || thickness <= 0 || !ops.length) { setResults([]); return; }
@@ -404,7 +408,7 @@ function SettingsPanel() {
         .catch(e => { if (!stale) addToast(e instanceof Error ? e.message : String(e), 'error'); });
     }, 150);
     return () => { stale = true; window.clearTimeout(id); };
-  }, [material, thickness, ops, strength, addToast]);
+  }, [material, thickness, ops, strength, addToast, libraryVersion]);
 
   const current = materials?.find(m => m.name === material);
   const toggleOp = (op: LaserOperation) =>
