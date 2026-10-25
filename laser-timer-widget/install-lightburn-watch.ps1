@@ -11,8 +11,9 @@ Copy-Item (Join-Path $here 'lightburn-watch.ps1') $script -Force
 
 # A .vbs starts PowerShell without a window flashing up.
 $vbs = Join-Path ([Environment]::GetFolderPath('Startup')) 'lightburn-watch.vbs'
-$cmd = "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""$script"""
-Set-Content $vbs "CreateObject(""WScript.Shell"").Run ""$($cmd -replace '"', '""')"", 0, False" -Encoding ASCII
+$cmd = 'powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $script + '"'
+# In VBScript a quote inside a string is written twice.
+Set-Content $vbs ('CreateObject("WScript.Shell").Run "' + ($cmd -replace '"', '""') + '", 0, False') -Encoding ASCII
 
 # Stop a running one (an older version), then start it.
 Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" |

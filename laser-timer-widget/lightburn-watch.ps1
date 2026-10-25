@@ -28,15 +28,17 @@ if (Test-Path $config) {
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $restore = Join-Path $env:LOCALAPPDATA 'LightBurn\restore.lb'
+$log = Join-Path $env:LOCALAPPDATA 'Laser Timer\lightburn-watch.log'   # the last error, for debugging
 $docs = [Environment]::GetFolderPath('MyDocuments')
 
 function Get-WorkingCopy($proc, $name) {
     $candidates = @(Join-Path $docs ('AutoSave_{0:x}.lbrn2' -f $proc.Id))
     if ($name -ne '<untitled>') {
+        # restore.lb also holds lines that are no valid path: compare names with a regex, not [IO.Path].
         $file = Get-Content $restore -ErrorAction SilentlyContinue |
-            Where-Object { [IO.Path]::GetFileNameWithoutExtension($_) -eq $name } | Select-Object -First 1
+            Where-Object { (($_.Trim() -replace '^.*[\\/]', '') -replace '\.lbrn2?$', '') -eq $name } | Select-Object -First 1
         if ($file) {
-            $file = $file -replace '/', '\'
+            $file = $file.Trim() -replace '/', '\'
             $candidates += ($file -replace '\.lbrn2?$', '_backup.lbrn2'), $file
         }
     }
@@ -80,6 +82,9 @@ while ($true) {
                 $sent = $key; $sentAt = Get-Date
             }
         }
-    } catch { }   # server away or LightBurn closing: try again next round
+    } catch {
+        # Server away or LightBurn closing: try again next round. Keep the last error for debugging.
+        "$(Get-Date -Format s) $_ $($_.InvocationInfo.PositionMessage)" | Out-File $log -Encoding utf8
+    }
     Start-Sleep -Seconds 2
 }
