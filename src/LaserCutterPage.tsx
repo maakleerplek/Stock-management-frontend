@@ -59,6 +59,9 @@ export default function LaserCutterPage({ onCheckout, onShop, live }: LaserCutte
   );
 }
 
+// Cut cards: two side by side in the laser PC's bar, three on a wide column.
+const CUT_GRID = 'grid grid-cols-2 xl:grid-cols-3 gap-2';
+
 function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const { connected, time, sessions } = live;
   const { addToast } = useToast();
@@ -152,11 +155,11 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
             No open cuts. When the laser stops, your cut shows up here.
           </p>
         )}
-        {recent.length > 0 && <ul className="border border-lijn divide-y divide-lijn bg-white">{recent.map(row)}</ul>}
+        {recent.length > 0 && <ul className={CUT_GRID}>{recent.map(row)}</ul>}
         {older.length > 0 && (
           <details className="border border-lijn bg-brand-beige-dark">
             <summary className="px-3 py-3 font-semibold text-sm cursor-pointer">Older than a day ({older.length})</summary>
-            <ul className="border-t border-lijn divide-y divide-lijn bg-white">{older.map(row)}</ul>
+            <ul className={cn(CUT_GRID, 'p-2 border-t border-lijn')}>{older.map(row)}</ul>
           </details>
         )}
         <p className="text-sm text-grafiet">
@@ -208,28 +211,36 @@ function cutStart(name: string, iso: string) {
   return /^Cut \d\d:\d\d$/.test(name) ? day : `${day} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-/** One open cut: tick it to pay or delete it; in the checkout it can be taken out again. */
+/** One open cut as a card: LightBurn's picture of the job large on top, name, start and length under it.
+ *  Tap to tick it for paying or deleting; in the checkout it can be taken out again. */
 function CutRow({ cut, ticked, busy, onToggle, onTakeOut }: {
   cut: LaserSession; ticked: boolean; busy: boolean; onToggle: () => void; onTakeOut: () => void;
 }) {
+  const picture = (
+    <span className="block aspect-square w-full bg-brand-beige-dark border-b border-lijn overflow-hidden" aria-hidden>
+      {cut.has_preview
+        ? <img src={cutPreviewUrl(cut.id)} alt="" className="w-full h-full object-contain p-2" loading="lazy" />
+        : <span className="w-full h-full flex items-center justify-center"><Scissors size={36} className="text-lijn" /></span>}
+    </span>
+  );
   const info = (
-    <>
-      <span className="w-12 h-12 shrink-0 border border-lijn bg-brand-beige-dark flex items-center justify-center overflow-hidden" aria-hidden>
-        {cut.has_preview ? <img src={cutPreviewUrl(cut.id)} alt="" className="w-full h-full object-contain" loading="lazy" /> : <Scissors size={18} className="text-grafiet" />}
+    <span className="block p-2.5 space-y-0.5">
+      <span className="block font-semibold text-sm leading-tight line-clamp-2 break-words">{cut.name}</span>
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="text-xs text-grafiet truncate">{cut.checkout_at ? 'In the checkout' : cutStart(cut.name, cut.created)}</span>
+        <span className="text-lg font-semibold tabular-nums">{shortDuration(cut.total_time)}</span>
       </span>
-      <span className="flex-1 min-w-0">
-        <span className="block font-semibold text-sm truncate">{cut.name}</span>
-        <span className="block text-xs text-grafiet">{cut.checkout_at ? 'In the checkout' : cutStart(cut.name, cut.created)}</span>
-      </span>
-      <span className="font-semibold tabular-nums">{shortDuration(cut.total_time)}</span>
-    </>
+    </span>
   );
   if (cut.checkout_at) {
     return (
-      <li className="flex items-center gap-3 px-3 py-2.5 bg-emerald-50">
-        <ShoppingCart size={18} className="text-emerald-700 shrink-0" aria-hidden />
+      <li className="flex flex-col border-2 border-emerald-600 bg-emerald-50">
+        <span className="relative">
+          {picture}
+          <ShoppingCart size={18} className="absolute top-2 left-2 text-emerald-700" aria-hidden />
+        </span>
         {info}
-        <button className="brutalist-button h-10 px-3 bg-white text-xs font-semibold flex items-center gap-1.5" disabled={busy} onClick={onTakeOut}>
+        <button className="mt-auto mx-2.5 mb-2.5 brutalist-button h-10 bg-white text-xs font-semibold flex items-center justify-center gap-1.5" disabled={busy} onClick={onTakeOut}>
           <X size={14} aria-hidden /> Take out
         </button>
       </li>
@@ -237,11 +248,12 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut }: {
   }
   return (
     <li>
-      <label className={cn('flex items-center gap-3 px-3 py-2.5 min-h-14 cursor-pointer', ticked ? 'bg-laser-licht/40' : 'hover:bg-brand-beige-dark')}>
-        <input type="checkbox" checked={ticked} onChange={onToggle} className="sr-only peer" />
-        <span aria-hidden className={cn('w-6 h-6 shrink-0 border-2 border-brand-black flex items-center justify-center peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2',
+      <label className={cn('relative flex flex-col h-full border-2 cursor-pointer bg-white', ticked ? 'border-laser bg-laser-licht/30' : 'border-lijn hover:border-grafiet')}>
+        <input type="checkbox" checked={ticked} onChange={onToggle} className="sr-only peer" aria-label={`${cut.name}, ${shortDuration(cut.total_time)}`} />
+        {picture}
+        <span aria-hidden className={cn('absolute top-2 left-2 w-7 h-7 border-2 border-brand-black flex items-center justify-center peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2',
           ticked ? 'bg-brand-black text-white' : 'bg-white')}>
-          {ticked && <Check size={16} />}
+          {ticked && <Check size={18} />}
         </span>
         {info}
       </label>
