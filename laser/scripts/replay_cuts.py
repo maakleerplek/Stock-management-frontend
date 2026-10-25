@@ -41,6 +41,7 @@ def replay(events, gap: float) -> list[dict]:
         db.connect(os.path.join(tmp, 'replay.db'))
         laser.esp_boot, laser.esp_on_ms, laser.global_time, laser.cut_started = None, 0, 0.0, None
         laser.laser_on, laser.on_since = False, None
+        laser.lightburn, laser.cut_job = None, None   # no LightBurn files in a replay: cuts are named after their start
         boot, last_ms = 0, None
         for t, on, on_ms in events:
             now[0] = t

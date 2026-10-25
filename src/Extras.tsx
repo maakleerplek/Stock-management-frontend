@@ -4,7 +4,7 @@ import { PRICING } from './constants';
 import { isFilament, filamentType, priced, topUp, extraLabel, type ExtraLine } from './sendCodeHandler';
 import { useStock } from './StockContext';
 import { inventreeClient } from './api/inventreeClient';
-import { laserMinutes, shortDuration, type LaserSession } from './lib/laserApi';
+import { cutPreviewUrl, laserMinutes, shortDuration, type LaserSession } from './lib/laserApi';
 import { cn } from './lib/utils';
 
 /** Machine time added by hand survives a refresh, like the cart. Cleared after a sale. */
@@ -86,6 +86,9 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
                     <ul className="divide-y divide-lijn border-t border-lijn bg-white">
                         {openLaserSessions.map(s => (
                             <li key={s.id} className="flex items-center gap-3 px-3 py-2">
+                                <span className="w-11 h-11 shrink-0 border border-lijn bg-brand-beige-dark flex items-center justify-center overflow-hidden" aria-hidden>
+                                    {s.has_preview ? <img src={cutPreviewUrl(s.id)} alt="" className="w-full h-full object-contain" loading="lazy" /> : <Zap size={16} className="text-grafiet" />}
+                                </span>
                                 <div className="flex-1 min-w-0">
                                     <div className="text-sm font-semibold truncate">{s.name}</div>
                                     <div className="text-xs text-grafiet">{new Date(s.created).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</div>

@@ -11,7 +11,7 @@ import { cn } from './lib/utils';
 import { PRICING } from './constants';
 import { DISCARD_KIND_LABELS, type DiscardKind } from './lib/services';
 import {
-  laserApi, useLaserSocket, shortDuration, type LaserSession,
+  laserApi, useLaserSocket, shortDuration, cutPreviewUrl, type LaserSession,
   type LaserMaterial, type LaserOperation, type LaserOutcome, type LaserSetting,
 } from './lib/laserApi';
 
@@ -141,7 +141,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
           <div className="flex items-center gap-3 px-3 py-2.5 border border-lijn bg-brand-beige-dark">
             <span className="w-6 h-6 shrink-0 border-2 border-dashed border-grafiet" aria-hidden />
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-sm">{laserOn ? 'Cutting now' : 'Laser stopped'}</div>
+              <div className="font-semibold text-sm truncate">{laserOn ? 'Cutting now' : 'Laser stopped'}{time?.job ? ` · ${time.job}` : ''}</div>
               <div className="text-xs text-grafiet">{laserOn ? `Shows up as a cut ${time?.cut_gap ?? 5} s after the laser stops` : 'Becomes a cut in a moment'}</div>
             </div>
             <div className="font-semibold tabular-nums">{shortDuration(openCut)}</div>
@@ -214,6 +214,9 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut }: {
 }) {
   const info = (
     <>
+      <span className="w-12 h-12 shrink-0 border border-lijn bg-brand-beige-dark flex items-center justify-center overflow-hidden" aria-hidden>
+        {cut.has_preview ? <img src={cutPreviewUrl(cut.id)} alt="" className="w-full h-full object-contain" loading="lazy" /> : <Scissors size={18} className="text-grafiet" />}
+      </span>
       <span className="flex-1 min-w-0">
         <span className="block font-semibold text-sm truncate">{cut.name}</span>
         <span className="block text-xs text-grafiet">{cut.checkout_at ? 'In the checkout' : cutStart(cut.name, cut.created)}</span>

@@ -12,6 +12,7 @@ the visitor ticks and pays. Settings advice comes from LaserLog (see recommend.p
 
 Everything is under /laser/ because nginx proxies that path here.
 """
+import base64
 import json
 import math
 import os
@@ -21,7 +22,7 @@ import time
 from datetime import datetime
 from uuid import uuid4
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flask_socketio import SocketIO
 
 import db
@@ -62,6 +63,11 @@ esp_on_ms = 0
 esp_counter_at = 0.0     # when that packet came in
 cut_started: float | None = None   # epoch when the open cut (global_time) began
 last_on_at = 0.0         # epoch of the last moment the laser was on
+# What LightBurn has open on the laser PC (laser-timer-widget/lightburn-watch.ps1):
+# {'name', 'unsaved', 'thumb' (PNG bytes or None), 'at' (epoch)}.
+lightburn: dict | None = None
+LIGHTBURN_FRESH_S = 600  # older than this: the watcher is gone, do not trust the file name
+cut_job: dict | None = None   # the LightBurn file when the open cut began
 
 
 def save_state():
@@ -91,11 +97,26 @@ def current_time() -> float:
     return global_time
 
 
+def current_job() -> dict | None:
+    """The file LightBurn had open last, if the watcher reported it recently."""
+    if lightburn and time.time() - lightburn['at'] < LIGHTBURN_FRESH_S:
+        return lightburn
+    return None
+
+
+def begin_cut(at: float):
+    """The open cut starts now: remember when, and which LightBurn file was open (call with state_lock held)."""
+    global cut_started, cut_job
+    cut_started, cut_job = at, current_job()
+
+
 def time_payload() -> dict:
     return {
         'global_time': current_time(),
         'cut_started': datetime.fromtimestamp(cut_started).isoformat() if cut_started and current_time() > 0 else None,
         'cut_gap': CUT_GAP_S,
+        # The file of the open cut, else what LightBurn has open now.
+        'job': ((cut_job if current_time() > 0 else None) or current_job() or {}).get('name'),
         'laser_state': laser_on,
         'esp_connected': time.time() - esp_last_seen < ESP_TIMEOUT,
         'esp_ip': esp_ip,
@@ -110,7 +131,7 @@ def set_laser(on: bool):
         if on or laser_on:
             last_on_at = time.time()
         if on and not laser_on and global_time <= 0 and cut_started is None:
-            cut_started = time.time()
+            begin_cut(time.time())
         if laser_on and not on and on_since:
             global_time += (now - on_since).total_seconds()
             on_since = None
@@ -143,7 +164,7 @@ def esp_counter(on: bool, on_ms: int, boot):
         esp_boot, esp_on_ms, esp_counter_at = boot, on_ms, now
         changed = added > 0 or laser_on != on or on_since is not None
         if added > 0 and global_time <= 0:
-            cut_started = now - added / 1000
+            begin_cut(now - added / 1000)
         if added > 0 or on or laser_on:
             last_on_at = now
         global_time += added / 1000
@@ -161,7 +182,10 @@ def take_time() -> float:
     with state_lock:
         seconds = current_time()
         global_time = 0.0
-        cut_started = time.time() if laser_on else None
+        if laser_on:
+            begin_cut(time.time())
+        else:
+            cut_started = None
         save_state()
         if laser_on:
             on_since = datetime.now()
@@ -227,20 +251,23 @@ def close_cut_if_idle(now: float | None = None) -> str | None:
     """Once the laser has been off for CUT_GAP_S, book the time so far as one cut: an
     open session named after its start time, so checkout, kiosk and analytics take it
     like any session. Returns the new session id."""
-    global global_time, cut_started
+    global global_time, cut_started, cut_job
     now = time.time() if now is None else now
     with state_lock:
         if laser_on or global_time <= 0 or now - last_on_at < CUT_GAP_S:
             return None
-        seconds, started = global_time, cut_started or now - global_time
-        global_time, cut_started = 0.0, None
+        seconds, started, job = global_time, cut_started or now - global_time, cut_job
+        global_time, cut_started, cut_job = 0.0, None, None
         save_state()
     if seconds < MIN_CUT_SECONDS:
         print(f'[cut] {seconds:.1f} s is a test pulse, not booked')
         return None
     start = datetime.fromtimestamp(started)
     sid = str(uuid4())
-    db.execute('INSERT INTO sessions (id, name, created) VALUES (?, ?, ?)', (sid, f'Cut {start:%H:%M}', start.isoformat()))
+    # Named after the LightBurn file when the watcher told us; otherwise its start time.
+    name = job['name'] if job else f'Cut {start:%H:%M}'
+    db.execute('INSERT INTO sessions (id, name, created, file, preview) VALUES (?, ?, ?, ?, ?)',
+               (sid, name[:80], start.isoformat(), job['name'] if job else None, job['thumb'] if job else None))
     book_time(sid, seconds)
     print(f'[cut] {seconds:.1f} s from {start:%H:%M:%S} booked as {sid}')
     broadcast_sessions()
@@ -261,7 +288,8 @@ def book_time(sid: str, seconds: float):
 
 def all_sessions() -> list[dict]:
     """Open sessions: not paid yet. Paid ones stay in the table as history."""
-    rows = db.query('SELECT * FROM sessions WHERE paid_at IS NULL ORDER BY created DESC')
+    rows = db.query('SELECT id, name, email, created, total_time, total_cost, checkout_at, paid_at, order_ref, file, '
+                    'preview IS NOT NULL AS has_preview FROM sessions WHERE paid_at IS NULL ORDER BY created DESC')
     for r in rows:
         r['minutes'] = math.ceil(round(r['total_time'], 3) / 60)   # what the till charges
     return rows
@@ -308,6 +336,49 @@ def health():
 @app.get('/laser/api/config')
 def config():
     return {'costPerMin': COST_PER_MIN, 'maxPower': MAX_POWER, 'simulate': SIMULATE}
+
+
+@app.post('/laser/api/lightburn')
+def post_lightburn():
+    """The watcher on the laser PC: the file LightBurn has open, with its thumbnail (PNG, base64).
+    Without a thumbnail the last one of the same file is kept."""
+    global lightburn
+    b = request.get_json(silent=True) or {}
+    name = str(b.get('name') or '').strip()[:120]
+    if not name:
+        return {'error': 'name is required'}, 400
+    thumb = None
+    if b.get('thumb'):
+        try:
+            thumb = base64.b64decode(b['thumb'], validate=True)
+        except ValueError:
+            return {'error': 'thumb must be base64'}, 400
+        if not thumb.startswith(b'\x89PNG') or len(thumb) > 512_000:
+            return {'error': 'thumb must be a PNG under 500 kB'}, 400
+    with state_lock:
+        if thumb is None and lightburn and lightburn['name'] == name:
+            thumb = lightburn['thumb']
+        changed = not lightburn or lightburn['name'] != name
+        lightburn = {'name': name, 'unsaved': bool(b.get('unsaved')), 'thumb': thumb, 'at': time.time()}
+    if changed:
+        print(f'[lightburn] {name}{" (unsaved)" if b.get("unsaved") else ""}{", thumbnail" if thumb else ""}')
+    return {'ok': True}
+
+
+@app.get('/laser/api/lightburn')
+def get_lightburn():
+    job = current_job()
+    return {'name': job['name'], 'unsaved': job['unsaved'], 'has_thumb': job['thumb'] is not None,
+            'age_s': round(time.time() - job['at'])} if job else {'name': None}
+
+
+@app.get('/laser/api/sessions/<sid>/preview')
+def session_preview(sid):
+    rows = db.query('SELECT preview FROM sessions WHERE id = ?', (sid,))
+    if not rows or rows[0]['preview'] is None:
+        return {'error': 'No preview'}, 404
+    # A cut's preview never changes.
+    return Response(rows[0]['preview'], mimetype='image/png', headers={'Cache-Control': 'public, max-age=604800, immutable'})
 
 
 @app.get('/laser/api/sessions')

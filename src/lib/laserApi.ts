@@ -17,6 +17,10 @@ export interface LaserSession {
   minutes: number;
   /** Set when someone pressed Pay: the time is waiting in the checkout. */
   checkout_at: string | null;
+  /** The LightBurn file open when the cut started (null without the watcher on the laser PC). */
+  file?: string | null;
+  /** 1 when LightBurn's thumbnail of that file is stored: GET /sessions/<id>/preview. */
+  has_preview?: number;
 }
 
 /** Every session, open and paid, for the analytics (GET /sessions/all). */
@@ -48,6 +52,8 @@ export interface LaserTime {
   cut_started: string | null;
   /** Seconds the laser has to be off before the open cut is booked. */
   cut_gap: number;
+  /** The LightBurn file of the open cut, or the one open now. */
+  job?: string | null;
   laser_state: boolean;
   esp_connected: boolean;
   esp_ip: string | null;
@@ -152,6 +158,9 @@ async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T>
   if (!res.ok) throw new LaserApiError(data.error || `Laser service: ${res.status}`, res.status);
   return data as T;
 }
+
+/** LightBurn's thumbnail of a cut's file. */
+export const cutPreviewUrl = (id: string) => `${BASE}/sessions/${encodeURIComponent(id)}/preview`;
 
 export const laserApi = {
   config: () => call<{ costPerMin: number; maxPower: number; simulate: boolean }>('/config'),

@@ -31,6 +31,7 @@ def test_restart_keeps_unassigned_time_and_catches_up_the_esp(tmp_path):
 def _fresh(tmp_path):
     db.connect(str(tmp_path / 'machineusage.db'))
     laser.esp_boot, laser.esp_on_ms, laser.global_time, laser.cut_started = 'b1', 0, 0.0, None
+    laser.lightburn, laser.cut_job = None, None
     laser.laser_on, laser.on_since = False, None
 
 
@@ -88,3 +89,40 @@ def test_restart_in_the_middle_of_a_cut_keeps_it(tmp_path):
     assert laser.close_cut_if_idle(time.time() + 1) is None   # the gap counts again from the restart
     laser.close_cut_if_idle(time.time() + laser.CUT_GAP_S + 0.1)
     assert [round(c['total_time']) for c in _open_cuts()] == [45]
+
+
+PNG = b'\x89PNG\r\n\x1a\n' + b'0' * 40
+
+
+def test_a_cut_takes_the_lightburn_file_open_when_it_started(tmp_path):
+    import base64
+    _fresh(tmp_path)
+    c = laser.app.test_client()
+    assert c.post('/laser/api/lightburn', json={'name': 'Sleutelhanger', 'thumb': base64.b64encode(PNG).decode()}).status_code == 200
+    laser.esp_counter(True, 0, 'b1')
+    laser.esp_counter(False, 30_000, 'b1')
+    # Another file opened while the cut is still open: the cut keeps the one it started with.
+    c.post('/laser/api/lightburn', json={'name': 'Onderzetter'})
+    sid = laser.close_cut_if_idle(time.time() + laser.CUT_GAP_S + 0.1)
+    cut = next(s for s in laser.all_sessions() if s['id'] == sid)
+    assert (cut['name'], cut['file'], cut['has_preview']) == ('Sleutelhanger', 'Sleutelhanger', 1)
+    r = c.get(f'/laser/api/sessions/{sid}/preview')
+    assert r.status_code == 200 and r.data == PNG and r.mimetype == 'image/png'
+
+
+def test_without_the_watcher_a_cut_is_named_after_its_start(tmp_path):
+    _fresh(tmp_path)
+    laser.lightburn = {'name': 'Old file', 'unsaved': False, 'thumb': None, 'at': time.time() - laser.LIGHTBURN_FRESH_S - 1}
+    laser.esp_counter(True, 0, 'b1')
+    laser.esp_counter(False, 30_000, 'b1')
+    sid = laser.close_cut_if_idle(time.time() + laser.CUT_GAP_S + 0.1)
+    cut = next(s for s in laser.all_sessions() if s['id'] == sid)
+    assert cut['name'].startswith('Cut ') and cut['file'] is None and not cut['has_preview']
+    assert laser.app.test_client().get(f'/laser/api/sessions/{sid}/preview').status_code == 404
+
+
+def test_lightburn_input_is_checked(tmp_path):
+    _fresh(tmp_path)
+    c = laser.app.test_client()
+    assert c.post('/laser/api/lightburn', json={}).status_code == 400
+    assert c.post('/laser/api/lightburn', json={'name': 'x', 'thumb': 'bm90IGEgcG5n'}).status_code == 400   # "not a png"
