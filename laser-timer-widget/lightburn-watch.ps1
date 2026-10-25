@@ -89,9 +89,10 @@ while ($true) {
                     # Autosave and _backup copies have no thumbnail: send the project, the service draws it.
                     if ($thumb) { $body.thumb = $thumb } else { $body.lbrn = Get-Packed $copy }
                 }
-                Invoke-RestMethod -Method Post -Uri "$server/laser/api/lightburn" -ContentType 'application/json' `
-                    -Body ($body | ConvertTo-Json -Compress) -TimeoutSec 30 | Out-Null
-                $sent = $key; $sentAt = Get-Date
+                $r = Invoke-RestMethod -Method Post -Uri "$server/laser/api/lightburn" -ContentType 'application/json' `
+                    -Body ($body | ConvertTo-Json -Compress) -TimeoutSec 30
+                # The service lost the picture (it restarted): send it again next round.
+                $sent = $(if ($r.has_thumb -eq $false -and -not ($body.thumb -or $body.lbrn)) { '' } else { $key }); $sentAt = Get-Date
             }
         }
     } catch {

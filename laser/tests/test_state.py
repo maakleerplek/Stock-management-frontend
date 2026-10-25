@@ -98,7 +98,8 @@ def test_a_cut_takes_the_lightburn_file_open_when_it_started(tmp_path):
     import base64
     _fresh(tmp_path)
     c = laser.app.test_client()
-    assert c.post('/laser/api/lightburn', json={'name': 'Sleutelhanger', 'thumb': base64.b64encode(PNG).decode()}).status_code == 200
+    assert c.post('/laser/api/lightburn', json={'name': 'Sleutelhanger'}).json['has_thumb'] is False   # asks the watcher for it
+    assert c.post('/laser/api/lightburn', json={'name': 'Sleutelhanger', 'thumb': base64.b64encode(PNG).decode()}).json['has_thumb'] is True
     laser.esp_counter(True, 0, 'b1')
     laser.esp_counter(False, 30_000, 'b1')
     # Another file opened while the cut is still open: the cut keeps the one it started with.

@@ -373,7 +373,8 @@ def post_lightburn():
         lightburn = {'name': name, 'unsaved': bool(b.get('unsaved')), 'thumb': thumb, 'at': time.time()}
     if changed:
         print(f'[lightburn] {name}{" (unsaved)" if b.get("unsaved") else ""}{", thumbnail" if thumb else ""}')
-    return {'ok': True}
+    # False after a restart of this service: the watcher then sends the picture again.
+    return {'ok': True, 'has_thumb': thumb is not None}
 
 
 @app.get('/laser/api/lightburn')
