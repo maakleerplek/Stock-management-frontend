@@ -49,3 +49,9 @@ def test_exact_library_row_is_not_blended_with_neighbours():
     assert (r['speed'], r['power']) == (50, 50)
     between = recommend(pts, 1.5, 'cut')                    # no row at 1.5 mm: still a blend
     assert 25 < between['speed'] < 50
+
+
+def test_engrave_ignores_thickness():
+    r = recommend([Point(2, 300, 40, 1, 'clean', baseline=True)], 7, 'engrave')
+    assert r['confidence'] == 'baseline' and r['speed'] is not None
+    assert recommend([Point(2, 300, 40, 1, 'clean', baseline=True)], 7, 'cut')['speed'] is None

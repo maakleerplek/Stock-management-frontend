@@ -7,7 +7,7 @@ Port of LaserLog's src/lib/server/recommend.ts. Each data point gets a weight
 and speed, power and passes are the weighted averages of the good ones.
 Failed and risky attempts are left out of the average and become a warning.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 OUTCOME_SCORES = {'failed': 0.0, 'risky': 0.25, 'partial': 0.6, 'clean': 1.0}
 BASELINE_WEIGHT = 0.5
@@ -53,6 +53,9 @@ def normalise(p: Point) -> Point:
 
 def recommend(points: list[Point], thickness_mm: float, operation: str,
               strength: float = DEFAULT_STRENGTH) -> dict:
+    if operation == 'engrave':
+        # Engraving only burns into the surface, so every thickness of the material counts the same.
+        points = [replace(p, thickness_mm=thickness_mm) for p in points]
     near = [normalise(p) for p in points
             if abs(p.thickness_mm - thickness_mm) <= THICKNESS_TOLERANCE_MM]
     # The library holds a row for exactly this thickness: that row is the
