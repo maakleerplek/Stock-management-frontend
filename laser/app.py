@@ -6,8 +6,9 @@ to this service on port 5005, {"state": "ON"|"OFF", "on_ms": …, "boot": …}
 every second and on every change, and {"type": "heartbeat"} every 10 s, which
 we answer with an ACK. The ESP is the clock: on_ms is its laser-on total since
 boot, and we add the difference, so a lost packet costs nothing.
-Laser-on time adds up in a global counter until someone assigns it to their
-session. Settings advice comes from LaserLog (see recommend.py).
+Laser-on time adds up in a global counter, the open cut. Once the laser has been
+off for CUT_GAP_S the cut is booked as an open session named "Cut 14:32", which
+the visitor ticks and pays. Settings advice comes from LaserLog (see recommend.py).
 
 Everything is under /laser/ because nginx proxies that path here.
 """
@@ -36,6 +37,10 @@ ESP_TIMEOUT = 30  # seconds without a packet before the ESP counts as gone
 # Comma-separated sender IPs accepted on the UDP port (the ESP32). Empty accepts
 # anyone on the network, who could then add or stop billed laser time.
 ESP_ALLOWED_IPS = {ip.strip() for ip in os.environ.get('ESP_ALLOWED_IPS', '').split(',') if ip.strip()}
+# Laser time is split into cuts: once the laser is off this long, the time so far is one cut.
+# On the real laser 87 of 128 pauses inside the same month were under 5 s, 34 over 30 s.
+CUT_GAP_S = float(os.environ.get('CUT_GAP_S', '5'))
+MIN_CUT_SECONDS = 2.0    # shorter is a test pulse, not a job: dropped
 
 app = Flask(__name__)
 socketio = SocketIO(app, path='/laser/socket.io', async_mode='threading', cors_allowed_origins='*')  # only nginx reaches it
@@ -55,23 +60,27 @@ esp_last_seen = 0.0
 esp_boot = None          # boot id and on_ms of the last counter packet
 esp_on_ms = 0
 esp_counter_at = 0.0     # when that packet came in
+cut_started: float | None = None   # epoch when the open cut (global_time) began
+last_on_at = 0.0         # epoch of the last moment the laser was on
 
 
 def save_state():
     """Keep the unassigned time and the ESP counter in the database (call with state_lock held):
     a restart or deploy used to lose the time not yet on a session."""
-    db.save_state({'global_time': global_time, 'esp_boot': esp_boot, 'esp_on_ms': esp_on_ms})
+    db.save_state({'global_time': global_time, 'esp_boot': esp_boot, 'esp_on_ms': esp_on_ms, 'cut_started': cut_started})
 
 
 def restore_state():
     """Back where the last run stopped. With the ESP's counter position known, the time it
     counted while this service was down is added with its next packet."""
-    global global_time, esp_boot, esp_on_ms
+    global global_time, esp_boot, esp_on_ms, cut_started, last_on_at
     saved = db.load_state()
     with state_lock:
         global_time = float(saved.get('global_time', 0.0))
         esp_boot = saved.get('esp_boot')
         esp_on_ms = int(saved.get('esp_on_ms', 0))
+        cut_started = saved.get('cut_started') if global_time > 0 else None
+        last_on_at = time.time()   # an open cut closes CUT_GAP_S after the restart at the earliest
     print(f'[state] restored: unassigned {global_time:.1f} s, ESP boot {esp_boot} at {esp_on_ms / 1000:.1f} s')
 
 
@@ -85,6 +94,8 @@ def current_time() -> float:
 def time_payload() -> dict:
     return {
         'global_time': current_time(),
+        'cut_started': datetime.fromtimestamp(cut_started).isoformat() if cut_started and current_time() > 0 else None,
+        'cut_gap': CUT_GAP_S,
         'laser_state': laser_on,
         'esp_connected': time.time() - esp_last_seen < ESP_TIMEOUT,
         'esp_ip': esp_ip,
@@ -93,9 +104,13 @@ def time_payload() -> dict:
 
 
 def set_laser(on: bool):
-    global global_time, laser_on, on_since
+    global global_time, laser_on, on_since, cut_started, last_on_at
     with state_lock:
         now = datetime.now()
+        if on or laser_on:
+            last_on_at = time.time()
+        if on and not laser_on and global_time <= 0 and cut_started is None:
+            cut_started = time.time()
         if laser_on and not on and on_since:
             global_time += (now - on_since).total_seconds()
             on_since = None
@@ -109,7 +124,7 @@ def set_laser(on: bool):
 
 def esp_counter(on: bool, on_ms: int, boot):
     """Add the laser-on ms the ESP counted since its last packet that reached us."""
-    global global_time, laser_on, on_since, esp_boot, esp_on_ms, esp_counter_at
+    global global_time, laser_on, on_since, esp_boot, esp_on_ms, esp_counter_at, cut_started, last_on_at
     now = time.time()
     with state_lock:
         boot_changed = boot != esp_boot
@@ -127,6 +142,10 @@ def esp_counter(on: bool, on_ms: int, boot):
             print(f'[esp] {"ON" if on else "OFF"}: counter {on_ms / 1000:.1f} s, unassigned {global_time + added / 1000:.1f} s')
         esp_boot, esp_on_ms, esp_counter_at = boot, on_ms, now
         changed = added > 0 or laser_on != on or on_since is not None
+        if added > 0 and global_time <= 0:
+            cut_started = now - added / 1000
+        if added > 0 or on or laser_on:
+            last_on_at = now
         global_time += added / 1000
         laser_on, on_since = on, None  # the counter is the time, nothing runs here
         if added > 0 or boot_changed:
@@ -138,10 +157,11 @@ def esp_counter(on: bool, on_ms: int, boot):
 
 def take_time() -> float:
     """Empty the counter and return what was in it. A running block restarts now."""
-    global global_time, on_since
+    global global_time, on_since, cut_started
     with state_lock:
         seconds = current_time()
         global_time = 0.0
+        cut_started = time.time() if laser_on else None
         save_state()
         if laser_on:
             on_since = datetime.now()
@@ -175,7 +195,7 @@ def stop_if_esp_silent(now: float | None = None):
     """The ESP32 sends a heartbeat every 10 s. If it goes silent while the laser
     is on (Wi-Fi drop, power cut, lost OFF packet on the way out), stop the
     block at the last sign of life instead of billing the time that follows."""
-    global global_time, laser_on, on_since
+    global global_time, laser_on, on_since, last_on_at
     if SIMULATE:
         return
     now = time.time() if now is None else now
@@ -184,7 +204,7 @@ def stop_if_esp_silent(now: float | None = None):
             return
         last = datetime.fromtimestamp(esp_last_seen)
         global_time += max(0.0, (last - on_since).total_seconds())
-        laser_on, on_since = False, None
+        laser_on, on_since, last_on_at = False, None, esp_last_seen
         save_state()
     print('[udp] ESP32 silent while the laser was on: block closed at its last heartbeat')
 
@@ -195,6 +215,7 @@ def ticker():
         # live updates and no ESP timeout, while the health check stayed OK.
         try:
             stop_if_esp_silent()
+            close_cut_if_idle()
             with state_lock:
                 payload = time_payload()
             socketio.emit('time_update', payload)
@@ -202,7 +223,40 @@ def ticker():
             print(f'[ticker] {e}')
         time.sleep(0.5)
 
+def close_cut_if_idle(now: float | None = None) -> str | None:
+    """Once the laser has been off for CUT_GAP_S, book the time so far as one cut: an
+    open session named after its start time, so checkout, kiosk and analytics take it
+    like any session. Returns the new session id."""
+    global global_time, cut_started
+    now = time.time() if now is None else now
+    with state_lock:
+        if laser_on or global_time <= 0 or now - last_on_at < CUT_GAP_S:
+            return None
+        seconds, started = global_time, cut_started or now - global_time
+        global_time, cut_started = 0.0, None
+        save_state()
+    if seconds < MIN_CUT_SECONDS:
+        print(f'[cut] {seconds:.1f} s is a test pulse, not booked')
+        return None
+    start = datetime.fromtimestamp(started)
+    sid = str(uuid4())
+    db.execute('INSERT INTO sessions (id, name, created) VALUES (?, ?, ?)', (sid, f'Cut {start:%H:%M}', start.isoformat()))
+    book_time(sid, seconds)
+    print(f'[cut] {seconds:.1f} s from {start:%H:%M:%S} booked as {sid}')
+    broadcast_sessions()
+    with state_lock:
+        socketio.emit('time_update', time_payload())
+    return sid
+
+
 # ---------------------------------------------------------------- sessions
+
+
+def book_time(sid: str, seconds: float):
+    """Add laser seconds to a session, with a time block as its history."""
+    db.execute('UPDATE sessions SET total_time = total_time + ?, total_cost = total_cost + ? WHERE id = ?',
+               (seconds, seconds * COST_PER_SECOND, sid))
+    db.execute('INSERT INTO time_blocks (session_id, seconds, flushed_at) VALUES (?, ?, ?)', (sid, seconds, datetime.now().isoformat()))
 
 
 def all_sessions() -> list[dict]:
@@ -366,15 +420,11 @@ def flush():
     seconds = take_time()
     if seconds <= 0:
         return {'error': 'No time to assign'}, 400
-    cost = seconds * COST_PER_SECOND
-    now = datetime.now().isoformat()
-    db.execute('UPDATE sessions SET total_time = total_time + ?, total_cost = total_cost + ? WHERE id = ?',
-               (seconds, cost, sid))
-    db.execute('INSERT INTO time_blocks (session_id, seconds, flushed_at) VALUES (?, ?, ?)', (sid, seconds, now))
+    book_time(sid, seconds)
     broadcast_sessions()
     with state_lock:
         socketio.emit('time_update', time_payload())
-    return {'flushed_time': seconds, 'flushed_cost': cost}
+    return {'flushed_time': seconds, 'flushed_cost': seconds * COST_PER_SECOND}
 
 
 @app.post('/laser/api/reset')
