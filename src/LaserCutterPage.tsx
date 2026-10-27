@@ -60,13 +60,20 @@ export default function LaserCutterPage({ onCheckout, onShop, live }: LaserCutte
 }
 
 // Cut cards: two side by side in the laser PC's bar, three on a wide column.
+const TICKED_KEY = 'laserTickedCuts';
 const CUT_GRID = 'grid grid-cols-3 gap-2';
 
 function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const { connected, time, sessions } = live;
   const { addToast } = useToast();
   // The cuts this visitor ticked. Unticking removes nothing: a cut stays until it is paid or deleted.
-  const [ticked, setTicked] = useState<Set<string>>(new Set());
+  // Ticks survive a reload (this browser only).
+  const [ticked, setTicked] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(TICKED_KEY) ?? '[]')); } catch { return new Set(); }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(TICKED_KEY, JSON.stringify([...ticked])); } catch { /* storage blocked: ticks just don't persist */ }
+  }, [ticked]);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -87,8 +94,9 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const pickedSeconds = picked.reduce((sum, s) => sum + s.total_time, 0);
   const pickedPrice = Math.max(laserSessionPrice(Math.ceil(pickedSeconds / 60)), PRICING.LASER_MINIMUM);
 
-  // Forget ticks of cuts that are paid, deleted or in the checkout.
+  // Forget ticks of cuts that are paid, deleted or in the checkout. Not before the list has loaded.
   useEffect(() => {
+    if (!sessions.length) return;
     setTicked(prev => {
       const open = new Set(sessions.filter(s => s.total_time > 0 && !s.checkout_at).map(s => s.id));
       const next = new Set([...prev].filter(id => open.has(id)));
@@ -138,7 +146,19 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
       <div className="flex-1 p-4 sm:p-6 space-y-3">
         <div>
           <h2 className="text-base font-semibold text-brand-black">Open cuts</h2>
-          {cuts.length > 0 && <p className="text-sm text-grafiet">Tick the cuts that are yours.</p>}
+          {cuts.length > 0 && (
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-grafiet flex-1">Tick the cuts that are yours.</p>
+              <button className="text-sm font-semibold underline underline-offset-2"
+                onClick={() => setTicked(new Set(cuts.filter(c => !c.checkout_at).map(c => c.id)))}>
+                Select all
+              </button>
+              <button className="text-sm font-semibold underline underline-offset-2 disabled:opacity-40 disabled:no-underline"
+                disabled={!picked.length} onClick={() => setTicked(new Set())}>
+                Clear
+              </button>
+            </div>
+          )}
         </div>
         {openCut > 0 && (
           <div className="flex items-center gap-3 px-3 py-2.5 border border-lijn bg-brand-beige-dark">
