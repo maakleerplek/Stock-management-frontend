@@ -255,6 +255,25 @@ export function laserSessionList(
   return out.sort((a, b) => b.date.localeCompare(a.date));
 }
 
+/**
+ * One row per visit instead of per cut: neighbouring rows (newest first) with the same day,
+ * status and note (the order) merge, the names listed once and the cuts counted.
+ */
+export function groupSessions(list: LaserSessionUse[]): (LaserSessionUse & { cuts: number })[] {
+  const out: (LaserSessionUse & { cuts: number; names: string[] })[] = [];
+  for (const s of list) {
+    const g = out[out.length - 1];
+    if (g && g.status === s.status && g.reason === s.reason && g.date.slice(0, 10) === s.date.slice(0, 10)) {
+      g.minutes += s.minutes;
+      g.cuts++;
+      if (!g.names.includes(s.name)) g.names.push(s.name);
+    } else {
+      out.push({ ...s, cuts: 1, names: [s.name] });
+    }
+  }
+  return out.map(({ names, ...g }) => ({ ...g, name: names.join(', ') }));
+}
+
 /** Count and average length of the sessions people use the laser for (Workshop / HTL left out). */
 export function sessionUse(list: LaserSessionUse[]): { count: number; avgMinutes: number } {
   const use = list.filter(s => s.status !== 'workshop');

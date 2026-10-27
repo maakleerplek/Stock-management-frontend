@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Zap, Users, Clock, Timer, Trash2, Euro, Wrench, Hourglass } from 'lucide-react';
-import { laserStats, lostLaserStats, laserLedger, laserSessionList, sessionUse, SESSION_STATUS_LABELS, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../lib/services';
+import { laserStats, lostLaserStats, laserLedger, laserSessionList, groupSessions, sessionUse, SESSION_STATUS_LABELS, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../lib/services';
 import { PRICING } from '../constants';
 import { cn } from '../lib/utils';
 import { Section, Empty, StatCards } from './ui';
@@ -32,7 +32,7 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
     [laserSessions, discarded, serviceLines, days],
   );
   const sessions = useMemo(
-    () => laserSessionList(laserSessions.sessions, discarded, serviceLines, days),
+    () => groupSessions(laserSessionList(laserSessions.sessions, discarded, serviceLines, days)),
     [laserSessions, discarded, serviceLines, days],
   );
   const use = sessionUse(sessions);
@@ -87,7 +87,7 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
                 {sessions.map((s, i) => (
                   <tr key={i} className={cn('border-b border-lijn-zacht', s.status === 'open' && 'bg-amber-50')}>
                     <td className="py-1.5 tabular-nums whitespace-nowrap">{fmtDate(s.date)}</td>
-                    <td className="py-1.5 font-semibold">{s.name}</td>
+                    <td className="py-1.5 font-semibold">{s.name}{s.cuts > 1 && <span className="font-normal text-brand-black/60"> · {s.cuts} cuts</span>}</td>
                     <td className="py-1.5 text-right tabular-nums">{fmtMinutes(s.minutes)}</td>
                     <td className="py-1.5 text-right tabular-nums">€{(s.minutes * PRICING.LASER_PER_MINUTE).toFixed(2)}</td>
                     <td className="py-1.5 pl-4 whitespace-nowrap">{SESSION_STATUS_LABELS[s.status]}</td>

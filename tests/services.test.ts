@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeActivity, laserStats, lostLaserStats, laserLedger, laserSessionList, sessionUse, cncStats, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../src/lib/services';
+import { mergeActivity, laserStats, lostLaserStats, laserLedger, laserSessionList, groupSessions, sessionUse, cncStats, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../src/lib/services';
 
 const line = (over: Partial<ServiceLine>): ServiceLine => ({
   reference: 'Lasertime', description: '', quantity: 10, price: 0.5, date: '2026-09-20', orderStatus: 30, ...over,
@@ -162,5 +162,19 @@ describe('mergeActivity', () => {
     const moves = [{ date: '2026-10-15 16:57' }, { date: '2026-10-14 10:00' }];
     const merged = mergeActivity(moves, [line({ date: '2026-10-15' }), line({ date: '2026-10-15', orderStatus: 40 }), line({ date: '2026-10-13' })], 3);
     expect(merged.map(a => a.kind)).toEqual(['service', 'stock', 'stock']);
+  });
+});
+
+describe('groupSessions', () => {
+  it('merges the cuts of one visit and keeps different days, statuses and orders apart', () => {
+    const row = (date: string, name: string, status: 'open' | 'paid', reason: string | null = null) => ({ date, name, minutes: 1, status, reason });
+    const g = groupSessions([
+      row('2026-10-27T16:12', 'Untitled', 'open'), row('2026-10-27T16:02', 'Untitled', 'open'), row('2026-10-27T15:00', 'Box', 'open'),
+      row('2026-10-26T19:38', 'Coely', 'paid', 'SO-29'), row('2026-10-26T19:38', 'Untitled', 'paid', 'SO-29'),
+      row('2026-10-26T16:19', 'Untitled', 'open'),
+    ]);
+    expect(g.map(s => [s.name, s.cuts, s.minutes, s.status])).toEqual([
+      ['Untitled, Box', 3, 3, 'open'], ['Coely, Untitled', 2, 2, 'paid'], ['Untitled', 1, 1, 'open'],
+    ]);
   });
 });
