@@ -109,6 +109,8 @@ def test_a_cut_takes_the_lightburn_file_open_when_it_started(tmp_path):
     assert (cut['name'], cut['file'], cut['has_preview']) == ('Sleutelhanger', 'Sleutelhanger', 1)
     r = c.get(f'/laser/api/sessions/{sid}/preview')
     assert r.status_code == 200 and r.data == PNG and r.mimetype == 'image/png'
+    # A cut with a picture can be deleted (the picture is not sent back).
+    assert c.delete(f'/laser/api/sessions/{sid}', json={'kind': 'paid'}).status_code == 200
 
 
 def test_without_the_watcher_a_cut_is_named_after_its_start(tmp_path):

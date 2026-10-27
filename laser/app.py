@@ -464,7 +464,8 @@ def delete_session(sid):
     db.execute('DELETE FROM time_blocks WHERE session_id = ?', (sid,))
     db.execute('DELETE FROM sessions WHERE id = ?', (sid,))
     broadcast_sessions()
-    return {'deleted': rows[0]}
+    # Without the picture: bytes don't go into JSON.
+    return {'deleted': {k: v for k, v in s.items() if k != 'preview'}}
 
 
 @app.post('/laser/api/sessions/<sid>/checkout')
