@@ -60,7 +60,7 @@ export default function LaserCutterPage({ onCheckout, onShop, live }: LaserCutte
 }
 
 // Cut cards: two side by side in the laser PC's bar, three on a wide column.
-const CUT_GRID = 'grid grid-cols-2 xl:grid-cols-3 gap-2';
+const CUT_GRID = 'grid grid-cols-2 sm:grid-cols-3 gap-2';
 
 function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const { connected, time, sessions } = live;
@@ -217,7 +217,7 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut }: {
   cut: LaserSession; ticked: boolean; busy: boolean; onToggle: () => void; onTakeOut: () => void;
 }) {
   const picture = (
-    <span className="block aspect-square w-full bg-brand-beige-dark border-b border-lijn overflow-hidden" aria-hidden>
+    <span className="block aspect-[4/3] w-full bg-brand-beige-dark border-b border-lijn overflow-hidden" aria-hidden>
       {cut.has_preview
         ? <img src={cutPreviewUrl(cut.id)} alt="" className="w-full h-full object-contain p-2" loading="lazy" />
         : <span className="w-full h-full flex items-center justify-center"><Scissors size={36} className="text-lijn" /></span>}
