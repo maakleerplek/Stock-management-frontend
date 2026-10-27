@@ -352,6 +352,7 @@ def post_lightburn():
     if not name:
         return {'error': 'name is required'}, 400
     thumb = None
+    drawn = True
     if b.get('thumb'):
         try:
             thumb = base64.b64decode(b['thumb'], validate=True)
@@ -366,6 +367,7 @@ def post_lightburn():
             thumb = lbrn.render(xml.decode('utf-8', 'replace'))
         except Exception as e:   # a half-written autosave: keep the last picture
             print(f'[lightburn] could not draw {name}: {e}')
+            drawn = False
     with state_lock:
         if thumb is None and lightburn and lightburn['name'] == name:
             thumb = lightburn['thumb']
@@ -374,7 +376,8 @@ def post_lightburn():
     if changed:
         print(f'[lightburn] {name}{" (unsaved)" if b.get("unsaved") else ""}{", thumbnail" if thumb else ""}')
     # False after a restart of this service: the watcher then sends the picture again.
-    return {'ok': True, 'has_thumb': thumb is not None}
+    # drawn False: the autosave was caught half-written, the watcher sends it again next round.
+    return {'ok': True, 'has_thumb': thumb is not None, 'drawn': drawn}
 
 
 @app.get('/laser/api/lightburn')

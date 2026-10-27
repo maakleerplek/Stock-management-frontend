@@ -91,8 +91,9 @@ while ($true) {
                 }
                 $r = Invoke-RestMethod -Method Post -Uri "$server/laser/api/lightburn" -ContentType 'application/json' `
                     -Body ($body | ConvertTo-Json -Compress) -TimeoutSec 30
-                # The service lost the picture (it restarted): send it again next round.
-                $sent = $(if ($r.has_thumb -eq $false -and -not ($body.thumb -or $body.lbrn)) { '' } else { $key }); $sentAt = Get-Date
+                # The service lost the picture (it restarted) or got a half-written autosave: send it again next round.
+                $resend = ($r.has_thumb -eq $false -and -not ($body.thumb -or $body.lbrn)) -or $r.drawn -eq $false
+                $sent = $(if ($resend) { '' } else { $key }); $sentAt = Get-Date
             }
         }
     } catch {

@@ -151,8 +151,9 @@ def test_a_project_without_thumbnail_is_drawn(tmp_path):
     _fresh(tmp_path)
     c = laser.app.test_client()
     body = {'name': 'Untitled', 'unsaved': True, 'lbrn': base64.b64encode(gzip.compress(LBRN.encode())).decode()}
-    assert c.post('/laser/api/lightburn', json=body).status_code == 200
+    assert c.post('/laser/api/lightburn', json=body).json['drawn'] is True
     assert laser.lightburn['thumb'].startswith(b'\x89PNG')
-    # A broken autosave keeps the picture it had.
-    assert c.post('/laser/api/lightburn', json={'name': 'Untitled', 'lbrn': base64.b64encode(gzip.compress(b'<half')).decode()}).status_code == 200
+    # A broken autosave keeps the picture it had and asks the watcher to send it again.
+    r = c.post('/laser/api/lightburn', json={'name': 'Untitled', 'lbrn': base64.b64encode(gzip.compress(b'<half')).decode()})
+    assert r.status_code == 200 and r.json['drawn'] is False
     assert laser.lightburn['thumb'].startswith(b'\x89PNG')
