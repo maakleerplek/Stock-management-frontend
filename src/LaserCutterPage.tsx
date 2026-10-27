@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check } from 'lucide-react';
+import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Tag } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { useStock } from './StockContext';
 import { useVolunteer } from './VolunteerContext';
@@ -231,7 +231,11 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut }: {
         <span className="text-lg font-semibold tabular-nums">{shortDuration(cut.total_time)}</span>
       </span>
       {/* Unrounded: the till rounds up once for all ticked cuts together. */}
-      <span className="block text-right text-xs text-grafiet tabular-nums">€{laserSessionPrice(cut.total_time / 60).toFixed(2)}</span>
+      <span className="flex justify-end">
+        <span className="inline-flex items-center gap-1 border border-emerald-600 bg-emerald-50 text-emerald-700 px-1.5 py-0.5 text-xs font-semibold tabular-nums">
+          <Tag size={12} aria-hidden />€{laserSessionPrice(cut.total_time / 60).toFixed(2)}
+        </span>
+      </span>
     </span>
   );
   if (cut.checkout_at) {
