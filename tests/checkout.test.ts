@@ -132,15 +132,3 @@ describe('volunteer stock removal', () => {
         expect(calls.some(c => c.path === '/stock/remove/')).toBe(false);
     });
 });
-
-describe('volunteerSaleLines', () => {
-    it('sells what a volunteer takes out at the normal price, restock lines are not sold', async () => {
-        const { volunteerSaleLines, linesTotal } = await import('../src/sendCodeHandler');
-        const lines = volunteerSaleLines([
-            { id: 1, name: 'Monster', price: 3, cartQuantity: -2 },
-            { id: 2, name: 'Cola', price: 1.5, cartQuantity: 6 },
-        ]);
-        expect(lines).toEqual([{ partId: 1, name: 'Monster', quantity: 2, unitPrice: 3 }]);
-        expect(linesTotal(lines)).toBe(6);
-    });
-});

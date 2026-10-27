@@ -3,7 +3,7 @@ import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingC
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
 import { laserApi, laserMinutes, markPaidReliably, pendingPaidIds, type LaserSession } from './lib/laserApi';
 import { PRICING } from './constants';
-import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, priced, topUp, extraLabel, describeExtra, handleCheckout as bookSale, handleAddItem, handleSetItem, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine, volunteerSaleLines, linesTotal } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, priced, topUp, extraLabel, describeExtra, handleCheckout as bookSale, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import type { Invoice } from './lib/invoice';
@@ -53,28 +53,16 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     // Machine lines at their own price, plus the top-up to the minimum per payment.
     const minimumTopUp = topUp(extras);
     const extraCosts = extraTotal(extras) + minimumTopUp;
-    const [mode, setMode] = useState<VolunteerCartMode>('adjust');
-    const modeRef = useRef(mode);
-    modeRef.current = mode;
+    const [mode, setMode] = useState<VolunteerCartMode>('buy');
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const { addToast } = useToast();
     const { isVolunteerMode } = useVolunteer();
-    const isVolunteerModeRef = useRef(isVolunteerMode);
-    isVolunteerModeRef.current = isVolunteerMode;
-    // What a volunteer pays: extras, plus what add/remove takes out (sold at the normal price).
-    const volunteerSales = isVolunteerMode && mode === 'adjust' ? volunteerSaleLines(cartItems) : [];
-    const volunteerToPay = linesTotal(volunteerSales) + extraCosts;
-
-    const handleModeChange = useCallback((newMode: VolunteerCartMode) => {
-        setMode(newMode);
-        if (newMode === 'adjust') {
-            setCartItems((prevItems) => prevItems.filter(item => item.cartQuantity !== 0));
-        } else if (newMode === 'drink') {
-            // A drink is taken, never negative or zero.
-            setCartItems((prevItems) => prevItems.filter(item => item.cartQuantity > 0));
-        }
-    }, []);
+    // Volunteers buy like anyone else, or take items out for free (drink / lab / workshop).
+    // Stock work (restock, set count) is on the Stock list.
+    const free = isVolunteerMode && mode === 'drink';
+    const itemsTotal = cartItems.reduce((sum, i) => sum + i.price * i.cartQuantity, 0);
+    const toPay = (free ? 0 : itemsTotal) + extraCosts;
 
     // The last sale, for the invoice PDF on the payment screen.
     const [invoice, setInvoice] = useState<Invoice | null>(null);
@@ -101,17 +89,15 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
         setCartItems((prevItems) => {
             const existingItem = prevItems.find((i) => i.id === item.id);
             if (existingItem) {
-                // The till cannot sell more than is in stock; volunteers restocking can add any amount.
-                const newQuantity = isVolunteerModeRef.current && modeRef.current !== 'drink'
-                    ? existingItem.cartQuantity + 1
-                    : Math.min(existingItem.cartQuantity + 1, item.quantity);
+                // The till cannot sell more than is in stock.
+                const newQuantity = Math.min(existingItem.cartQuantity + 1, item.quantity);
                 return prevItems.map((i) =>
                     i.id === item.id ? { ...i, cartQuantity: newQuantity } : i
                 );
             }
             return [...prevItems, { ...item, cartQuantity: 1 }];
         });
-    }, []); // stable: reads checkedOutResult, volunteer mode and cart mode via refs, not state
+    }, []); // stable: reads checkedOutResult via a ref, not state
 
     useEffect(() => {
         if (scanEvent) {
@@ -121,15 +107,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
 
     const handleUpdateQuantity = (itemId: number, newQuantity: number) => {
         setCartItems((prevItems) =>
-            prevItems.map((item) => {
-                if (item.id !== itemId) return item;
-                if (isVolunteerMode && mode !== 'drink') {
-                    // Volunteer mode: allow any value (negative = remove stock)
-                    return { ...item, cartQuantity: newQuantity };
-                }
-                // Checkout and free drink: clamp minimum at 1 so only the trash button removes items
-                return { ...item, cartQuantity: Math.max(1, newQuantity) };
-            })
+            // At least 1: only the trash button removes an item.
+            prevItems.map((item) => item.id === itemId ? { ...item, cartQuantity: Math.max(1, newQuantity) } : item)
         );
     };
 
@@ -175,24 +154,18 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
         setConfirmOpen(false);
         setIsCheckingOut(true);
         try {
-            if (!isVolunteerMode) {
+            if (!free) {
                 // A sale: one sales order for the whole cart.
                 await sell(cartItems.map(item => ({ partId: item.id, name: item.name, quantity: item.cartQuantity, unitPrice: item.price })));
                 setCartItems([]);
                 return;
             }
 
-            // Volunteers: what add/remove takes out is sold; the rest is stock work, item by item.
-            for (const item of cartItems.filter(i => !(mode === 'adjust' && i.cartQuantity < 0))) {
-                const totalPrice = item.price > 0 ? parseFloat((item.price * Math.abs(item.cartQuantity)).toFixed(2)) : undefined;
-                // Free tab: a drink is the volunteer's own; the rest (filament, wood, workshop material) is for the lab.
-                const success = mode === 'drink'
-                    ? isLabMaterial(item)
-                        ? await handleInternalUse(item.id, item.cartQuantity, item.name)
-                        : await handleVolunteerDrink(item.id, item.cartQuantity, item.name)
-                    : mode === 'set'
-                        ? await handleSetItem(item.id, item.cartQuantity, item.name, totalPrice)
-                        : await handleAddItem(item.id, item.cartQuantity, item.name, totalPrice);
+            // Free: a drink is the volunteer's own; the rest (filament, wood, workshop material) is for the lab. Item by item.
+            for (const item of cartItems) {
+                const success = isLabMaterial(item)
+                    ? await handleInternalUse(item.id, item.cartQuantity, item.name)
+                    : await handleVolunteerDrink(item.id, item.cartQuantity, item.name);
                 if (!success) {
                     addToast(`Failed to process "${item.name}". Operation stopped.`, 'error');
                     return;
@@ -200,19 +173,17 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                 // Done: out of the cart, so a retry cannot apply it twice.
                 setCartItems(prev => prev.filter(i => i.id !== item.id));
             }
-            if (cartItems.length > volunteerSales.length) {
+            if (cartItems.length) {
                 const lab = cartItems.filter(isLabMaterial).length;
                 const drinks = cartItems.length - lab;
                 addToast(
-                    mode !== 'drink' ? 'Stock updated successfully!'
-                        : [drinks && 'Enjoy your drink! Booked as a free volunteer drink.', lab && `${lab} item${lab > 1 ? 's' : ''} booked for the lab / workshop.`].filter(Boolean).join(' '),
+                    [drinks && 'Enjoy your drink! Booked as a free volunteer drink.', lab && `${lab} item${lab > 1 ? 's' : ''} booked for the lab / workshop.`].filter(Boolean).join(' '),
                     'success',
                 );
             }
-            if (volunteerSales.length || extras.length) {
-                await sell(volunteerSales);
-                setCartItems([]);
-            } else setCheckedOut(null);
+            // Machine time is always paid.
+            if (extras.length) await sell([]);
+            else setCheckedOut(null);
         } catch (error) {
             console.error('[Checkout] Failed:', error);
             addToast(error instanceof Error ? `Checkout failed: ${error.message}` : 'Checkout failed', 'error');
@@ -234,10 +205,10 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                     invoice={invoice}
                     onClearCheckout={() => setCheckedOut(null)}
                     extraCosts={extraCosts}
-                    volunteerToPay={volunteerToPay}
+                    toPay={toPay}
                     isVolunteerMode={isVolunteerMode}
                     mode={mode}
-                    onModeChange={handleModeChange}
+                    onModeChange={setMode}
                     isCheckingOut={isCheckingOut}
                 />
 
@@ -286,7 +257,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                             <span className="font-semibold text-sm">{item.name}</span>
                                             <span className="text-[10px] font-bold text-brand-black/60">Qty: {item.cartQuantity} × €{item.price.toFixed(2)}</span>
                                         </div>
-                                        <div className="font-semibold text-sm">{isVolunteerMode && (mode !== 'adjust' || item.cartQuantity > 0) ? (mode === 'adjust' ? `+${item.cartQuantity} to stock` : 'No charge') : `€${(Math.abs(item.cartQuantity) * item.price).toFixed(2)}`}</div>
+                                        <div className="font-semibold text-sm">{free ? 'No charge' : `€${(item.cartQuantity * item.price).toFixed(2)}`}</div>
                                     </div>
                                 ))}
 
@@ -314,9 +285,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                             <div className="border-t-[3px] border-lijn pt-6 flex flex-col items-end">
                                 <span className="text-[10px] font-semibold text-brand-black/50">Total amount</span>
                                 <span className="text-5xl font-semibold text-brand-black tracking-tight">
-                                    {isVolunteerMode
-                                        ? (volunteerToPay > 0 || mode !== 'drink' ? `€${volunteerToPay.toFixed(2)}` : 'Free')
-                                        : `€${(cartItems.reduce((acc, i) => acc + i.price * i.cartQuantity, 0) + extraCosts).toFixed(2)}`}
+                                    {free && toPay === 0 ? 'Free' : `€${toPay.toFixed(2)}`}
                                 </span>
                             </div>
                         </div>
@@ -336,7 +305,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                     <span className="flex items-center gap-2">Processing...</span>
                                 ) : (
                                     <>
-                                        <Check size={20} /> {isVolunteerMode && volunteerToPay === 0 ? 'Confirm' : 'Complete checkout'}
+                                        <Check size={20} /> {free && toPay === 0 ? 'Confirm' : 'Complete checkout'}
                                     </>
                                 )}
                             </button>

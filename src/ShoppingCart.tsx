@@ -12,17 +12,15 @@ export interface CartItem extends ItemData {
     cartQuantity: number;
 }
 
-/** What a volunteer's cart does: restock or buy (taking out is paid), set stock, or take items out for free. */
-export type VolunteerCartMode = 'adjust' | 'set' | 'drink';
+/** What a volunteer's cart does: buy at the normal price, or take items out for free. Restocking is on the Stock list. */
+export type VolunteerCartMode = 'buy' | 'drink';
 
 const MODE_HINTS: Record<VolunteerCartMode, string> = {
-    adjust: '+ puts it in stock. − takes it out and you pay the normal price.',
-    set: 'Counted the shelf? Set the real number. Broken or lost items go here, nobody pays.',
+    buy: 'You pay the normal price. Restocking and counting are on the Stock list.',
     drink: 'Free volunteer drink, or material for the lab / a workshop.',
 };
 const MODE_LABELS: Record<VolunteerCartMode, { tab: string; title: string; action: string }> = {
-    adjust: { tab: 'Restock / buy', title: 'Restock or buy', action: 'Restock' },
-    set: { tab: 'Set absolute', title: 'Set stock', action: 'Set stock' },
+    buy: { tab: 'Buy', title: 'Your cart', action: 'Pay' },
     drink: { tab: 'Free (drink / lab / workshop)', title: 'Take out for free', action: 'Take out of stock' },
 };
 interface ShoppingCartProps {
@@ -35,7 +33,8 @@ interface ShoppingCartProps {
     invoice?: Invoice | null;
     onClearCheckout?: () => void;
     extraCosts: number;
-    volunteerToPay: number;
+    /** Items (not in free mode) plus extras. */
+    toPay: number;
     isVolunteerMode: boolean;
     mode?: VolunteerCartMode;
     onModeChange?: (mode: VolunteerCartMode) => void;
@@ -52,9 +51,9 @@ function ShoppingCart({
     invoice,
     onClearCheckout,
     extraCosts,
-    volunteerToPay,
+    toPay,
     isVolunteerMode,
-    mode = 'adjust',
+    mode = 'buy',
     onModeChange,
     isCheckingOut = false,
 }: ShoppingCartProps) {
@@ -65,10 +64,7 @@ function ShoppingCart({
     // Invoice: null = closed, string = the customer details typed so far.
     const [invoiceFor, setInvoiceFor] = useState<string | null>(null);
 
-    const totalPrice = (cartItems || []).reduce(
-        (total, item) => total + item.price * item.cartQuantity,
-        0
-    );
+    const free = isVolunteerMode && mode === 'drink';
 
     const handleUpdateQuantityWithFeedback = (id: number, qty: number) => {
         if ('vibrate' in navigator) navigator.vibrate(10);
@@ -89,7 +85,7 @@ function ShoppingCart({
             {/* Header */}
             <div className="px-4 sm:px-6 py-3 border-b border-lijn bg-brand-beige shrink-0">
                 <h2 className="text-brand-black text-base font-semibold flex items-center gap-2">
-                    {isVolunteerMode ? (
+                    {free ? (
                         <Heart className="w-4 h-4" />
                     ) : (
                         <ShoppingCartIcon className="w-4 h-4" />
@@ -101,7 +97,7 @@ function ShoppingCart({
             {/* Volunteer Mode Toggle */}
             {isVolunteerMode && onModeChange && (
                 <div className="px-4 py-3 border-b border-lijn bg-brand-beige-dark">
-                    <div className="grid grid-cols-3 gap-0">
+                    <div className="grid grid-cols-2 gap-0">
                         {(Object.keys(MODE_LABELS) as VolunteerCartMode[]).map((m, i) => (
                             <button
                                 key={m}
@@ -201,38 +197,10 @@ function ShoppingCart({
                                 {cartItems.map((item) => {
                                             // Calculate what will happen to stock
                                             const currentStock = item.quantity;
-                                            let newStock: number;
-                                            let stockChangeText: string;
-                                            let stockChangeColor: string;
-                                            
-                                            if (isVolunteerMode && mode === 'drink') {
-                                                // Free drink: stock goes down, like a sale.
-                                                newStock = currentStock - item.cartQuantity;
-                                                stockChangeText = `-${item.cartQuantity} free`;
-                                                stockChangeColor = 'text-red-600';
-                                            } else if (isVolunteerMode) {
-                                                if (mode === 'set') {
-                                                    // Set mode: stock will be set to cartQuantity
-                                                    newStock = item.cartQuantity;
-                                                    stockChangeText = `SET TO ${newStock}`;
-                                                    stockChangeColor = 'text-blue-600';
-                                                } else {
-                                                    // Add/Remove mode: positive = add (green), negative = remove (red)
-                                                    newStock = currentStock + item.cartQuantity;
-                                                    if (item.cartQuantity >= 0) {
-                                                        stockChangeText = `+${item.cartQuantity}`;
-                                                        stockChangeColor = 'text-emerald-600';
-                                                    } else {
-                                                        stockChangeText = `${item.cartQuantity}`;
-                                                        stockChangeColor = 'text-red-600';
-                                                    }
-                                                }
-                                            } else {
-                                                // Checkout mode: stock will decrease
-                                                newStock = currentStock - item.cartQuantity;
-                                                stockChangeText = `-${item.cartQuantity}`;
-                                                stockChangeColor = 'text-red-600';
-                                            }
+                                            // Bought or taken for free: stock goes down either way.
+                                            const newStock = currentStock - item.cartQuantity;
+                                            const stockChangeText = free ? `-${item.cartQuantity} free` : `-${item.cartQuantity}`;
+                                            const stockChangeColor = 'text-red-600';
 
                                             return (
                                             <motion.div
@@ -282,7 +250,7 @@ function ShoppingCart({
                                                                     {item.category}
                                                                 </span>
                                                             )}
-                                                            {isVolunteerMode && mode === 'drink' && (
+                                                            {free && (
                                                                 <span className="text-[10px] font-semibold px-1.5 border border-lijn bg-white">
                                                                     {!isLabMaterial(item) ? 'Volunteer drink' : isFilament(item) ? 'Lab rack (3D printers)' : 'Lab / workshop'}
                                                                 </span>
@@ -328,11 +296,8 @@ function ShoppingCart({
                                                         >
                                                             <Minus size={16} />
                                                         </button>
-                                                        <span className={cn(
-                                                            "w-12 text-center font-semibold text-lg",
-                                                            item.cartQuantity < 0 ? "text-red-600" : "text-brand-black"
-                                                        )}>
-                                                            {item.cartQuantity > 0 && !isVolunteerMode ? '' : ''}{item.cartQuantity}
+                                                        <span className="w-12 text-center font-semibold text-lg text-brand-black">
+                                                            {item.cartQuantity}
                                                         </span>
                                                         <button
                                                             onClick={() => handleUpdateQuantityWithFeedback(item.id, item.cartQuantity + 1)}
@@ -344,7 +309,7 @@ function ShoppingCart({
                                                     </div>
                                                     
                                                     {/* Price */}
-                                                    {!isVolunteerMode && (
+                                                    {!free && (
                                                         <div className="text-right">
                                                             <span className="text-[10px] text-brand-black/50 block">€{item.price.toFixed(2)} × {item.cartQuantity}</span>
                                                             <span className="font-semibold text-lg">€{(item.price * item.cartQuantity).toFixed(2)}</span>
@@ -368,11 +333,11 @@ function ShoppingCart({
                         {/* Footer: Total & Checkout */}
                         {(cartItems.length > 0 || extraCosts > 0) && (
                             <div className="mt-auto border-t border-lijn bg-brand-beige p-4">
-                                {/* Volunteers pay the extras and what add/remove takes out; the rest is stock work. */}
-                                {(!isVolunteerMode || volunteerToPay > 0) && (
+                                {/* Free items cost nothing; machine time on top is still paid. */}
+                                {(!free || toPay > 0) && (
                                     <div className="flex justify-between items-center mb-3">
-                                        <span className="text-sm font-semibold text-brand-black/60">{isVolunteerMode ? 'To pay' : 'Total'}</span>
-                                        <span className="font-semibold text-2xl">€{(isVolunteerMode ? volunteerToPay : totalPrice + extraCosts).toFixed(2)}</span>
+                                        <span className="text-sm font-semibold text-brand-black/60">{free ? 'To pay' : 'Total'}</span>
+                                        <span className="font-semibold text-2xl">€{toPay.toFixed(2)}</span>
                                     </div>
                                 )}
                                 <button
@@ -383,7 +348,7 @@ function ShoppingCart({
                                     disabled={isCheckingOut}
                                     className={cn(
                                         "w-full py-4 text-base font-semibold flex items-center justify-center gap-2 border border-lijn transition-all",
-                                        isVolunteerMode
+                                        free
                                             ? "bg-amber-300 text-brand-black hover:brightness-95"
                                             : "bg-emerald-400 text-brand-black hover:brightness-95",
                                         isCheckingOut && "opacity-75 cursor-not-allowed"
@@ -395,7 +360,7 @@ function ShoppingCart({
                                             Processing...
                                         </>
                                     ) : (
-                                        isVolunteerMode && cartItems.length > 0 ? (volunteerToPay > 0 ? `Pay €${volunteerToPay.toFixed(2)}` : MODE_LABELS[mode].action) : `Pay €${(isVolunteerMode ? volunteerToPay : totalPrice + extraCosts).toFixed(2)}`
+                                        free && cartItems.length > 0 && toPay === 0 ? MODE_LABELS[mode].action : `Pay €${toPay.toFixed(2)}`
                                     )}
                                 </button>
                             </div>

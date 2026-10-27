@@ -56,7 +56,7 @@ const PUBLIC_TABS: (NavTab & { short: string })[] = [
 ];
 const VOLUNTEER_TABS: (NavTab & { short: string })[] = [
   { id: 'volunteer', label: 'Overview', short: 'Overview', icon: LayoutDashboard },
-  { id: 'scan', label: 'Scan', short: 'Scan', icon: ScanBarcode },
+  { id: 'scan', label: 'Checkout', short: 'Checkout', icon: ShoppingCart, tone: 'text-emerald-600' },
   { id: 'inventory', label: 'Stock list', short: 'Stock', icon: Package },
   { id: 'orders', label: 'Purchase orders', short: 'Orders', icon: ShoppingBag },
   { id: 'laser', label: 'Lasercutter', short: 'Laser', icon: Zap },
@@ -475,12 +475,13 @@ function AppContent() {
         {isVolunteerMode ? (
           <>
             <VolunteerNavigation />
-            <AdminToolsBar
+            {/* Adding items, categories, locations and suppliers is stock work: only on the Stock list. */}
+            {currentPage === 'inventory' && <AdminToolsBar
               onNewItem={() => setAddPartFormModalOpen(true)}
               onAddCategory={() => setAddCategoryModalOpen(true)}
               onAddLocation={() => setAddLocationModalOpen(true)}
               onAddSupplier={() => setAddSupplierModalOpen(true)}
-            />
+            />}
           </>
         ) : (
           <PublicNavigation />
@@ -775,7 +776,7 @@ function AppContent() {
                       <div className="border border-lijn p-4">
                         <div className="flex gap-3 flex-wrap">
                           <button onClick={() => setCurrentPage('inventory')} className="brutalist-button py-2 px-4 text-xs">Stock list</button>
-                          <button onClick={() => setCurrentPage('scan')} className="brutalist-button py-2 px-4 bg-blue-200 text-brand-black text-xs">Scanner</button>
+                          <button onClick={() => setCurrentPage('scan')} className="brutalist-button py-2 px-4 bg-emerald-200 text-brand-black text-xs">Checkout</button>
                           <button onClick={() => setAddPartFormModalOpen(true)} className="brutalist-button py-2 px-4 text-xs">+ New item</button>
                           <button onClick={() => setCurrentPage('orders')} className="brutalist-button py-2 px-4 bg-amber-300 text-brand-black text-xs">Purchase orders</button>
                           <button onClick={() => setCurrentPage('analytics')} className="brutalist-button py-2 px-4 text-xs">Analytics</button>
@@ -819,7 +820,10 @@ function AppContent() {
                   transition={{ duration: 0.15 }}
                   className="flex-1 flex flex-col min-h-0 overflow-hidden"
                 >
-                  <ItemList />
+                  <ItemList
+                    lowStockIds={lowStockItems.map(i => i.pk)}
+                    onOrder={ids => { setLowStockOrderPartIds(ids); setCurrentPage('orders'); }}
+                  />
                 </motion.div>
               )}
               {currentPage === 'orders' && (

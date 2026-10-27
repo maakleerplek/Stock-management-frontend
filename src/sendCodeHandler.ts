@@ -110,14 +110,6 @@ export interface CheckoutLine {
     unitPrice: number;
 }
 
-/** Volunteer add/remove: what is taken out (negative quantity) is sold at the normal price. */
-export function volunteerSaleLines(items: { id: number; name: string; price: number; cartQuantity: number }[]): CheckoutLine[] {
-    return items.filter(i => i.cartQuantity < 0)
-        .map(i => ({ partId: i.id, name: i.name, quantity: -i.cartQuantity, unitPrice: i.price }));
-}
-
-/** What a cart costs: the item lines plus the extra services. */
-export const linesTotal = (lines: CheckoutLine[]) => lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
 
 /**
  * Book a till sale as one InvenTree sales order.

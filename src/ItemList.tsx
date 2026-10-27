@@ -1,9 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, RefreshCw, Box, Euro, Loader2, Plus, Minus, Trash2, CheckCircle, Tag, MapPin, SlidersHorizontal } from 'lucide-react';
+import { Search, RefreshCw, Box, Loader2, Plus, Minus, Trash2, CheckCircle, Tag, MapPin, SlidersHorizontal, ScanBarcode, ShoppingBag } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { cn, displayName } from './lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
-import { handleAddItem, handleRemoveItem } from './sendCodeHandler';
+import { handleAddItem, handleRemoveItem, handleSend } from './sendCodeHandler';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import { useStock } from './StockContext';
@@ -45,13 +44,19 @@ function MetaTags({ category, location, className }: { category?: string; locati
     );
 }
 
-export default function ItemList() {
+/** The stock list; for volunteers also the place to restock, count and order. */
+export default function ItemList({ lowStockIds = [], onOrder }: {
+    /** Parts at or under their minimum: they get an Order button. */
+    lowStockIds?: number[];
+    /** Open purchase orders prefilled with these parts. */
+    onOrder?: (partIds: number[]) => void;
+} = {}) {
     const { items, loading, error, refreshInventory, lastFetched } = useStock();
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [locationFilter, setLocationFilter] = useState('');
     const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(50);
+    const [rowsPerPage, setRowsPerPage] = useState(100);
     const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
     const [isCommitting, setIsCommitting] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -108,6 +113,34 @@ export default function ItemList() {
             }
             return [...prev, { item, delta }];
         });
+    };
+
+    // Typed count: stored as the difference with the stock now, so it saves like +/-.
+    const setCount = (item: Item, count: number) => {
+        const delta = count - item.quantity;
+        setAdjustments(prev => delta === 0
+            ? prev.filter(a => a.item.id !== item.id)
+            : prev.some(a => a.item.id === item.id)
+                ? prev.map(a => a.item.id === item.id ? { ...a, delta } : a)
+                : [...prev, { item, delta }]);
+    };
+
+    // Scan (handheld scanner types the code + Enter) = +1 to stock, pending like the + button.
+    const [scanCode, setScanCode] = useState('');
+    const [scanning, setScanning] = useState(false);
+    const scanToStock = async () => {
+        const code = scanCode.trim();
+        if (!code) return;
+        setScanning(true);
+        try {
+            const found = await handleSend(code);
+            const item = found && items.find(i => i.id === found.id);
+            if (item) addAdjustment(item, 1);
+            else addToast(`No item found for: ${code}`, 'warning');
+        } finally {
+            setScanCode('');
+            setScanning(false);
+        }
     };
 
     const removeAdjustment = (id: number) => {
@@ -170,7 +203,7 @@ export default function ItemList() {
         <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="flex-1 bg-transparent outline-none text-base md:text-xs font-semibold cursor-pointer"
+            className="flex-1 min-w-0 bg-transparent outline-none text-base md:text-sm cursor-pointer"
         >
             <option value="">All categories</option>
             {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
@@ -180,7 +213,7 @@ export default function ItemList() {
         <select
             value={locationFilter}
             onChange={(e) => setLocationFilter(e.target.value)}
-            className="flex-1 bg-transparent outline-none text-base md:text-xs font-semibold cursor-pointer"
+            className="flex-1 min-w-0 bg-transparent outline-none text-base md:text-sm cursor-pointer"
         >
             <option value="">All locations</option>
             {locationOptions.map(l => <option key={l} value={l}>{l}</option>)}
@@ -196,10 +229,10 @@ export default function ItemList() {
     }
 
     return (
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-brand-beige">
+        <div className="flex-1 flex flex-col overflow-hidden bg-brand-beige">
             {/* Main Table Area */}
             {/* On a phone main is the one scroll area; from md up the table scrolls inside it. */}
-            <main className="flex-1 flex flex-col min-h-0 md:p-6 overflow-y-auto md:overflow-hidden">
+            <main className="flex-1 flex flex-col min-h-0 md:p-4 overflow-y-auto md:overflow-hidden">
                 {/* Phone: search, filters and refresh in one bar that stays on top */}
                 <div className="md:hidden sticky top-0 z-10 bg-brand-beige border-b border-lijn px-3 py-2 space-y-1.5">
                     <div className="flex gap-2">
@@ -232,7 +265,7 @@ export default function ItemList() {
                     <p className={cn('text-xs', freshness?.stale ? 'text-amber-700 font-semibold' : 'text-grafiet')}>
                         {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
                         {hasActiveFilters && ' (filtered)'}
-                        {freshness && (freshness.stale ? ` · possibly out of date, updated ${freshness.label}` : ` · updated ${freshness.label}`)}
+                        {freshness?.stale && ` · possibly out of date, updated ${freshness.label}`}
                     </p>
                 </div>
 
@@ -267,100 +300,92 @@ export default function ItemList() {
                     </div>
                 </Sheet>
 
-                {/* Header (md and up) */}
-                <div className="hidden md:block flex-shrink-0 mb-4 border border-lijn bg-brand-beige">
-                    {/* Top row: title + search + refresh */}
-                    <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 p-4">
-                        <div className="flex items-center gap-3">
-                            <Box className="w-6 h-6 text-blue-600" aria-hidden />
-                            <h2 className="text-lg font-semibold">Stock list</h2>
-                        </div>
-                        <div className="flex gap-4 items-center flex-grow max-w-full md:max-w-[500px]">
-                            <div className="brutalist-input flex items-center flex-1 px-4 py-2 border border-lijn bg-brand-beige">
-                                <Search className="w-5 h-5 text-brand-black mr-2" />
-                                <input
-                                    type="text"
-                                    placeholder="Search items..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="flex-1 bg-transparent border-none outline-none text-sm font-bold placeholder-brand-black/50"
-                                />
-                            </div>
-                            <button
-                                onClick={async () => {
-                                    await refreshInventory();
-                                    addToast('Stock list refreshed', 'success');
-                                }}
-                                disabled={loading}
-                                title="Refresh List"
-                                className={cn("brutalist-button p-3", loading && "opacity-50 cursor-not-allowed")}
-                            >
-                                <RefreshCw className={cn("w-5 h-5 text-brand-black", loading && "animate-spin")} />
-                            </button>
-                        </div>
+                {/* Toolbar (md and up): everything in one row, so the table gets the height */}
+                <div className="hidden md:flex flex-shrink-0 flex-wrap items-center gap-2 mb-3">
+                    <h2 className="flex items-center gap-2 text-base font-semibold mr-2">
+                        <Box className="w-4 h-4 text-blue-600" aria-hidden /> Stock list
+                    </h2>
+                    <div className="flex items-center gap-2 border border-lijn bg-white px-2.5 h-9 w-56">
+                        <Search className="w-4 h-4 text-brand-black/50 shrink-0" aria-hidden />
+                        <input
+                            type="search"
+                            placeholder="Search items"
+                            aria-label="Search items"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="flex-1 min-w-0 bg-transparent outline-none text-sm"
+                        />
                     </div>
-
-                    {/* Filter row: category + location */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 pb-4 border-t border-lijn pt-4">
-                        <div className="flex items-center gap-2 border border-lijn bg-brand-beige px-3 py-2 flex-1 sm:flex-none sm:min-w-[200px]">
-                            <Tag size={14} className="text-brand-black/60 flex-shrink-0" />
-                            {categorySelect}
-                        </div>
-                        <div className="flex items-center gap-2 border border-lijn bg-brand-beige px-3 py-2 flex-1 sm:flex-none sm:min-w-[200px]">
-                            <MapPin size={14} className="text-brand-black/60 flex-shrink-0" />
-                            {locationSelect}
-                        </div>
-                        {hasActiveFilters && (
-                            <button
-                                onClick={() => { setCategoryFilter(''); setLocationFilter(''); }}
-                                className="brutalist-button px-3 py-2 text-[10px] font-semibold"
+                    <div className="flex items-center gap-1.5 border border-lijn bg-white px-2.5 h-9 w-44">
+                        <Tag size={14} className="text-brand-black/50 shrink-0" aria-hidden />
+                        {categorySelect}
+                    </div>
+                    <div className="flex items-center gap-1.5 border border-lijn bg-white px-2.5 h-9 w-44">
+                        <MapPin size={14} className="text-brand-black/50 shrink-0" aria-hidden />
+                        {locationSelect}
+                    </div>
+                    {hasActiveFilters && (
+                        <button onClick={() => { setCategoryFilter(''); setLocationFilter(''); }} className="text-xs font-semibold underline underline-offset-2 px-1">
+                            Clear
+                        </button>
+                    )}
+                    <span className="text-xs text-grafiet tabular-nums">
+                        {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
+                    </span>
+                    {freshness?.stale && (
+                        <span className="text-xs font-semibold text-amber-700">Updated {freshness.label}</span>
+                    )}
+                    <div className="ml-auto flex items-center gap-2">
+                        {isVolunteerMode && (
+                            <form
+                                onSubmit={e => { e.preventDefault(); void scanToStock(); }}
+                                className="flex items-center gap-2 border border-lijn bg-white px-2.5 h-9 w-52"
+                                title="Scan or type a barcode: +1 to stock (pending)"
                             >
-                                Clear filters
+                                <ScanBarcode className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden />
+                                <input
+                                    value={scanCode}
+                                    onChange={e => setScanCode(e.target.value)}
+                                    placeholder="Scan to restock"
+                                    aria-label="Scan a barcode to add 1 to stock"
+                                    disabled={scanning}
+                                    className="flex-1 min-w-0 bg-transparent outline-none text-sm"
+                                />
+                            </form>
+                        )}
+                        {isVolunteerMode && onOrder && lowStockIds.length > 0 && (
+                            <button
+                                onClick={() => onOrder(lowStockIds)}
+                                className="brutalist-button h-9 px-3 text-xs font-semibold flex items-center gap-1.5 bg-white"
+                                title="Make purchase orders for every item that is low"
+                            >
+                                <ShoppingBag size={14} aria-hidden /> Order all low ({lowStockIds.length})
                             </button>
                         )}
-                        <span className="text-[10px] font-semibold text-brand-black/50 sm:ml-auto">
-                            {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
-                        </span>
+                        <button
+                            onClick={async () => { await refreshInventory(); addToast('Stock list refreshed', 'success'); }}
+                            disabled={loading}
+                            title="Refresh"
+                            aria-label="Refresh"
+                            className="w-9 h-9 shrink-0 border border-lijn bg-white hover:bg-brand-beige flex items-center justify-center disabled:opacity-50"
+                        >
+                            <RefreshCw size={16} className={cn(loading && 'animate-spin')} />
+                        </button>
                     </div>
                 </div>
 
                 {error && (
-                    <div className="flex-shrink-0 border border-lijn bg-brand-beige p-4 m-3 md:m-0 md:mb-4">
+                    <div className="flex-shrink-0 border border-lijn bg-brand-beige p-3 m-3 md:m-0 md:mb-3">
                         <p className="text-sm font-bold text-red-600">{error}</p>
                     </div>
                 )}
 
-                {!error && freshness && (() => {
-                    const { stale, label } = freshness;
-                    return (
-                        <div className={cn(
-                            'hidden md:flex flex-shrink-0 items-center justify-between gap-3 px-3 py-2 mb-4 border',
-                            stale ? 'border-amber-500 bg-amber-50' : 'border-lijn bg-transparent'
-                        )}>
-                            <p className={cn(
-                                'text-[10px] font-semibold',
-                                stale ? 'text-amber-700' : 'text-brand-black/40'
-                            )}>
-                                {stale ? `Possibly out of date — last updated ${label}` : `Updated ${label}`}
-                            </p>
-                            {stale && (
-                                <button
-                                    onClick={() => refreshInventory()}
-                                    className="brutalist-button px-3 py-1 text-[10px] bg-amber-300 text-brand-black"
-                                >
-                                    Refresh
-                                </button>
-                            )}
-                        </div>
-                    );
-                })()}
-
                 {/* Table Container - Fills remaining space and scrolls */}
-                <div className="md:flex-1 md:min-h-0 flex flex-col md:border border-lijn bg-brand-beige">
+                <div className="md:flex-1 md:min-h-0 flex flex-col md:border border-lijn bg-white">
                     {/* Scrollable list wrapper (md and up; on a phone main scrolls) */}
                     <div className="md:flex-1 md:overflow-auto">
                         {/* ── Phone: rows; a volunteer taps one to change its stock ── */}
-                        <ul className="md:hidden divide-y divide-lijn border-b border-lijn">
+                        <ul className="md:hidden divide-y divide-lijn-zacht border-b border-lijn bg-brand-beige">
                             {pagedItems.map((item) => {
                                 const delta = getAdjustmentDelta(item.id);
                                 return (
@@ -368,41 +393,31 @@ export default function ItemList() {
                                         key={item.id}
                                         onClick={isVolunteerMode && item.id > 0 ? () => setEditingId(item.id) : undefined}
                                         className={cn(
-                                            "grid grid-cols-[48px_1fr_auto] gap-3 items-center px-4 py-3",
+                                            "grid grid-cols-[36px_1fr_auto] gap-3 items-center px-3 py-2",
                                             isVolunteerMode && item.id > 0 && "cursor-pointer active:bg-brand-beige-dark",
                                             delta > 0 && "bg-emerald-50",
                                             delta < 0 && "bg-rose-50",
-                                            delta === 0 && item.quantity === 0 && "bg-rose-50/50"
                                         )}
                                     >
-                                        <div className="border border-lijn bg-white w-12 h-12 overflow-hidden">
-                                            <ImageDisplay imagePath={item.image} alt={item.name} width={48} height={48} />
+                                        <div className="border border-lijn bg-white w-9 h-9 overflow-hidden">
+                                            <ImageDisplay imagePath={item.image} alt={item.name} width={36} height={36} />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="font-bold text-sm tracking-tight line-clamp-2 break-words">{displayName(item.name)}</p>
-                                            <div className="flex items-center gap-1 mt-0.5 text-brand-black/70">
-                                                <Euro className="w-3 h-3" />
-                                                <span className="font-bold text-xs">{item.price.toFixed(2)}</span>
-                                                {isVolunteerMode && item.cost > 0 && (
-                                                    <span className="text-[10px] font-bold text-brand-black/40">
-                                                        (cost {item.cost.toFixed(2)})
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <MetaTags category={item.category} location={item.location} className="mt-1" />
+                                            <p className="font-semibold text-sm leading-tight truncate">{displayName(item.name)}</p>
+                                            <p className="text-xs text-grafiet truncate">
+                                                €{item.price.toFixed(2)}
+                                                {[item.category !== 'Uncategorized' && item.category, item.location].filter(Boolean).map(t => ` · ${t}`).join('')}
+                                            </p>
                                         </div>
-                                        <div className="justify-self-end">
-                                            <div className="text-right">
-                                                <div className={cn(
-                                                    "font-semibold text-lg leading-none",
-                                                    item.quantity === 0 && "text-rose-600"
-                                                )}>
-                                                    {item.quantity}
-                                                </div>
-                                                <div className={cn("text-[10px] font-semibold mt-0.5", item.quantity === 0 ? "text-rose-600" : "text-brand-black/60")}>
-                                                    {delta !== 0 ? (delta > 0 ? `+${delta}` : delta) : item.quantity === 0 ? 'Sold out' : 'in stock'}
-                                                </div>
+                                        <div className="text-right tabular-nums">
+                                            <div className={cn("font-semibold text-base leading-none", item.quantity === 0 && "text-rose-600")}>
+                                                {item.quantity}
                                             </div>
+                                            {(delta !== 0 || item.quantity === 0) && (
+                                                <div className={cn("text-[11px] font-semibold mt-0.5", delta > 0 ? "text-emerald-700" : "text-rose-600")}>
+                                                    {delta !== 0 ? (delta > 0 ? `+${delta}` : delta) : 'Sold out'}
+                                                </div>
+                                            )}
                                         </div>
                                     </li>
                                 );
@@ -414,123 +429,112 @@ export default function ItemList() {
                             )}
                         </ul>
 
-                        {/* ── Desktop: table (sm and up) ── */}
-                        <table className="hidden md:table w-full min-w-[600px] border-collapse">
-                            <thead className="sticky top-0 z-10">
-                                <tr className="border-b border-lijn bg-brand-beige-dark">
-                                    <th className="p-3 pl-6 text-left w-[80px]" />
-                                    <th className="p-3 text-left">
-                                        <span className="text-[10px] font-semibold text-brand-black/70">Item</span>
-                                    </th>
-                                    <th className="p-3 text-right w-[100px]">
-                                        <span className="text-[10px] font-semibold text-brand-black/70">Stock</span>
-                                    </th>
+                        {/* ── Desktop: dense table ── */}
+                        <table className="hidden md:table w-full min-w-[640px] border-collapse text-sm">
+                            <thead className="sticky top-0 z-10 bg-brand-beige-dark">
+                                <tr className="border-b border-lijn text-left text-xs font-semibold text-brand-black/70">
+                                    <th className="py-2 pl-3 w-[48px]" />
+                                    <th className="py-2 px-2">Item</th>
+                                    <th className="py-2 px-2 hidden lg:table-cell">Category</th>
+                                    <th className="py-2 px-2 hidden lg:table-cell">Location</th>
+                                    <th className="py-2 px-2 text-right w-[96px]">Stock</th>
                                     {/* What the lab paid is for volunteers, not visitors. */}
-                                    {isVolunteerMode && (
-                                        <th className="p-3 text-right w-[100px]">
-                                            <span className="text-[10px] font-semibold text-brand-black/70">Cost</span>
-                                        </th>
-                                    )}
-                                    <th className="p-3 text-right w-[100px]">
-                                        <span className="text-[10px] font-semibold text-brand-black/70">Price</span>
-                                    </th>
-                                    {isVolunteerMode && (
-                                        <th className="p-3 text-center w-[120px]">
-                                            <span className="text-[10px] font-semibold text-brand-black/70">Actions</span>
-                                        </th>
-                                    )}
+                                    {isVolunteerMode && <th className="py-2 px-2 text-right w-[80px]">Cost</th>}
+                                    <th className="py-2 px-2 text-right w-[80px]">Price</th>
+                                    {isVolunteerMode && <th className="py-2 pr-3 w-[140px]" />}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y-2 divide-lijn">
-                                {pagedItems
-                                    .map((item) => {
-                                        const delta = getAdjustmentDelta(item.id);
-                                        return (
-                                            <tr key={item.id} className={cn(
-                                                "hover:bg-brand-beige-dark/50 transition-colors",
-                                                delta > 0 && "bg-emerald-50",
-                                                delta < 0 && "bg-rose-50",
-                                                delta === 0 && item.quantity === 0 && "bg-rose-50/50"
-                                            )}>
-                                                <td className="p-2 pl-6">
-                                                    <div className="border border-lijn bg-white w-10 h-10 overflow-hidden flex-shrink-0">
-                                                        <ImageDisplay imagePath={item.image} alt={item.name} width={40} height={40} />
-                                                    </div>
-                                                </td>
-                                                <td className="p-3">
-                                                    <p className="font-bold text-sm tracking-tight">{displayName(item.name)}</p>
-                                                    <MetaTags category={item.category} location={item.location} className="mt-1.5" />
-                                                </td>
-                                                <td className="p-3 text-right">
-                                                    <span className={cn(
-                                                        "font-semibold text-sm",
-                                                        item.quantity === 0 && "text-rose-600"
-                                                    )}>
+                            <tbody className="divide-y divide-lijn-zacht">
+                                {pagedItems.map((item) => {
+                                    const delta = getAdjustmentDelta(item.id);
+                                    const low = lowStockIds.includes(item.id);
+                                    return (
+                                        <tr key={item.id} className={cn(
+                                            "hover:bg-brand-beige/60",
+                                            delta > 0 && "bg-emerald-50",
+                                            delta < 0 && "bg-rose-50",
+                                        )}>
+                                            <td className="py-1 pl-3">
+                                                <div className="border border-lijn bg-white w-8 h-8 overflow-hidden">
+                                                    <ImageDisplay imagePath={item.image} alt={item.name} width={32} height={32} />
+                                                </div>
+                                            </td>
+                                            <td className="py-1 px-2 font-semibold max-w-0 w-full">
+                                                <span className="block truncate" title={item.name}>{displayName(item.name)}</span>
+                                            </td>
+                                            <td className="py-1 px-2 text-xs text-grafiet whitespace-nowrap hidden lg:table-cell">
+                                                {item.category !== 'Uncategorized' ? item.category : '–'}
+                                            </td>
+                                            <td className="py-1 px-2 text-xs text-grafiet whitespace-nowrap hidden lg:table-cell">{item.location ?? '–'}</td>
+                                            <td className="py-1 px-2 text-right tabular-nums whitespace-nowrap">
+                                                {isVolunteerMode && item.id > 0 ? (
+                                                    // Counted the shelf? Type the real number: pending like +/-.
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        value={item.quantity + delta}
+                                                        onChange={e => e.target.value !== '' && setCount(item, Math.max(0, Math.round(Number(e.target.value))))}
+                                                        onFocus={e => e.target.select()}
+                                                        aria-label={`Stock of ${item.name}`}
+                                                        title="Type the counted number"
+                                                        className={cn(
+                                                            "w-16 h-7 px-1.5 text-right font-semibold border bg-white tabular-nums",
+                                                            delta === 0 ? "border-lijn-zacht" : delta > 0 ? "border-emerald-600" : "border-rose-500",
+                                                            item.quantity + delta === 0 && "text-rose-600",
+                                                        )}
+                                                    />
+                                                ) : (
+                                                    <span className={cn("font-semibold", item.quantity === 0 && "text-rose-600")}>
                                                         {item.quantity === 0 && !isVolunteerMode ? 'Sold out' : item.quantity}
                                                     </span>
-                                                    {delta !== 0 && (
-                                                        <span className={cn(
-                                                            "ml-2 font-bold text-xs px-2 py-1",
-                                                            delta > 0 ? "bg-emerald-400 text-brand-black" : "bg-rose-400 text-brand-black"
-                                                        )}>
-                                                            {delta > 0 ? `+${delta}` : delta}
-                                                        </span>
-                                                    )}
+                                                )}
+                                            </td>
+                                            {isVolunteerMode && (
+                                                <td className="py-1 px-2 text-right tabular-nums text-brand-black/55"
+                                                    title={item.cost > 0 && item.price > 0 ? `Margin ${(item.price - item.cost).toFixed(2)} per unit` : item.cost > 0 ? undefined : 'No supplier price on this part'}>
+                                                    {item.cost > 0 ? `€${item.cost.toFixed(2)}` : '–'}
                                                 </td>
-                                                {isVolunteerMode && <td className="p-3 text-right">
-                                                    {item.cost > 0 ? (
-                                                        <div
-                                                            className="flex items-center justify-end gap-1 text-brand-black/55"
-                                                            title={item.price > 0 ? `Margin ${(item.price - item.cost).toFixed(2)} per unit` : undefined}
-                                                        >
-                                                            <Euro className="w-3 h-3" />
-                                                            <span className="font-bold text-sm">{item.cost.toFixed(2)}</span>
+                                            )}
+                                            <td className="py-1 px-2 text-right tabular-nums font-semibold">€{item.price.toFixed(2)}</td>
+                                            {isVolunteerMode && (
+                                                <td className="py-1 pr-3">
+                                                    {item.id > 0 ? (
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            {low && onOrder && (
+                                                                <button
+                                                                    onClick={() => onOrder([item.id])}
+                                                                    className="h-7 px-2 text-xs font-semibold border border-amber-500 bg-amber-50 text-amber-800 flex items-center gap-1"
+                                                                    title="Low stock: make a purchase order"
+                                                                >
+                                                                    <ShoppingBag size={12} aria-hidden /> Order
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => addAdjustment(item, -1)}
+                                                                className="w-7 h-7 flex items-center justify-center border border-lijn bg-white hover:bg-rose-100"
+                                                                aria-label={`Remove 1 ${item.name} from stock`}
+                                                            >
+                                                                <Minus size={14} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => addAdjustment(item, 1)}
+                                                                className="w-7 h-7 flex items-center justify-center border border-lijn bg-white hover:bg-emerald-100"
+                                                                aria-label={`Add 1 ${item.name} to stock`}
+                                                            >
+                                                                <Plus size={14} />
+                                                            </button>
                                                         </div>
                                                     ) : (
-                                                        <span
-                                                            className="text-xs font-bold text-brand-black/25"
-                                                            title="No supplier price on this part"
-                                                        >
-                                                            —
-                                                        </span>
+                                                        <span className="text-xs text-brand-black/30 block text-right">No stock</span>
                                                     )}
-                                                </td>}
-                                                <td className="p-3 text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <Euro className="w-3 h-3 text-brand-black" />
-                                                        <span className="font-bold text-sm">{item.price.toFixed(2)}</span>
-                                                    </div>
                                                 </td>
-                                                {isVolunteerMode && (
-                                                    <td className="p-3">
-                                                        {item.id > 0 ? (
-                                                            <div className="flex gap-2 justify-center">
-                                                                <button
-                                                                    onClick={() => addAdjustment(item, 1)}
-                                                                    className="p-1 px-2 border border-lijn bg-emerald-400 hover:brightness-95 transition-all"
-                                                                    title="Add 1 to stock"
-                                                                >
-                                                                    <Plus size={14} className="text-brand-black" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => addAdjustment(item, -1)}
-                                                                    className="p-1 px-2 border border-lijn bg-rose-400 hover:brightness-95 transition-all"
-                                                                    title="Remove 1 from stock"
-                                                                >
-                                                                    <Minus size={14} className="text-brand-black" />
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-[10px] font-semibold text-brand-black/30 block text-center">No stock</span>
-                                                        )}
-                                                    </td>
-                                                )}
-                                            </tr>
-                                        );
-                                    })}
+                                            )}
+                                        </tr>
+                                    );
+                                })}
                                 {filteredItems.length === 0 && !loading && (
                                     <tr>
-                                        <td colSpan={isVolunteerMode ? 6 : 5} className="p-16 text-center bg-brand-beige-dark">
+                                        <td colSpan={isVolunteerMode ? 8 : 6} className="p-16 text-center bg-brand-beige-dark">
                                             <p className="text-sm font-semibold opacity-40">No items found</p>
                                         </td>
                                     </tr>
@@ -540,137 +544,48 @@ export default function ItemList() {
                     </div>
 
                     {/* Pagination - Fixed at bottom of table */}
-                    <div className="flex-shrink-0 flex items-center justify-between gap-2 px-4 sm:px-6 py-3 md:border-t border-lijn bg-brand-beige-dark">
-                        <div className="flex items-center gap-2 sm:gap-4">
-                            <label className="hidden sm:inline text-[10px] font-semibold">Rows:</label>
-                            <select value={rowsPerPage} onChange={handleChangeRowsPerPage} className="brutalist-input px-3 h-11 md:h-auto md:py-1 text-base md:text-xs font-bold border border-lijn bg-brand-beige">
-                                <option value={10}>10</option>
-                                <option value={25}>25</option>
-                                <option value={50}>50</option>
-                                <option value={100}>100</option>
-                            </select>
-                        </div>
-                        <div className="flex items-center gap-3 sm:gap-6">
-                            <span className="text-[11px] sm:text-xs font-bold whitespace-nowrap">
+                    <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2 md:border-t border-lijn bg-brand-beige-dark">
+                        <select value={rowsPerPage} onChange={handleChangeRowsPerPage} aria-label="Rows per page" className="px-2 h-11 md:h-8 text-base md:text-xs font-semibold border border-lijn bg-white">
+                            <option value={25}>25 rows</option>
+                            <option value={50}>50 rows</option>
+                            <option value={100}>100 rows</option>
+                            <option value={250}>250 rows</option>
+                        </select>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs font-semibold tabular-nums whitespace-nowrap">
                                 {filteredItems.length > 0 ? `${page * rowsPerPage + 1}–${Math.min((page + 1) * rowsPerPage, filteredItems.length)} / ${filteredItems.length}` : '0 items'}
                             </span>
-                            <div className="flex gap-2">
-                                <button onClick={() => handleChangePage(null, page - 1)} disabled={page === 0} className={cn("brutalist-button px-4 h-11 md:h-auto md:py-2 text-sm md:text-xs", page === 0 && "opacity-30 cursor-not-allowed")}>Prev</button>
-                                <button onClick={() => handleChangePage(null, page + 1)} disabled={page >= Math.ceil(filteredItems.length / rowsPerPage) - 1} className={cn("brutalist-button px-4 h-11 md:h-auto md:py-2 text-sm md:text-xs", page >= Math.ceil(filteredItems.length / rowsPerPage) - 1 && "opacity-30 cursor-not-allowed")}>Next</button>
-                            </div>
+                            <button onClick={() => handleChangePage(null, page - 1)} disabled={page === 0} className="brutalist-button px-3 h-11 md:h-8 text-xs disabled:opacity-30">Prev</button>
+                            <button onClick={() => handleChangePage(null, page + 1)} disabled={page >= Math.ceil(filteredItems.length / rowsPerPage) - 1} className="brutalist-button px-3 h-11 md:h-8 text-xs disabled:opacity-30">Next</button>
                         </div>
                     </div>
                 </div>
 
-                {/* Phone / tablet: pending changes stay in view at the bottom (the sidebar is lg-only) */}
+                {/* Pending changes: a bar only while there are some */}
                 {isVolunteerMode && adjustments.length > 0 && (
-                    <div className="lg:hidden sticky bottom-0 z-10 flex-shrink-0 md:mt-4 border-t md:border border-lijn bg-brand-beige p-3 flex items-center gap-2">
+                    <div className="sticky bottom-0 z-10 flex-shrink-0 md:mt-3 border-t md:border border-lijn bg-amber-50 px-3 py-2 flex flex-wrap items-center gap-2">
                         <button
                             onClick={() => setPendingOpen(true)}
-                            className="text-sm md:text-[10px] font-semibold text-brand-black underline underline-offset-2 whitespace-nowrap px-1 h-11 md:h-auto"
+                            className="text-sm font-semibold underline underline-offset-2 whitespace-nowrap h-11 md:h-8"
                         >
-                            {adjustments.length} {adjustments.length === 1 ? 'change' : 'changes'}
+                            {adjustments.length} pending {adjustments.length === 1 ? 'change' : 'changes'}
                         </button>
-                        <button
-                            onClick={clearAdjustments}
-                            className="brutalist-button px-3 h-11 md:h-auto md:py-2 text-sm md:text-[10px] font-semibold"
-                        >
-                            Clear
-                        </button>
-                        <button
-                            disabled={isCommitting}
-                            onClick={() => setIsConfirmOpen(true)}
-                            className={cn(
-                                "brutalist-button flex-1 h-11 md:h-auto md:py-2 bg-emerald-400 text-brand-black text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-2",
-                                isCommitting ? "opacity-75 cursor-not-allowed" : "hover:brightness-95"
-                            )}
-                        >
-                            {isCommitting ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
-                            ) : (
-                                <><CheckCircle size={16} /> Confirm</>
-                            )}
-                        </button>
+                        <span className="hidden md:inline text-xs text-grafiet">Deliveries? Receive the purchase order instead.</span>
+                        <div className="ml-auto flex items-center gap-2 flex-1 md:flex-none">
+                            <button onClick={clearAdjustments} className="brutalist-button px-3 h-11 md:h-8 text-xs font-semibold bg-white">
+                                Undo all
+                            </button>
+                            <button
+                                disabled={isCommitting}
+                                onClick={() => setIsConfirmOpen(true)}
+                                className="brutalist-button flex-1 md:flex-none px-4 h-11 md:h-8 bg-emerald-400 text-brand-black text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-2 hover:brightness-95"
+                            >
+                                {isCommitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : <><CheckCircle size={14} /> Confirm</>}
+                            </button>
+                        </div>
                     </div>
                 )}
             </main>
-
-            {/* Right Sidebar: Pending Adjustments (volunteer mode, large screens only) */}
-            {isVolunteerMode && (
-                <aside className="hidden lg:flex lg:w-80 xl:w-96 flex-shrink-0 border-l border-lijn bg-brand-beige flex-col">
-                    <div className="px-4 sm:px-6 py-3 border-b border-lijn bg-brand-beige shrink-0">
-                        <h2 className="text-brand-black text-base font-semibold flex items-center gap-2">
-                            <RefreshCw size={14} /> Pending changes
-                        </h2>
-                        <p className="text-[10px] font-bold text-brand-black/60 mt-1">{adjustments.length} item(s) modified</p>
-                    </div>
-
-                    <div className="flex-1 overflow-auto bg-brand-beige p-4 space-y-3">
-                        <AnimatePresence mode="popLayout">
-                            {adjustments.length === 0 ? (
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="h-full flex flex-col items-center justify-center text-center p-6 opacity-30 text-brand-black"
-                                >
-                                    <Box size={40} className="mb-3" />
-                                    <p className="font-semibold text-xs">No pending changes</p>
-                                    <p className="text-[10px] mt-2 font-bold">Use +/- buttons to queue adjustments</p>
-                                </motion.div>
-                            ) : (
-                                adjustments.map(adj => (
-                                    <motion.div
-                                        key={adj.item.id}
-                                        layout
-                                        initial={{ x: 20, opacity: 0 }}
-                                        animate={{ x: 0, opacity: 1 }}
-                                        exit={{ x: -20, opacity: 0 }}
-                                        className="border border-lijn bg-brand-beige p-2 flex items-center gap-2"
-                                    >
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-bold text-[11px] truncate">{adj.item.name}</div>
-                                            <div className="text-[10px] font-bold text-brand-black/60">
-                                                {adj.item.quantity} → {adj.item.quantity + adj.delta}
-                                            </div>
-                                        </div>
-                                        <span className={cn(
-                                            "font-semibold text-xs px-2 py-1 border border-lijn",
-                                            adj.delta > 0 ? "bg-emerald-400 text-brand-black" : "bg-rose-400 text-brand-black"
-                                        )}>
-                                            {adj.delta > 0 ? `+${adj.delta}` : adj.delta}
-                                        </span>
-                                        <button onClick={() => removeAdjustment(adj.item.id)} className="text-brand-black/50 hover:text-red-600 p-1 transition-colors">
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </motion.div>
-                                ))
-                            )}
-                        </AnimatePresence>
-                    </div>
-
-                    <div className="p-4 border-t border-lijn bg-brand-beige space-y-3">
-                        {adjustments.length > 0 && (
-                            <button onClick={clearAdjustments} className="brutalist-button w-full py-2 text-[10px] font-semibold border-dashed">
-                                Clear all
-                            </button>
-                        )}
-                        <button
-                            disabled={adjustments.length === 0 || isCommitting}
-                            onClick={() => setIsConfirmOpen(true)}
-                            className={cn(
-                                "brutalist-button w-full py-3 bg-emerald-400 text-brand-black text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-2",
-                                isCommitting ? "opacity-75 cursor-not-allowed hover:bg-emerald-400" : "hover:brightness-95"
-                            )}
-                        >
-                            {isCommitting ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
-                            ) : (
-                                <><CheckCircle size={16} /> Confirm</>
-                            )}
-                        </button>
-                    </div>
-                </aside>
-            )}
 
             {/* Phone: change one item's stock */}
             <Sheet
