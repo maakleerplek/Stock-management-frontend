@@ -230,6 +230,8 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut }: {
         <span className="text-xs text-grafiet truncate">{cut.checkout_at ? 'In the checkout' : cutStart(cut.name, cut.created)}</span>
         <span className="text-lg font-semibold tabular-nums">{shortDuration(cut.total_time)}</span>
       </span>
+      {/* Unrounded: the till rounds up once for all ticked cuts together. */}
+      <span className="block text-right text-xs text-grafiet tabular-nums">€{laserSessionPrice(cut.total_time / 60).toFixed(2)}</span>
     </span>
   );
   if (cut.checkout_at) {
