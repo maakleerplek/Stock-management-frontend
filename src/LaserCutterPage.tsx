@@ -60,7 +60,7 @@ export default function LaserCutterPage({ onCheckout, onShop, live }: LaserCutte
 }
 
 // Cut cards: two side by side in the laser PC's bar, three on a wide column.
-const CUT_GRID = 'grid grid-cols-2 sm:grid-cols-3 gap-2';
+const CUT_GRID = 'grid grid-cols-3 gap-2';
 
 function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const { connected, time, sessions } = live;
