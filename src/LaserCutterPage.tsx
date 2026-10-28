@@ -150,9 +150,8 @@ function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] 
       <p className="text-xs text-grafiet mb-2">Drop <b>{drag.cut.name}</b> on a project</p>
       <ul className="grid grid-cols-2 gap-2">
         {projects.filter(p => p.id !== from).map(p => box(p.id, p.name, <Folder size={16} className="shrink-0" aria-hidden />))}
-        {from
-          ? box('new', 'Back to New cuts', <X size={16} className="shrink-0" aria-hidden />)
-          : box('newproject', 'New project…', <FolderPlus size={16} className="shrink-0" aria-hidden />)}
+        {from && box('new', 'Back to New cuts', <X size={16} className="shrink-0" aria-hidden />)}
+        {box('newproject', 'New project…', <FolderPlus size={16} className="shrink-0" aria-hidden />)}
       </ul>
     </div>
   );
@@ -215,10 +214,13 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
 
   const { drag, start: startDrag } = useCutDrag((cut, target) => {
     if (target === 'newproject') {
-      // Needs a name first: tick it and open the menu at "New project…".
-      setTicked(new Set([cut.id]));
-      setNameFirst(true);
-      setMoving(true);
+      // Needs a name first: back with the new cuts, ticked, and the menu open at "New project…".
+      void run(async () => {
+        if (cut.project_id) await laserApi.setProject(cut.id, null);
+        setTicked(new Set([cut.id]));
+        setNameFirst(true);
+        setMoving(true);
+      });
       return;
     }
     void run(() => laserApi.setProject(cut.id, target === 'new' ? null : target));
@@ -271,6 +273,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
       </div>
 
       <div className="flex-1 p-4 sm:p-6 space-y-3">
+        <div data-drop="new" className={cn('space-y-3', drag?.over === 'new' && 'outline-2 outline-dashed outline-brand-black outline-offset-4 bg-laser-licht/40')}>
         <div>
           <h2 className="text-base font-semibold text-brand-black">New cuts</h2>
           {projects.length > 0 && loose.length > 0 && <p className="text-xs text-grafiet">Tip: hold a cut and drag it onto a project.</p>}
@@ -308,6 +311,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
             <ul className={cn(CUT_GRID, 'p-2 border-t border-lijn')}>{older.map(row)}</ul>
           </details>
         )}
+        </div>
 
         {projects.length > 0 && <h2 className="pt-3 text-base font-semibold text-brand-black">Projects</h2>}
         {projects.map(p => (
