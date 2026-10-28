@@ -301,8 +301,8 @@ def all_sessions() -> list[dict]:
 def open_projects() -> list[dict]:
     """Projects with unpaid cuts, and empty ones made in the last day (just started, or all cuts taken out)."""
     since = (datetime.now() - timedelta(days=1)).isoformat()
-    return db.query('SELECT id, name, created FROM projects p WHERE created >= ? OR EXISTS '
-                    '(SELECT 1 FROM sessions s WHERE s.project_id = p.id AND s.paid_at IS NULL) ORDER BY created', (since,))
+    return db.query('SELECT id, name, created FROM projects p WHERE closed_at IS NULL AND (created >= ? OR EXISTS '
+                    '(SELECT 1 FROM sessions s WHERE s.project_id = p.id AND s.paid_at IS NULL)) ORDER BY created', (since,))
 
 
 def sessions_payload() -> dict:
@@ -415,7 +415,8 @@ def get_sessions():
 @app.get('/laser/api/sessions/all')
 def get_all_sessions():
     """For the analytics: every session, open and paid, and the unassigned time now on the counter."""
-    rows = db.query('SELECT id, name, created, total_time, checkout_at, paid_at, order_ref FROM sessions ORDER BY created DESC')
+    rows = db.query('SELECT s.id, s.name, s.created, s.total_time, s.checkout_at, s.paid_at, s.order_ref, p.name AS project_name '
+                    'FROM sessions s LEFT JOIN projects p ON p.id = s.project_id ORDER BY s.created DESC')
     with state_lock:
         unassigned = current_time()
     return {'sessions': rows, 'unassigned_seconds': unassigned}
@@ -506,9 +507,11 @@ def paid_session(sid):
         db.execute('DELETE FROM sessions WHERE id = ?', (sid,))
     else:
         db.execute('UPDATE sessions SET paid_at = ?, order_ref = ? WHERE id = ?', (datetime.now().isoformat(), order, sid))
-    # A project is done once all its cuts are paid.
-    db.execute('DELETE FROM projects WHERE id IN (SELECT project_id FROM sessions WHERE paid_at IS NOT NULL) '
-               'AND id NOT IN (SELECT project_id FROM sessions WHERE paid_at IS NULL AND project_id IS NOT NULL)')
+    # A project is done once all its cuts are paid; it stays as history for the analytics.
+    db.execute('UPDATE projects SET closed_at = ? WHERE closed_at IS NULL '
+               'AND id IN (SELECT project_id FROM sessions WHERE paid_at IS NOT NULL) '
+               'AND id NOT IN (SELECT project_id FROM sessions WHERE paid_at IS NULL AND project_id IS NOT NULL)',
+               (datetime.now().isoformat(),))
     broadcast_sessions()
     return {'ok': True}
 
@@ -543,9 +546,14 @@ def rename_project(pid):
 
 @app.delete('/laser/api/projects/<pid>')
 def delete_project(pid):
-    """Only the group goes: its unpaid cuts go back to the new cuts."""
+    """Only the group goes: its unpaid cuts go back to the new cuts. A paid project stays history."""
+    if not db.query('SELECT id FROM projects WHERE id = ? AND closed_at IS NULL', (pid,)):
+        return {'error': 'Project not found'}, 404
     db.execute('UPDATE sessions SET project_id = NULL WHERE project_id = ? AND paid_at IS NULL', (pid,))
-    db.execute('DELETE FROM projects WHERE id = ?', (pid,))
+    if db.query('SELECT 1 FROM sessions WHERE project_id = ? AND paid_at IS NOT NULL', (pid,)):
+        db.execute('UPDATE projects SET closed_at = ? WHERE id = ?', (datetime.now().isoformat(), pid))
+    else:
+        db.execute('DELETE FROM projects WHERE id = ?', (pid,))
     broadcast_sessions()
     return {'ok': True}
 

@@ -56,7 +56,8 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
         CREATE TABLE IF NOT EXISTS projects (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
-            created TEXT NOT NULL
+            created TEXT NOT NULL,
+            closed_at TEXT  -- all its cuts paid: kept for the analytics (project size, time per person)
         );
 
         CREATE TABLE IF NOT EXISTS time_blocks (
@@ -105,6 +106,8 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
     # A cut's LightBurn thumbnail (PNG), from the watcher on the laser PC.
     if 'preview' not in have:
         _conn.execute('ALTER TABLE sessions ADD COLUMN preview BLOB')
+    if 'closed_at' not in {r[1] for r in _conn.execute('PRAGMA table_info(projects)')}:
+        _conn.execute('ALTER TABLE projects ADD COLUMN closed_at TEXT')
     if 'kind' not in {r[1] for r in _conn.execute('PRAGMA table_info(discarded_time)')}:
         _conn.execute('ALTER TABLE discarded_time ADD COLUMN kind TEXT')
     # Rows from before MIN_LOGGED_SECONDS existed: they only skew the analytics.

@@ -177,4 +177,13 @@ describe('groupSessions', () => {
       ['Untitled, Box', 3, 3, 'open'], ['Coely, Untitled', 2, 2, 'paid'], ['Untitled', 1, 1, 'open'],
     ]);
   });
+
+  it('makes a project one row with all its cuts, across days and other people in between', () => {
+    const row = (date: string, name: string, project: string | null) => ({ date, name, minutes: 10, status: 'paid' as const, reason: 'SO-30', project });
+    const g = groupSessions([
+      row('2026-10-28T12:00', 'lamp_b', 'Jan – lamp'), row('2026-10-28T11:30', 'Cut 11:30', null),
+      row('2026-10-28T11:00', 'lamp_a', 'Jan – lamp'), row('2026-10-27T18:00', 'base', 'Jan – lamp'),
+    ]);
+    expect(g.map(s => [s.name, s.cuts, s.minutes])).toEqual([['Jan – lamp', 3, 30], ['Cut 11:30', 1, 10]]);
+  });
 });

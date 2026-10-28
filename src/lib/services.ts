@@ -144,7 +144,7 @@ export function serviceRevenue(lines: ServiceLine[], days?: number, now: Date = 
 }
 
 /** A laser session as the laser service keeps it (GET /sessions/all). */
-export interface LaserSessionRow { name: string; created: string; total_time: number; paid_at: string | null; order_ref: string | null }
+export interface LaserSessionRow { name: string; created: string; total_time: number; paid_at: string | null; order_ref: string | null; project_name?: string | null }
 
 export interface LaserBucket { minutes: number; value: number; count: number }
 
@@ -221,7 +221,7 @@ export const SESSION_STATUS_LABELS: Record<SessionStatus, string> = {
   ...DISCARD_KIND_LABELS, paid: 'Paid', unverified: 'Not verified (order cancelled)', open: 'Open, not paid yet',
 };
 /** One laser session: the name is whatever was typed (a person or a project). */
-export interface LaserSessionUse { date: string; name: string; minutes: number; status: SessionStatus; reason: string | null }
+export interface LaserSessionUse { date: string; name: string; minutes: number; status: SessionStatus; reason: string | null; project?: string | null }
 
 /**
  * Every laser session in the period, newest first: open and paid ones from the
@@ -244,7 +244,7 @@ export function laserSessionList(
     const status = !s.paid_at ? 'open'
       : s.order_ref && counted.has(s.order_ref) ? (volunteerOrders.has(s.order_ref) ? 'volunteer' : 'paid')
       : 'unverified';
-    out.push({ date, name: s.name, minutes: s.total_time / 60, status, reason: s.order_ref });
+    out.push({ date, name: s.name, minutes: s.total_time / 60, status, reason: s.order_ref, project: s.project_name ?? null });
   }
   for (const r of discarded) {
     if (r.source !== 'session' || !inPeriod(r.discarded_at)) continue;
@@ -258,12 +258,23 @@ export function laserSessionList(
 /**
  * One row per visit instead of per cut: neighbouring rows (newest first) with the same day,
  * status and note (the order) merge, the names listed once and the cuts counted.
+ * A project is always one row, named after it, with all its cuts and time (over several days too).
  */
 export function groupSessions(list: LaserSessionUse[]): (LaserSessionUse & { cuts: number })[] {
   const out: (LaserSessionUse & { cuts: number; names: string[] })[] = [];
+  const projects = new Map<string, LaserSessionUse & { cuts: number; names: string[] }>();
   for (const s of list) {
+    if (s.project) {
+      const key = `${s.project}|${s.status}|${s.reason}`;
+      const p = projects.get(key);
+      if (p) { p.minutes += s.minutes; p.cuts++; continue; }
+      const row = { ...s, cuts: 1, names: [s.project] };
+      projects.set(key, row);
+      out.push(row);
+      continue;
+    }
     const g = out[out.length - 1];
-    if (g && g.status === s.status && g.reason === s.reason && g.date.slice(0, 10) === s.date.slice(0, 10)) {
+    if (g && !g.project && g.status === s.status && g.reason === s.reason && g.date.slice(0, 10) === s.date.slice(0, 10)) {
       g.minutes += s.minutes;
       g.cuts++;
       if (!g.names.includes(s.name)) g.names.push(s.name);

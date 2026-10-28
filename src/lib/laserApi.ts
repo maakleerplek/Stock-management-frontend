@@ -41,6 +41,8 @@ export interface LaserSessionRecord {
   checkout_at: string | null;
   paid_at: string | null;
   order_ref: string | null;
+  /** The project the cut was in, also after it was paid. */
+  project_name?: string | null;
 }
 
 /** Laser time cleared without a paid session (it may have been paid some other way). */

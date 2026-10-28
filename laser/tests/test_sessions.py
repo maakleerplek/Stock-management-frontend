@@ -199,3 +199,7 @@ def test_projects_group_cuts_and_go_once_paid(tmp_path):
     c.post(f'/laser/api/sessions/{a}/project', json={'project_id': pid})
     c.post(f'/laser/api/sessions/{a}/paid', json={'order': 'SO-0050'})
     assert [p['id'] for p in c.get('/laser/api/sessions').json['projects']] == [other]
+    # ...but stays as history: the analytics see the cut with its project.
+    paid = [s for s in c.get('/laser/api/sessions/all').json['sessions'] if s['id'] == a]
+    assert paid[0]['project_name'] == 'Ruben lamp'
+    assert c.delete(f'/laser/api/projects/{pid}').status_code == 404   # a closed project can't be ungrouped
