@@ -38,6 +38,10 @@ const TUBE_MIN_POWER = 10; // the tube needs at least this (laser/app.py MIN_POW
 const minPowerFor = (op: LaserOperation, power: number) =>
   Math.max(TUBE_MIN_POWER, Math.min(power, power - MIN_POWER_GAP[op]));
 
+// What most people cut, in this order on top; everything else sits in the "Other material" list.
+const POPULAR_MATERIALS = [/acrylic|plexi/i, /^mdf$/i, /plywood poplar/i, /^poplar$/i, /plywood hard/i, /^hdf$/i, /^cardboard$/i];
+const popularRank = (name: string) => POPULAR_MATERIALS.findIndex(re => re.test(name));
+
 const CONFIDENCE: Record<LaserSetting['confidence'], string> = {
   none: 'No data for this thickness',
   baseline: 'Starting point from the material list',
@@ -725,8 +729,9 @@ function SettingsPanel({ libraryVersion }: { libraryVersion: number }) {
         setMaterials(d.materials);
         // After a library save, keep what the visitor picked if that material still exists.
         if (d.materials.some(m => m.name === materialRef.current)) return;
-        setMaterial(d.materials[0]?.name ?? '');
-        setThickness(d.materials[0]?.thicknesses[0] ?? null);
+        const first = d.materials.find(m => popularRank(m.name) === 0) ?? d.materials[0];
+        setMaterial(first?.name ?? '');
+        setThickness(first?.thicknesses[0] ?? null);
       })
       .catch(e => setLoadError(e instanceof Error ? e.message : String(e)));
   }, [libraryVersion]);
@@ -745,6 +750,9 @@ function SettingsPanel({ libraryVersion }: { libraryVersion: number }) {
   }, [material, thickness, ops, strength, addToast, libraryVersion]);
 
   const current = materials?.find(m => m.name === material);
+  const popular = (materials ?? []).filter(m => popularRank(m.name) >= 0).sort((a, b) => popularRank(a.name) - popularRank(b.name));
+  const others = (materials ?? []).filter(m => popularRank(m.name) < 0);
+  const pick = (m: LaserMaterial) => { setMaterial(m.name); setThickness(m.thicknesses[0] ?? null); };
   const toggleOp = (op: LaserOperation) =>
     setOps(prev => prev.includes(op) ? prev.filter(o => o !== op) : [...prev, op].sort() as LaserOperation[]);
 
@@ -784,14 +792,23 @@ function SettingsPanel({ libraryVersion }: { libraryVersion: number }) {
           <div className="space-y-2">
             <label className="text-xs font-semibold text-brand-black/60 block">Material</label>
             <div className="flex flex-wrap gap-2">
-              {materials.map(m => (
-                <button key={m.name}
-                  onClick={() => { setMaterial(m.name); setThickness(m.thicknesses[0] ?? null); }}
+              {popular.map(m => (
+                <button key={m.name} onClick={() => pick(m)}
                   className={cn('px-4 py-2 border text-sm font-semibold transition-colors',
                     m.name === material ? 'bg-brand-black text-white border-brand-black' : 'bg-white border-lijn hover:border-brand-black')}>
                   {m.name}
                 </button>
               ))}
+              {others.length > 0 && (
+                <select aria-label="Other material"
+                  value={others.some(m => m.name === material) ? material : ''}
+                  onChange={e => { const m = others.find(o => o.name === e.target.value); if (m) pick(m); }}
+                  className={cn('px-3 py-2 border text-sm font-semibold cursor-pointer',
+                    others.some(m => m.name === material) ? 'bg-brand-black text-white border-brand-black' : 'bg-white border-lijn hover:border-brand-black')}>
+                  <option value="" disabled>Other material…</option>
+                  {others.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
+                </select>
+              )}
             </div>
           </div>
 
