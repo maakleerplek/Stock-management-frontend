@@ -129,8 +129,11 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
         begin(ev.clientX, ev.clientY);
       }
       place(ev.clientX, ev.clientY);
-      const zone = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-drop]') ?? nearestTrayBox(ev.clientX, ev.clientY);
-      setDrag(d => d && { ...d, x: ev.clientX, y: ev.clientY, over: (zone?.dataset.drop as DropTarget) ?? null });
+      // Near the tray it wins over the page; the cut's own place is no target.
+      const zone = nearestTrayBox(ev.clientX, ev.clientY) ?? document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-drop]');
+      const over = (zone?.dataset.drop as DropTarget | undefined) ?? null;
+      const own = over === (cut.project_id ?? 'new');
+      setDrag(d => d && { ...d, x: ev.clientX, y: ev.clientY, over: own ? null : over });
     };
     const up = () => {
       const d = dragRef.current;
