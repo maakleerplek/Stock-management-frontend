@@ -164,7 +164,12 @@ function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] 
   );
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-brand-black bg-brand-beige px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.15)]">
-      <p className="text-xs text-grafiet mb-2">Drop <b>{drag.cut.name}</b> on a project</p>
+      {/* The card under the finger hides the box, so say where it will go. */}
+      <p className="text-sm mb-2 truncate">
+        {drag.over
+          ? <>Let go: into <b>{drag.over === 'new' ? 'New cuts' : drag.over === 'newproject' ? 'a new project' : projects.find(p => p.id === drag.over)?.name}</b></>
+          : <span className="text-grafiet">Drop <b>{drag.cut.name}</b> on a project</span>}
+      </p>
       <ul className="grid grid-cols-2 gap-2">
         {projects.filter(p => p.id !== from).map(p => box(p.id, p.name, <Folder size={16} className="shrink-0" aria-hidden />))}
         {from && box('new', 'Back to New cuts', <X size={16} className="shrink-0" aria-hidden />)}
