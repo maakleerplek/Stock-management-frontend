@@ -179,17 +179,26 @@ export function salesPerBucket(
 
 /**
  * Fixed colour per part: ordered by total units sold over the whole history, so
- * filtering never repaints the parts that remain. Past the palette, parts share
- * the neutral colour.
+ * filtering never repaints the parts that remain. Past the palette, it repeats
+ * in lighter and darker shades (some may look alike).
  */
 export const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
-export const OTHER_COLOR = '#9a9a93';
+const SHADES = [0, 0.4, -0.35, 0.65, -0.55];
+
+/** Mix a hex colour towards white (amount > 0) or black (amount < 0). */
+function shade(hex: string, amount: number): string {
+  const target = amount > 0 ? 255 : 0;
+  return '#' + [1, 3, 5].map(i => {
+    const c = parseInt(hex.slice(i, i + 2), 16);
+    return Math.round(c + (target - c) * Math.abs(amount)).toString(16).padStart(2, '0');
+  }).join('');
+}
 
 export function assignColors(entries: InvenTreeTrackingEntry[], partIds: number[]): Map<number, string> {
   const sold = new Map<number, number>();
   for (const e of entries) sold.set(e.part, (sold.get(e.part) ?? 0) + unitsSold(e));
   const order = [...partIds].sort((a, b) => (sold.get(b) ?? 0) - (sold.get(a) ?? 0) || a - b);
-  return new Map(order.map((p, i) => [p, SERIES_COLORS[i] ?? OTHER_COLOR]));
+  return new Map(order.map((p, i) => [p, shade(SERIES_COLORS[i % SERIES_COLORS.length], SHADES[Math.floor(i / SERIES_COLORS.length) % SHADES.length])]));
 }
 
 /** One line in "Recent activity": how many of the part, and what happened. */
