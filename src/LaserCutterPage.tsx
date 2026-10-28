@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Tag, Folder, FolderPlus, Pencil, ChevronUp, Lightbulb } from 'lucide-react';
+import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Tag, Folder, FolderPlus, Pencil, ChevronUp } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { useStock } from './StockContext';
 import { useVolunteer } from './VolunteerContext';
@@ -135,9 +135,12 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
 
   return (
     <section className="flex flex-col min-h-full">
-      <div className={cn('px-4 sm:px-6 pt-3 pb-2 border-b bg-brand-beige-dark', laserOn ? 'border-b-[3px] border-laser' : 'border-lijn')}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+      <div className="px-4 sm:px-6 pt-3 pb-3 border-b border-lijn">
+        <HowItWorks busy={busy} onCreate={name => run(() => laserApi.createProject(name))} />
+      </div>
+      <div className={cn('px-4 sm:px-6 py-2 border-b bg-brand-beige-dark', laserOn ? 'border-b-[3px] border-laser' : 'border-lijn')}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 font-semibold text-brand-black">
               <span className={cn('inline-block w-2.5 h-2.5 border', laserOn ? 'bg-laser border-laser' : 'bg-lijn border-grafiet')} />
               {laserOn ? 'Cutting' : 'Laser idle'}
@@ -147,9 +150,10 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
               {!connected ? 'Laser service offline' : time?.esp_connected ? 'Timer connected' : time?.simulate ? 'Test mode (no sensor)' : 'Timer not connected'}
             </span>
           </div>
-          {openCut > 0 && <div className="text-3xl font-semibold tabular-nums text-brand-black leading-none">{shortDuration(openCut)}</div>}
+          {openCut > 0 && <div className="text-2xl font-semibold tabular-nums text-brand-black leading-none">{shortDuration(openCut)}</div>}
+          {/* Decoration only: kept small so the cuts stay on screen. */}
+          <div className="w-24 shrink-0"><LaserAnimation active={laserOn} /></div>
         </div>
-        <div className="mx-auto w-full max-w-[304px] mt-1"><LaserAnimation active={laserOn} /></div>
         {time?.simulate && (
           <div className="flex gap-2 text-xs pb-1">
             <span className="text-grafiet self-center">Test:</span>
@@ -161,7 +165,6 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
       </div>
 
       <div className="flex-1 p-4 sm:p-6 space-y-3">
-        <HowItWorks />
         <div>
           <h2 className="text-base font-semibold text-brand-black">New cuts</h2>
           {loose.length > 0 && (
@@ -199,8 +202,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
           </details>
         )}
 
-        <h2 className="pt-3 text-base font-semibold text-brand-black">Projects</h2>
-        <ProjectTip compact={projects.length > 0} busy={busy} onCreate={name => run(() => laserApi.createProject(name))} />
+        {projects.length > 0 && <h2 className="pt-3 text-base font-semibold text-brand-black">Projects</h2>}
         {projects.map(p => (
           <ProjectBlock key={p.id} project={p} cuts={cuts.filter(s => s.project_id === p.id)} busy={busy} run={run} onCheckout={onCheckout} />
         ))}
@@ -338,19 +340,27 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup }: {
 }
 
 /** Wood for the laser is sold at the checkout: a small reminder with a photo. Visitors only. */
-/** Three steps for someone who has never seen the page, and where projects come in. */
-function HowItWorks() {
+/** Three steps for someone who has never seen the page, and the way into a project for a long session. */
+function HowItWorks({ busy, onCreate }: { busy: boolean; onCreate: (name: string) => void }) {
+  const [naming, setNaming] = useState(false);
   const step = (n: number, text: string) => (
     <li className="flex items-center gap-1.5">
       <span className="w-5 h-5 shrink-0 bg-brand-black text-white text-xs font-semibold flex items-center justify-center">{n}</span>{text}
     </li>
   );
   return (
-    <div className="border border-lijn bg-white px-3 py-2 space-y-1">
+    <div className="space-y-2">
       <ol className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold">
         {step(1, 'Find your cut')}{step(2, 'Tick it')}{step(3, 'Pay')}
       </ol>
-      <p className="text-xs text-grafiet">Cutting for longer? Put your cuts in a project, so they stay together.</p>
+      {naming
+        ? <ProjectNameForm label="Start" busy={busy} onCancel={() => setNaming(false)} onSave={name => { onCreate(name); setNaming(false); }} />
+        : (
+          <button className="w-full brutalist-button min-h-10 px-3 py-1.5 bg-white text-sm flex items-center gap-2 text-left" onClick={() => setNaming(true)}>
+            <FolderPlus size={16} className="shrink-0" aria-hidden />
+            <span><b>Cutting for longer?</b> Put your cuts into a project</span>
+          </button>
+        )}
     </div>
   );
 }
@@ -369,35 +379,6 @@ function ProjectNameForm({ initial = '', label, busy, onSave, onCancel }: {
       <button type="submit" disabled={!ok || busy} className="brutalist-button h-10 px-3 bg-brand-black text-white text-sm font-semibold disabled:opacity-40">{label}</button>
       <button type="button" onClick={onCancel} aria-label="Cancel" className="brutalist-button h-10 w-10 shrink-0 bg-white flex items-center justify-center"><X size={16} aria-hidden /></button>
     </form>
-  );
-}
-
-/** Always there, so people on a long session see projects exist; small once one exists. */
-function ProjectTip({ compact, busy, onCreate }: { compact: boolean; busy: boolean; onCreate: (name: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const form = <ProjectNameForm label="Start" busy={busy} onCancel={() => setOpen(false)} onSave={name => { onCreate(name); setOpen(false); }} />;
-  if (compact) {
-    return open ? form : (
-      <button className="w-full brutalist-button h-10 bg-white text-sm font-semibold flex items-center justify-center gap-2" onClick={() => setOpen(true)}>
-        <FolderPlus size={16} aria-hidden /> Start another project
-      </button>
-    );
-  }
-  return (
-    <div className="border-2 border-dashed border-grafiet bg-white p-3 space-y-2">
-      <div className="flex gap-2">
-        <Lightbulb size={18} className="shrink-0 text-amber-600 mt-0.5" aria-hidden />
-        <div className="text-sm">
-          <p className="font-semibold">Cutting for a while, with several cuts?</p>
-          <p className="text-grafiet">Make a project so your cuts stay together, even when someone else uses the laser in between. Then pay them all at once. Only one quick cut? Just tick it and pay.</p>
-        </div>
-      </div>
-      {open ? form : (
-        <button className="w-full brutalist-button h-10 bg-white text-sm font-semibold flex items-center justify-center gap-2" onClick={() => setOpen(true)}>
-          <FolderPlus size={16} aria-hidden /> Start a project
-        </button>
-      )}
-    </div>
   );
 }
 
