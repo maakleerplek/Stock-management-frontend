@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Tag, Folder, FolderPlus, Pencil, ChevronUp } from 'lucide-react';
+import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Tag, Folder, FolderPlus, Pencil, ChevronUp, FolderInput, Undo2 } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { useStock } from './StockContext';
 import { useVolunteer } from './VolunteerContext';
@@ -98,7 +98,7 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
     // The card itself follows the finger: a copy at full size, held where it was grabbed.
     let ghost: HTMLElement | null = null;
     let grabX = 0, grabY = 0;
-    const place = (x: number, y: number) => { if (ghost) ghost.style.transform = `translate(${x - grabX}px, ${y - grabY}px) rotate(2deg)`; };
+    const place = (x: number, y: number) => { if (ghost) ghost.style.translate = `${x - grabX}px ${y - grabY}px`; };
     const begin = (x: number, y: number) => {
       active = true;
       navigator.vibrate?.(15);
@@ -108,10 +108,15 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
       ghost = card.cloneNode(true) as HTMLElement;
       Object.assign(ghost.style, {
         position: 'fixed', left: '0', top: '0', width: `${r.width}px`, height: `${r.height}px`, margin: '0',
-        zIndex: '60', pointerEvents: 'none', boxShadow: '0 12px 28px rgba(0,0,0,0.3)', listStyle: 'none',
+        zIndex: '60', pointerEvents: 'none', listStyle: 'none',
+        // Only scale and shadow animate; translate follows the finger without lag.
+        transformOrigin: `${grabX}px ${grabY}px`, scale: '1', boxShadow: '0 0 0 rgba(0,0,0,0)',
+        transition: 'scale 180ms cubic-bezier(0.2, 0, 0, 1), box-shadow 180ms ease-out',
       });
       document.body.appendChild(ghost);
       place(x, y);
+      const g = ghost;
+      requestAnimationFrame(() => requestAnimationFrame(() => Object.assign(g.style, { scale: '0.8', boxShadow: '0 12px 28px rgba(0,0,0,0.3)' })));
       setDrag({ cut, x, y, over: null });
     };
     // Touch: hold still 350 ms. Mouse: just move 8 px with the button down.
@@ -124,7 +129,7 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
         begin(ev.clientX, ev.clientY);
       }
       place(ev.clientX, ev.clientY);
-      const zone = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-drop]');
+      const zone = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-drop]') ?? nearestTrayBox(ev.clientX, ev.clientY);
       setDrag(d => d && { ...d, x: ev.clientX, y: ev.clientY, over: (zone?.dataset.drop as DropTarget) ?? null });
     };
     const up = () => {
@@ -152,18 +157,31 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
   return { drag, start };
 }
 
+/** Near or on the drop tray, the closest box counts: less precise moving needed. */
+function nearestTrayBox(x: number, y: number): HTMLElement | null {
+  const tray = document.querySelector('[data-tray]');
+  if (!tray || y < tray.getBoundingClientRect().top - 100) return null;
+  let best: HTMLElement | null = null, bestDist = Infinity;
+  for (const el of tray.querySelectorAll<HTMLElement>('[data-drop]')) {
+    const r = el.getBoundingClientRect();
+    const d = Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+    if (d < bestDist) { best = el; bestDist = d; }
+  }
+  return best;
+}
+
 /** Shows up at the bottom while a cut is dragged: one box per place it can go. */
 function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] }) {
   const from = drag.cut.project_id && projects.some(p => p.id === drag.cut.project_id) ? drag.cut.project_id : null;
   const box = (id: DropTarget, label: React.ReactNode, icon: React.ReactNode) => (
     <li key={id} data-drop={id}
-      className={cn('min-h-14 px-3 py-2 border-2 border-dashed flex items-center gap-2 text-sm font-semibold transition-colors',
-        drag.over === id ? 'border-solid border-brand-black bg-laser-licht' : 'border-grafiet bg-white')}>
-      {icon}<span className="truncate">{label}</span>
+      className={cn('min-h-24 px-3 py-3 border-2 border-dashed flex flex-col items-center justify-center gap-1.5 text-sm font-semibold text-center transition-colors',
+        drag.over === id ? 'border-solid border-brand-black bg-laser-licht scale-[1.02]' : 'border-grafiet bg-white')}>
+      {icon}<span className="line-clamp-2 break-words">{label}</span>
     </li>
   );
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-brand-black bg-brand-beige px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.15)]">
+    <div data-tray className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-brand-black bg-brand-beige px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.15)]">
       {/* The card under the finger hides the box, so say where it will go. */}
       <p className="text-sm mb-2 truncate">
         {drag.over
@@ -171,9 +189,9 @@ function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] 
           : <span className="text-grafiet">Drop <b>{drag.cut.name}</b> on a project</span>}
       </p>
       <ul className="grid grid-cols-2 gap-2">
-        {projects.filter(p => p.id !== from).map(p => box(p.id, p.name, <Folder size={16} className="shrink-0" aria-hidden />))}
-        {from && box('new', 'Back to New cuts', <X size={16} className="shrink-0" aria-hidden />)}
-        {box('newproject', 'New project…', <FolderPlus size={16} className="shrink-0" aria-hidden />)}
+        {projects.filter(p => p.id !== from).map(p => box(p.id, p.name, <FolderInput size={26} className="shrink-0" aria-hidden />))}
+        {from && box('new', 'Back to New cuts', <Undo2 size={26} className="shrink-0" aria-hidden />)}
+        {box('newproject', 'New project…', <FolderPlus size={26} className="shrink-0" aria-hidden />)}
       </ul>
     </div>
   );
