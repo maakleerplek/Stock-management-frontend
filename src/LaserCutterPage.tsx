@@ -69,6 +69,95 @@ const payPrice = (list: LaserSession[]) =>
 const cutCount = (n: number) => (n === 1 ? '1 cut' : `${n} cuts`);
 const LINK = 'text-sm font-semibold underline underline-offset-2 disabled:opacity-40 disabled:no-underline';
 
+/** Where a dragged cut can go: a project, back to the new cuts, or a project still to be named. */
+type DropTarget = string | 'new' | 'newproject';
+interface CutDrag { cut: LaserSession; x: number; y: number; over: DropTarget | null }
+
+/** Long-press (touch) or drag (mouse) a cut card to move it into a project.
+ *  Drop zones carry data-drop; the card's click after a drag is swallowed so it does not tick. */
+function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
+  const [drag, setDrag] = useState<CutDrag | null>(null);
+  const dragRef = useRef<CutDrag | null>(null);
+  dragRef.current = drag;
+  const dropRef = useRef(onDrop);
+  dropRef.current = onDrop;
+
+  // While dragging, a finger must not scroll the page (needs a non-passive listener).
+  useEffect(() => {
+    const stop = (e: TouchEvent) => { if (dragRef.current) e.preventDefault(); };
+    document.addEventListener('touchmove', stop, { passive: false });
+    return () => document.removeEventListener('touchmove', stop);
+  }, []);
+
+  const start = (cut: LaserSession, e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    const x0 = e.clientX, y0 = e.clientY;
+    const touch = e.pointerType !== 'mouse';
+    let active = false;
+    const begin = (x: number, y: number) => {
+      active = true;
+      navigator.vibrate?.(15);
+      setDrag({ cut, x, y, over: null });
+    };
+    // Touch: hold still 350 ms. Mouse: just move 8 px with the button down.
+    const timer = touch ? window.setTimeout(() => begin(x0, y0), 350) : undefined;
+    const move = (ev: PointerEvent) => {
+      const far = Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8;
+      if (!active) {
+        if (!far) return;
+        if (touch) return cleanup();          // moved before the hold: it's a scroll
+        begin(ev.clientX, ev.clientY);
+      }
+      const zone = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-drop]');
+      setDrag(d => d && { ...d, x: ev.clientX, y: ev.clientY, over: (zone?.dataset.drop as DropTarget) ?? null });
+    };
+    const up = () => {
+      const d = dragRef.current;
+      cleanup();
+      if (!active) return;
+      // The click that follows the release would tick or untick the card.
+      window.addEventListener('click', ev => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
+      window.setTimeout(() => setDrag(null), 0);
+      if (d?.over) dropRef.current(d.cut, d.over);
+    };
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+    };
+    const cancel = () => { cleanup(); setDrag(null); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+  };
+
+  return { drag, start };
+}
+
+/** Shows up at the bottom while a cut is dragged: one box per place it can go. */
+function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] }) {
+  const from = drag.cut.project_id && projects.some(p => p.id === drag.cut.project_id) ? drag.cut.project_id : null;
+  const box = (id: DropTarget, label: React.ReactNode, icon: React.ReactNode) => (
+    <li key={id} data-drop={id}
+      className={cn('min-h-14 px-3 py-2 border-2 border-dashed flex items-center gap-2 text-sm font-semibold transition-colors',
+        drag.over === id ? 'border-solid border-brand-black bg-laser-licht' : 'border-grafiet bg-white')}>
+      {icon}<span className="truncate">{label}</span>
+    </li>
+  );
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-brand-black bg-brand-beige px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.15)]">
+      <p className="text-xs text-grafiet mb-2">Drop <b>{drag.cut.name}</b> on a project</p>
+      <ul className="grid grid-cols-2 gap-2">
+        {projects.filter(p => p.id !== from).map(p => box(p.id, p.name, <Folder size={16} className="shrink-0" aria-hidden />))}
+        {from
+          ? box('new', 'Back to New cuts', <X size={16} className="shrink-0" aria-hidden />)
+          : box('newproject', 'New project…', <FolderPlus size={16} className="shrink-0" aria-hidden />)}
+      </ul>
+    </div>
+  );
+}
+
 function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const { connected, time, sessions, projects } = live;
   const { addToast } = useToast();
@@ -83,6 +172,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [moving, setMoving] = useState(false);   // the "Add to project" menu is open
+  const [nameFirst, setNameFirst] = useState(false);   // ...straight at "New project…"
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -115,6 +205,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
     });
   }, [sessions, projects]);
   useEffect(() => { if (!picked.length) { setDeleting(false); setMoving(false); } }, [picked.length]);
+  useEffect(() => { if (!moving) setNameFirst(false); }, [moving]);
 
   const toggle = (id: string) => setTicked(prev => {
     const next = new Set(prev);
@@ -122,8 +213,23 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
     return next;
   });
 
+  const { drag, start: startDrag } = useCutDrag((cut, target) => {
+    if (target === 'newproject') {
+      // Needs a name first: tick it and open the menu at "New project…".
+      setTicked(new Set([cut.id]));
+      setNameFirst(true);
+      setMoving(true);
+      return;
+    }
+    void run(() => laserApi.setProject(cut.id, target === 'new' ? null : target));
+  });
+  const dragProps = (s: LaserSession) => s.checkout_at ? undefined : {
+    onPointerDown: (e: React.PointerEvent) => startDrag(s, e),
+    dragging: drag?.cut.id === s.id,
+  };
+
   const row = (s: LaserSession) => (
-    <CutRow key={s.id} cut={s} ticked={ticked.has(s.id)} busy={busy} onToggle={() => toggle(s.id)}
+    <CutRow key={s.id} cut={s} ticked={ticked.has(s.id)} busy={busy} onToggle={() => toggle(s.id)} drag={dragProps(s)}
       onTakeOut={() => run(() => laserApi.setCheckout(s.id, false))} />
   );
 
@@ -167,6 +273,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
       <div className="flex-1 p-4 sm:p-6 space-y-3">
         <div>
           <h2 className="text-base font-semibold text-brand-black">New cuts</h2>
+          {projects.length > 0 && loose.length > 0 && <p className="text-xs text-grafiet">Tip: hold a cut and drag it onto a project.</p>}
           {loose.length > 0 && (
             <div className="flex items-center gap-3">
               <p className="text-sm text-grafiet flex-1">Tick the cuts that are yours.</p>
@@ -204,7 +311,8 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
 
         {projects.length > 0 && <h2 className="pt-3 text-base font-semibold text-brand-black">Projects</h2>}
         {projects.map(p => (
-          <ProjectBlock key={p.id} project={p} cuts={cuts.filter(s => s.project_id === p.id)} busy={busy} run={run} onCheckout={onCheckout} />
+          <ProjectBlock key={p.id} project={p} cuts={cuts.filter(s => s.project_id === p.id)} busy={busy} run={run} onCheckout={onCheckout}
+            dragProps={dragProps} dropActive={drag?.over === p.id} />
         ))}
 
         <p className="text-sm text-grafiet">
@@ -229,7 +337,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
             />
           )}
           {moving && (
-            <ProjectMenu projects={projects} busy={busy} onPick={moveTicked} onCancel={() => setMoving(false)}
+            <ProjectMenu projects={projects} busy={busy} startNaming={nameFirst} onPick={moveTicked} onCancel={() => setMoving(false)}
               onCreate={name => run(async () => {
                 const { id } = await laserApi.createProject(name);
                 for (const s of picked) await laserApi.setProject(s.id, id);
@@ -258,6 +366,16 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
           </div>
         </div>
       )}
+      {drag && <DropTray drag={drag} projects={projects} />}
+      {drag && (
+        <div className="fixed z-[60] pointer-events-none w-20 border-2 border-brand-black bg-white shadow-lg -translate-x-1/2 -translate-y-1/2 rotate-3"
+          style={{ left: drag.x, top: drag.y }} aria-hidden>
+          {drag.cut.has_preview
+            ? <img src={cutPreviewUrl(drag.cut.id)} alt="" className="w-full aspect-[4/3] object-contain p-1" />
+            : <span className="w-full aspect-[4/3] flex items-center justify-center"><Scissors size={24} className="text-lijn" /></span>}
+          <span className="block px-1 pb-1 text-[10px] font-semibold truncate">{drag.cut.name}</span>
+        </div>
+      )}
     </section>
   );
 }
@@ -271,15 +389,22 @@ function cutStart(name: string, iso: string) {
 
 /** One open cut as a card: LightBurn's picture of the job large on top, name, start and length under it.
  *  Tap to tick it for paying or deleting; in the checkout it can be taken out again. */
-function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup }: {
+function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup, drag }: {
   cut: LaserSession; ticked: boolean; busy: boolean; onToggle: () => void; onTakeOut: () => void;
   /** Set inside a project: the card gets an × that sends the cut back to the new cuts, instead of a tick. */
   onUngroup?: () => void;
+  /** Hold (touch) or drag (mouse) to move the card to a project. */
+  drag?: { onPointerDown: (e: React.PointerEvent) => void; dragging: boolean };
 }) {
+  const dragAttrs = drag && {
+    onPointerDown: drag.onPointerDown,
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),   // a long press must not open the menu
+    style: { WebkitTouchCallout: 'none' } as React.CSSProperties,
+  };
   const picture = (
     <span className="block aspect-[4/3] w-full bg-brand-beige-dark border-b border-lijn overflow-hidden" aria-hidden>
       {cut.has_preview
-        ? <img src={cutPreviewUrl(cut.id)} alt="" className="w-full h-full object-contain p-2" loading="lazy" />
+        ? <img src={cutPreviewUrl(cut.id)} alt="" draggable={false} className="w-full h-full object-contain p-2" loading="lazy" />
         : <span className="w-full h-full flex items-center justify-center"><Scissors size={36} className="text-lijn" /></span>}
     </span>
   );
@@ -314,7 +439,7 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup }: {
   }
   if (onUngroup) {
     return (
-      <li className="relative flex flex-col border-2 border-lijn bg-white">
+      <li {...dragAttrs} className={cn('relative flex flex-col border-2 border-lijn bg-white select-none', drag?.dragging && 'opacity-30')}>
         {picture}
         <button className="absolute top-1.5 right-1.5 w-8 h-8 border-2 border-brand-black bg-white flex items-center justify-center disabled:opacity-40"
           aria-label={`Take ${cut.name} out of the project`} title="Not mine: back to New cuts" disabled={busy} onClick={onUngroup}>
@@ -325,7 +450,7 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup }: {
     );
   }
   return (
-    <li>
+    <li {...dragAttrs} className={cn('select-none', drag?.dragging && 'opacity-30')}>
       <label className={cn('relative flex flex-col h-full border-2 cursor-pointer bg-white', ticked ? 'border-laser bg-laser-licht/30' : 'border-lijn hover:border-grafiet')}>
         <input type="checkbox" checked={ticked} onChange={onToggle} className="sr-only peer" aria-label={`${cut.name}, ${shortDuration(cut.total_time)}`} />
         {picture}
@@ -383,10 +508,10 @@ function ProjectNameForm({ initial = '', label, busy, onSave, onCancel }: {
 }
 
 /** The bottom bar's "Add to project" choices: the open projects, or a new one. */
-function ProjectMenu({ projects, busy, onPick, onCreate, onCancel }: {
-  projects: LaserProject[]; busy: boolean; onPick: (id: string) => void; onCreate: (name: string) => void; onCancel: () => void;
+function ProjectMenu({ projects, busy, startNaming = false, onPick, onCreate, onCancel }: {
+  projects: LaserProject[]; busy: boolean; startNaming?: boolean; onPick: (id: string) => void; onCreate: (name: string) => void; onCancel: () => void;
 }) {
-  const [naming, setNaming] = useState(projects.length === 0);
+  const [naming, setNaming] = useState(startNaming || projects.length === 0);
   return (
     <div className="border-2 border-brand-black bg-brand-beige p-2 space-y-1.5">
       <p className="text-xs text-grafiet px-1">Add the ticked cuts to</p>
@@ -408,16 +533,17 @@ function ProjectMenu({ projects, busy, onPick, onCreate, onCancel }: {
 }
 
 /** One project: its cuts (each with an × to give it back), the total and its own Pay. */
-function ProjectBlock({ project, cuts, busy, run, onCheckout }: {
+function ProjectBlock({ project, cuts, busy, run, onCheckout, dragProps, dropActive }: {
   project: LaserProject; cuts: LaserSession[]; busy: boolean;
   run: (fn: () => Promise<unknown>) => Promise<void>; onCheckout: (ids: string[]) => void;
+  dragProps: (s: LaserSession) => React.ComponentProps<typeof CutRow>['drag']; dropActive: boolean;
 }) {
   const [renaming, setRenaming] = useState(false);
   const seconds = cuts.reduce((t, s) => t + s.total_time, 0);
   const price = payPrice(cuts);
   const atMinimum = laserSessionPrice(Math.ceil(seconds / 60)) < PRICING.LASER_MINIMUM;
   return (
-    <section className="border-2 border-brand-black bg-white" aria-label={`Project ${project.name}`}>
+    <section data-drop={project.id} className={cn('border-2 border-brand-black', dropActive ? 'bg-laser-licht' : 'bg-white')} aria-label={`Project ${project.name}`}>
       <div className="flex items-start gap-2 px-3 py-2 border-b border-lijn bg-brand-beige-dark">
         <Folder size={18} className="shrink-0 mt-0.5" aria-hidden />
         {renaming
@@ -440,7 +566,7 @@ function ProjectBlock({ project, cuts, busy, run, onCheckout }: {
               {cuts.map(s => (
                 <CutRow key={s.id} cut={s} ticked={false} busy={busy} onToggle={() => {}}
                   onTakeOut={() => run(() => laserApi.setCheckout(s.id, false))}
-                  onUngroup={s.checkout_at ? undefined : () => run(() => laserApi.setProject(s.id, null))} />
+                  onUngroup={s.checkout_at ? undefined : () => run(() => laserApi.setProject(s.id, null))} drag={dragProps(s)} />
               ))}
             </ul>
           )
