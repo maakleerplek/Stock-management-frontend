@@ -152,7 +152,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
           </div>
           {openCut > 0 && <div className="text-2xl font-semibold tabular-nums text-brand-black leading-none">{shortDuration(openCut)}</div>}
           {/* Decoration only: kept small so the cuts stay on screen. */}
-          <div className="w-24 shrink-0"><LaserAnimation active={laserOn} /></div>
+          <div className="w-[152px] shrink-0"><LaserAnimation active={laserOn} /></div>
         </div>
         {time?.simulate && (
           <div className="flex gap-2 text-xs pb-1">
