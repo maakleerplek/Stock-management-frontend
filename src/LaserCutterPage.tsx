@@ -292,7 +292,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
       </div>
       <div className={cn('px-4 sm:px-6 py-2 border-b bg-brand-beige-dark', laserOn ? 'border-b-[3px] border-laser' : 'border-lijn')}>
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
+          <div className="shrink-0">
             <div className="flex items-center gap-2 font-semibold text-brand-black">
               <span className={cn('inline-block w-2.5 h-2.5 border', laserOn ? 'bg-laser border-laser' : 'bg-lijn border-grafiet')} />
               {laserOn ? 'Cutting' : 'Laser idle'}
@@ -304,7 +304,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
           </div>
           {openCut > 0 && <div className="text-2xl font-semibold tabular-nums text-brand-black leading-none">{shortDuration(openCut)}</div>}
           {/* Decoration only: kept small so the cuts stay on screen. */}
-          <div className="w-[152px] sm:w-[304px] shrink-0"><LaserAnimation active={laserOn} /></div>
+          <div className="flex-1 min-w-[152px] max-w-[304px]"><LaserAnimation active={laserOn} /></div>
         </div>
         {time?.simulate && (
           <div className="flex gap-2 text-xs pb-1">
