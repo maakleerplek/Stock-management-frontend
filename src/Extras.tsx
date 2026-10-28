@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, Zap, Drill, Printer, Plus } from 'lucide-react';
 import { isFilament, filamentType } from './sendCodeHandler';
-import { useRates, type Bill, type TypedJob } from './lib/tillApi';
+import { useRates, type Bill, type TypedJob } from './lib/checkoutApi';
 import { useStock } from './StockContext';
 import { cutPreviewUrl, laserMinutes, shortDuration, type LaserSession } from './lib/laserApi';
 import { cn } from './lib/utils';

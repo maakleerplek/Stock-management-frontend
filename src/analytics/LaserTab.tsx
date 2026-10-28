@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Zap, Users, Clock, Timer, Trash2, Euro, Wrench, Hourglass } from 'lucide-react';
 import { laserStats, lostLaserStats, laserLedger, laserSessionList, groupSessions, sessionUse, SESSION_STATUS_LABELS, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../lib/services';
-import { useRates } from '../lib/tillApi';
+import { useRates } from '../lib/checkoutApi';
 import { cn } from '../lib/utils';
 import { Section, Empty, StatCards } from './ui';
 import type { DateRange } from './AnalyticsPage';

@@ -8,7 +8,7 @@ describe('requiredAccess', () => {
     expect(requiredAccess('GET', '/api/company/part/')).toBe('public');
   });
 
-  it('lets the till look up a barcode; sales orders go through the till server', () => {
+  it('lets the till look up a barcode; sales orders go through the checkout server', () => {
     expect(requiredAccess('POST', '/api/barcode/')).toBe('public');
     for (const path of [
       '/api/order/so/',

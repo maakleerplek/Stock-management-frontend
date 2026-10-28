@@ -3,7 +3,7 @@ import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingC
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
 import { laserApi, pendingPaidIds, type LaserSession } from './lib/laserApi';
 import { type ItemData, type ScanEvent, handleVolunteerDrink, handleInternalUse, isLabMaterial } from './sendCodeHandler';
-import { tillApi, typedToCart, useBill, extraLabel, type TillCart, type TypedJob, type Bill } from './lib/tillApi';
+import { checkoutApi, typedToCart, useBill, extraLabel, type CheckoutCart, type TypedJob, type Bill } from './lib/checkoutApi';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import type { Invoice } from './lib/invoice';
@@ -61,9 +61,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     // Volunteers buy like anyone else, or take items out for free (drink / lab / workshop).
     // Stock work (restock, set count) is on the Stock list.
     const free = isVolunteerMode && mode === 'drink';
-    // What the till server prices and books. Free items are not a sale: they go out one by one below.
-    const machineCart: TillCart = { items: [], ...typedToCart(typedJobs), cuts: laserInCheckout.map(s => s.id) };
-    const cart: TillCart = free ? machineCart : { ...machineCart, items: cartItems.map(i => ({ part: i.id, quantity: i.cartQuantity })) };
+    // What the checkout server prices and books. Free items are not a sale: they go out one by one below.
+    const machineCart: CheckoutCart = { items: [], ...typedToCart(typedJobs), cuts: laserInCheckout.map(s => s.id) };
+    const cart: CheckoutCart = free ? machineCart : { ...machineCart, items: cartItems.map(i => ({ part: i.id, quantity: i.cartQuantity })) };
     const { bill, error: billError } = useBill(cart);
     const extras = bill?.extras ?? [];
     const minimumTopUp = bill?.top_up ?? 0;
@@ -133,13 +133,13 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     };
 
     /**
-     * The till server books the sale as one sales order and marks its laser cuts
+     * The checkout server books the sale as one sales order and marks its laser cuts
      * paid; then the QR code. Prices are the server's, from its answer.
      */
-    const sell = async (sellCart: TillCart) => {
+    const sell = async (sellCart: CheckoutCart) => {
         const cartKey = JSON.stringify(sellCart);
         if (saleKey.current?.cart !== cartKey) saleKey.current = { cart: cartKey, key: crypto.randomUUID() };
-        const sale = await tillApi.checkout(sellCart, saleKey.current.key);
+        const sale = await checkoutApi.checkout(sellCart, saleKey.current.key);
         saleKey.current = null;
         if (sale.warning) addToast(sale.warning, 'warning');
         const b: Bill = sale.bill;

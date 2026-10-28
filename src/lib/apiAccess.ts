@@ -3,7 +3,7 @@
  *
  * The proxy holds the InvenTree token; the browser never sees it. Anyone at the
  * till may read the catalogue and look up a barcode; the sale itself goes
- * to the till server (core/till.py, /api/till/), which holds its own token. Everything else needs a
+ * to the checkout server (core/checkout.py, /api/checkout/), which holds its own token. Everything else needs a
  * volunteer session: signed in through Authentik via oauth2-proxy, or on a
  * test server the shared volunteer password (AUTH_MODE=password).
  *

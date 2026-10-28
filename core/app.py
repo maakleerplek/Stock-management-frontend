@@ -33,7 +33,7 @@ import db
 import feedback
 import inventree
 import lbrn
-import till
+import checkout
 from recommend import MAX_POWER, Point, recommend
 
 COST_PER_MIN = float(os.environ.get('COST_PER_MIN', '0.50'))
@@ -526,10 +526,10 @@ def paid_session(sid):
     return {'ok': True}
 
 
-# ---------------------------------------------------------------- till
+# ---------------------------------------------------------------- checkout
 
 # One sale at a time: two carts with the same cut must not both sell it.
-_till_lock = threading.Lock()
+_checkout_lock = threading.Lock()
 
 
 def cart_cuts(cart: dict) -> list[dict]:
@@ -540,41 +540,41 @@ def cart_cuts(cart: dict) -> list[dict]:
     rows = db.query(f'SELECT id, name, total_time FROM sessions WHERE paid_at IS NULL AND id IN ({",".join("?" * len(ids))}) ORDER BY created, rowid',
                     tuple(ids))
     if len(rows) != len(ids):
-        raise till.CartError('A laser cut in this cart is already paid or deleted. Take it out and try again.')
+        raise checkout.CartError('A laser cut in this cart is already paid or deleted. Take it out and try again.')
     return rows
 
 
-def till_bill(cart: dict):
+def priced_bill(cart: dict):
     """(bill, None) or (None, error response)."""
     if _inventree is None:
         return None, ({'error': 'InvenTree is not configured on the server'}, 503)
     try:
-        return till.quote(cart, till.load_prices(_inventree), cart_cuts(cart)), None
-    except till.CartError as e:
+        return checkout.quote(cart, checkout.load_prices(_inventree), cart_cuts(cart)), None
+    except checkout.CartError as e:
         return None, ({'error': str(e)}, 400)
     except requests.RequestException as e:
         return None, ({'error': f'Cannot reach InvenTree: {e}'}, 502)
 
 
-@app.get('/api/till/rates')
-def till_rates():
+@app.get('/api/checkout/rates')
+def checkout_rates():
     if _inventree is None:
         return {'error': 'InvenTree is not configured on the server'}, 503
     try:
-        return till.rates(till.load_prices(_inventree))
+        return checkout.rates(checkout.load_prices(_inventree))
     except requests.RequestException as e:
         return {'error': f'Cannot reach InvenTree: {e}'}, 502
 
 
-@app.post('/api/till/quote')
-def till_quote():
+@app.post('/api/checkout/quote')
+def checkout_quote():
     """The bill for a cart, as the checkout would book it."""
-    bill, err = till_bill(request.get_json(silent=True) or {})
+    bill, err = priced_bill(request.get_json(silent=True) or {})
     return err or bill
 
 
-@app.post('/api/till/checkout')
-def till_checkout():
+@app.post('/api/checkout/')
+def checkout_book():
     """Book the cart as one sales order and mark its cuts paid.
 
     `key` (from the client, new per sale) makes a retry safe: the same key
@@ -584,14 +584,14 @@ def till_checkout():
     key = str(cart.get('key') or '')[:64]
     if len(key) < 8:
         return {'error': 'key is required'}, 400
-    with _till_lock:
+    with _checkout_lock:
         [row] = db.query('SELECT state, result FROM checkouts WHERE key = ?', (key,)) or [None]
         if row and row['state'] == 'done':
             return json.loads(row['result'])
         if row and row['state'] == 'booking':
             # Only after a crash halfway: whether the order exists is unknown.
             return {'error': 'This sale was being booked when the server stopped. Check InvenTree before trying again.'}, 409
-        bill, err = till_bill(cart)
+        bill, err = priced_bill(cart)
         if err:
             return err
         if not bill['items'] and not bill['extras']:
@@ -600,22 +600,22 @@ def till_checkout():
                    (key, datetime.now().isoformat(), 'booking'))
         warning = None
         try:
-            booked = till.book(_inventree, bill)
+            booked = checkout.book(_inventree, bill)
             reference, unshipped = booked['reference'], booked['unshipped']
-        except till.BookedError as e:
+        except checkout.BookedError as e:
             reference, unshipped, warning = e.reference, [], str(e)
         except Exception as e:
             db.execute("UPDATE checkouts SET state = 'failed', result = ? WHERE key = ?", (json.dumps({'error': str(e)}), key))
-            print(f'[till] checkout failed: {e}', flush=True)
+            print(f'[checkout] checkout failed: {e}', flush=True)
             return {'error': f'The sale was not booked: {e}'}, 502
         for e in bill['extras']:
             for sid in e.get('cuts', []):
                 mark_paid(sid, reference)
         result = {'reference': reference, 'unshipped': unshipped, 'warning': warning, 'bill': bill}
         db.execute("UPDATE checkouts SET state = 'done', result = ? WHERE key = ?", (json.dumps(result), key))
-    print(f'[till] {reference}: {till.describe(bill)} = {bill["total"]:.2f}', flush=True)
+    print(f'[checkout] {reference}: {checkout.describe(bill)} = {bill["total"]:.2f}', flush=True)
     broadcast_sessions()
-    till.tell_tv(bill, str(cart.get('source') or 'till')[:30])
+    checkout.tell_tv(bill, str(cart.get('source') or 'checkout')[:30])
     return result
 
 

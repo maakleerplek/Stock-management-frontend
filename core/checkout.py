@@ -1,4 +1,4 @@
-"""The till: prices a cart and books it as one InvenTree sales order.
+"""Checkout: prices a cart and books it as one InvenTree sales order.
 
 The stock app and the touch kiosk both send their cart here instead of
 pricing and booking it themselves, so the rules live in one place:

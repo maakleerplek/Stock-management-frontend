@@ -4,7 +4,7 @@ import type { InvenTreeTrackingEntry } from '../api/types';
 import { itemAnalytics } from '../lib/itemAnalytics';
 import { serviceRevenue, laserLedger, printsByMaterial, DISCARD_KIND_LABELS, type ServiceLine, type DiscardRow, type LaserSessionRow, type LaserBucket } from '../lib/services';
 import { buildTotals, type Totals } from '../lib/totals';
-import { useRates } from '../lib/tillApi';
+import { useRates } from '../lib/checkoutApi';
 import { cn } from '../lib/utils';
 import { usePartLookup } from './usePartLookup';
 import { Section } from './ui';

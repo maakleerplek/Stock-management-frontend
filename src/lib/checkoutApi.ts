@@ -1,5 +1,5 @@
 /**
- * The till on the core service (core/till.py): it prices a cart and books it as
+ * Checkout on the core service (core/checkout.py): it prices a cart and books it as
  * one InvenTree sales order. The app only sends what is in the cart; prices,
  * the machine minimum and the laser rounding are the server's.
  */
@@ -10,7 +10,7 @@ export type TypedJob =
   | { kind: 'print'; grams: number; part?: number; material: string }
   | { kind: 'laser' | 'cnc'; minutes: number };
 
-export interface TillCart {
+export interface CheckoutCart {
   items: { part: number; quantity: number }[];
   prints: { part?: number; material: string; grams: number }[];
   machines: { tool: 'laser' | 'cnc'; minutes: number }[];
@@ -42,25 +42,25 @@ export interface Rates {
 async function call<T>(path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`/api/till${path}`, body === undefined ? undefined : {
+    res = await fetch(`/api/checkout${path}`, body === undefined ? undefined : {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
   } catch {
-    throw new Error('The till server is unreachable');
+    throw new Error('The checkout server is unreachable');
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Till: ${res.status}`);
+  if (!res.ok) throw new Error(data.error || `Checkout: ${res.status}`);
   return data as T;
 }
 
-export const tillApi = {
+export const checkoutApi = {
   rates: () => call<Rates>('/rates'),
-  quote: (cart: TillCart) => call<Bill>('/quote', cart),
+  quote: (cart: CheckoutCart) => call<Bill>('/quote', cart),
   /** `key`: new per sale, the same on a retry, so a retry never books twice. */
-  checkout: (cart: TillCart, key: string, source = 'stock-app') => call<Sale>('/checkout', { ...cart, key, source }),
+  checkout: (cart: CheckoutCart, key: string, source = 'stock-app') => call<Sale>('/', { ...cart, key, source }),
 };
 
-export const typedToCart = (jobs: TypedJob[]): Pick<TillCart, 'prints' | 'machines'> => ({
+export const typedToCart = (jobs: TypedJob[]): Pick<CheckoutCart, 'prints' | 'machines'> => ({
   prints: jobs.flatMap(j => (j.kind === 'print' ? [{ part: j.part, material: j.material, grams: j.grams }] : [])),
   machines: jobs.flatMap(j => (j.kind !== 'print' ? [{ tool: j.kind, minutes: j.minutes }] : [])),
 });
@@ -73,19 +73,19 @@ let ratesCache: Promise<Rates> | null = null;
 export function useRates(): Rates | null {
   const [rates, setRates] = useState<Rates | null>(null);
   useEffect(() => {
-    ratesCache ??= tillApi.rates().catch(e => { ratesCache = null; throw e; });
+    ratesCache ??= checkoutApi.rates().catch(e => { ratesCache = null; throw e; });
     ratesCache.then(setRates, () => {});
   }, []);
   return rates;
 }
 
 /** The server's bill for the cart, refreshed when the cart changes. */
-export function useBill(cart: TillCart): { bill: Bill | null; error: string | null } {
+export function useBill(cart: CheckoutCart): { bill: Bill | null; error: string | null } {
   const key = JSON.stringify(cart);
   const [state, setState] = useState<{ key: string; bill: Bill | null; error: string | null }>({ key: '', bill: null, error: null });
   useEffect(() => {
     let live = true;
-    tillApi.quote(JSON.parse(key)).then(
+    checkoutApi.quote(JSON.parse(key)).then(
       bill => live && setState({ key, bill, error: null }),
       e => live && setState({ key, bill: null, error: e instanceof Error ? e.message : String(e) }),
     );

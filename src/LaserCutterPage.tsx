@@ -3,7 +3,7 @@ import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOf
 import ImageDisplay from './ImageDisplay';
 import { useStock } from './StockContext';
 import { useVolunteer } from './VolunteerContext';
-import { useRates, type Rates } from './lib/tillApi';
+import { useRates, type Rates } from './lib/checkoutApi';
 import LaserAnimation from './components/LaserAnimation';
 import LaserLibrary from './components/LaserLibrary';
 import { useToast } from './ToastContext';
@@ -72,7 +72,7 @@ const CUT_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] min-[480p
 const payPrice = (list: LaserSession[], rate: LaserRate) =>
   Math.max(laserSessionPrice(Math.ceil(list.reduce((t, s) => t + s.total_time, 0) / 60), rate), rate.minimum);
 type LaserRate = Rates['laser'];
-/** Until the till server's rates are in. */
+/** Until the checkout server's rates are in. */
 const NO_RATE: LaserRate = { per_minute: 0, minimum: 0 };
 const laserSessionPrice = (minutes: number, rate: LaserRate) => minutes * rate.per_minute;
 const useLaserRate = () => useRates()?.laser ?? NO_RATE;

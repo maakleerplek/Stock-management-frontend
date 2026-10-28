@@ -89,9 +89,9 @@ server {
         return 204;
     }
 
-    # The till: prices a cart and books the sale (core/till.py). Open to the
-    # till, like the checkout below; ^~ so the InvenTree /api/ rules never match it.
-    location ^~ /api/till/ {
+    # Checkout: prices a cart and books the sale (core/checkout.py). Open to the
+    # till; ^~ so the InvenTree /api/ rules never match it.
+    location ^~ /api/checkout/ {
         set $core_upstream http://core:5000;
         proxy_pass $core_upstream;
         proxy_set_header Host $host;
@@ -99,7 +99,7 @@ server {
         proxy_read_timeout 90s;   # a sale waits for InvenTree's worker to ship it
     }
 
-    # Barcode lookups (a POST), open to the till. Sales go through /api/till/ above.
+    # Barcode lookups (a POST), open to the till. Sales go through /api/checkout/ above.
     location = /api/barcode/ {
         proxy_pass ${INVENTREE_BACKEND_URL};
     }

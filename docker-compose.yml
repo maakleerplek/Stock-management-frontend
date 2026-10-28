@@ -110,7 +110,7 @@ services:
       OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
       OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
 
-  # The till (prices and books every sale, /api/till/, see core/till.py) and
+  # Checkout (prices and books every sale, /api/checkout/, see core/checkout.py) and
   # laser time tracking (ESP32 on the laser, UDP 5005) and laser settings (/laser/).
   core:
     build: ./core
@@ -124,7 +124,7 @@ services:
       - LASER_SIMULATE=${LASER_SIMULATE:-0}
       # Only these senders may report laser on/off (the ESP32); empty = anyone.
       - ESP_ALLOWED_IPS=${ESP_ALLOWED_IPS:-}
-      # Till: fallbacks when InvenTree has no price for CNC or a filament.
+      # Checkout: fallbacks when InvenTree has no price for CNC or a filament.
       - CNC_PRICE_PER_MIN=${VITE_CNC_PRICE_PER_MIN:-0.50}
       - PRINT_PRICE_PER_GRAM=${VITE_PRINT_PRICE_PER_GRAM:-0.10}
       - PRINT_MINIMUM=${VITE_PRINT_MINIMUM:-5}
