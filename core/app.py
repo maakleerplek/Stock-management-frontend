@@ -965,10 +965,16 @@ def migrate_feedback():
         print(f'[feedback] moving reports to InvenTree failed, retried at the next start: {e}')
 
 
-if __name__ == '__main__':
+def start():
+    """Database, saved laser state and the background threads. Once per process (wsgi.py)."""
     db.connect()
     restore_state()
     threading.Thread(target=udp_server, daemon=True).start()
     threading.Thread(target=ticker, daemon=True).start()
     threading.Thread(target=migrate_feedback, daemon=True).start()
+
+
+if __name__ == '__main__':
+    # Local development only; the container runs gunicorn (Dockerfile).
+    start()
     socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
