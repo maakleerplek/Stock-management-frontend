@@ -350,13 +350,13 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
             <span className="font-semibold">€{pickedPrice.toFixed(2)}</span>
           </div>
           <div className="flex gap-2">
-            <button className="flex-1 basis-0 brutalist-button h-12 bg-emerald-400 text-brand-black font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
+            <button className="flex-1 basis-0 brutalist-button h-12 px-2 bg-emerald-400 text-brand-black font-semibold whitespace-nowrap flex items-center justify-center gap-1.5 disabled:opacity-40"
               disabled={busy} onClick={() => onCheckout(picked.map(s => s.id))}>
               <ShoppingCart size={16} aria-hidden /> Pay €{pickedPrice.toFixed(2)}
             </button>
-            <button className={cn('flex-1 basis-0 brutalist-button h-12 font-semibold flex items-center justify-center gap-2 disabled:opacity-40', moving ? 'bg-laser-licht' : 'bg-white')}
+            <button className={cn('flex-1 basis-0 brutalist-button h-12 px-2 text-sm font-semibold whitespace-nowrap flex items-center justify-center gap-1.5 disabled:opacity-40', moving ? 'bg-laser-licht' : 'bg-white')}
               aria-expanded={moving} disabled={busy} onClick={() => { setMoving(m => !m); setDeleting(false); }}>
-              <Folder size={16} aria-hidden /> Add to project <ChevronUp size={14} aria-hidden className={cn('transition-transform', !moving && 'rotate-180')} />
+              <Folder size={16} className="shrink-0" aria-hidden /> Add to project <ChevronUp size={14} aria-hidden className={cn('shrink-0 transition-transform', !moving && 'rotate-180')} />
             </button>
             <button className={cn('brutalist-button h-12 w-12 shrink-0 flex items-center justify-center text-red-600', deleting ? 'bg-rose-50' : 'bg-white')}
               aria-label={`Delete the ${picked.length === 1 ? 'ticked cut' : `${picked.length} ticked cuts`} without paying`} title="Delete without paying"
@@ -368,8 +368,8 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
       )}
       {drag && <DropTray drag={drag} projects={projects} />}
       {drag && (
-        <div className="fixed z-[60] pointer-events-none w-20 border-2 border-brand-black bg-white shadow-lg -translate-x-1/2 -translate-y-1/2 rotate-3"
-          style={{ left: drag.x, top: drag.y }} aria-hidden>
+        <div className="fixed z-[60] pointer-events-none w-20 border-2 border-brand-black bg-white shadow-lg -translate-x-1/2 -translate-y-full rotate-3"
+          style={{ left: drag.x, top: drag.y - 24 }} aria-hidden>
           {drag.cut.has_preview
             ? <img src={cutPreviewUrl(drag.cut.id)} alt="" className="w-full aspect-[4/3] object-contain p-1" />
             : <span className="w-full aspect-[4/3] flex items-center justify-center"><Scissors size={24} className="text-lijn" /></span>}
