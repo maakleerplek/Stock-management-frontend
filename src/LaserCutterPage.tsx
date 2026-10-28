@@ -59,10 +59,10 @@ export default function LaserCutterPage({ onCheckout, onShop, live }: LaserCutte
   );
 }
 
-// Cut cards: one standard size (at least 112 px), as many per row as fit; the leftover width is
+// Cut cards: one standard size (at least 100 px, three on a phone), as many per row as fit; the leftover width is
 // shared out so the row still lines up with the page edge. Three in the laser PC's bar.
 const TICKED_KEY = 'laserTickedCuts';
-const CUT_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-2';
+const CUT_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2';
 
 /** What paying these cuts together costs: rounded up once, at least the machine minimum. */
 const payPrice = (list: LaserSession[]) =>
