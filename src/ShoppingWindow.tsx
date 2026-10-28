@@ -56,6 +56,18 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const [mode, setMode] = useState<VolunteerCartMode>('buy');
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    // Seconds before "Complete checkout" can be pressed: time to read what is being booked (as on the kiosk).
+    const CONFIRM_LOCK = 3;
+    const [lockLeft, setLockLeft] = useState(0);
+    useEffect(() => {
+        if (!confirmOpen) return;
+        setLockLeft(CONFIRM_LOCK);
+        const id = window.setInterval(() => setLockLeft(n => {
+            if (n <= 1) window.clearInterval(id);
+            return Math.max(0, n - 1);
+        }), 1000);
+        return () => window.clearInterval(id);
+    }, [confirmOpen]);
     const { addToast } = useToast();
     const { isVolunteerMode } = useVolunteer();
     // Volunteers buy like anyone else, or take items out for free (drink / lab / workshop).
@@ -298,14 +310,14 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                             </button>
                             <button
                                 onClick={handleConfirmedCheckout}
-                                disabled={isCheckingOut}
-                                className="flex-1 brutalist-button py-4 bg-emerald-400 text-brand-black hover:brightness-95 flex items-center justify-center gap-3 text-sm font-semibold transition-all"
+                                disabled={isCheckingOut || lockLeft > 0}
+                                className="flex-1 brutalist-button py-4 bg-emerald-400 text-brand-black hover:brightness-95 flex items-center justify-center gap-3 text-sm font-semibold transition-all disabled:opacity-50"
                             >
                                 {isCheckingOut ? (
                                     <span className="flex items-center gap-2">Processing...</span>
                                 ) : (
                                     <>
-                                        <Check size={20} /> {free && toPay === 0 ? 'Confirm' : 'Complete checkout'}
+                                        <Check size={20} /> {free && toPay === 0 ? 'Confirm' : 'Complete checkout'}{lockLeft > 0 && <span className="tabular-nums">({lockLeft})</span>}
                                     </>
                                 )}
                             </button>
