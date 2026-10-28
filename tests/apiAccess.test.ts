@@ -8,19 +8,16 @@ describe('requiredAccess', () => {
     expect(requiredAccess('GET', '/api/company/part/')).toBe('public');
   });
 
-  it('lets the till run a checkout sales order', () => {
+  it('lets the till look up a barcode; sales orders go through the till server', () => {
+    expect(requiredAccess('POST', '/api/barcode/')).toBe('public');
     for (const path of [
-      '/api/barcode/',
       '/api/order/so/',
       '/api/order/so-line/',
       '/api/order/so-extra-line/',
       '/api/order/so/7/issue/',
-      '/api/order/so/7/allocate/',
-      '/api/order/so/7/complete/',
       '/api/order/so/7/cancel/',
-      '/api/order/so/shipment/',
       '/api/order/so/shipment/3/ship/',
-    ]) expect(requiredAccess('POST', path), path).toBe('public');
+    ]) expect(requiredAccess('POST', path), path).toBe('volunteer');
   });
 
   it('keeps other writes for volunteers', () => {

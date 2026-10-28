@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Printer, Euro, Weight, Package, Users } from 'lucide-react';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { itemAnalytics } from '../lib/itemAnalytics';
 import { laserLedger, printsByMaterial, volunteerPrints, type ServiceLine } from '../lib/services';
 import { buildTotals, type PrintMaterial, type Printing } from '../lib/totals';
-import { PRICING } from '../constants';
-import { inventreeClient } from '../api/inventreeClient';
+import { useRates } from '../lib/tillApi';
 import { cn } from '../lib/utils';
 import { usePartLookup } from './usePartLookup';
 import { Section, StatCards } from './ui';
@@ -23,18 +22,18 @@ export default function PrintTab({ trackingEntries, serviceLines, loading, dateR
   const partLookup = usePartLookup();
   const days = dateRange.days ?? undefined;
   // 3D-print price per gram per filament (InvenTree parameter), by name like the print lines.
-  const [printPrices, setPrintPrices] = useState<Record<number, number>>({});
-  useEffect(() => { void inventreeClient.getPrintPricePerGram().then(setPrintPrices); }, []);
+  const rates = useRates();
+  const defaultPerGram = rates?.print.default_per_gram ?? 0;
   const pricePerGram = useMemo(() => Object.fromEntries(
-    Object.entries(printPrices).flatMap(([id, price]) => { const n = partLookup.get(Number(id))?.name; return n ? [[n, price]] : []; }),
-  ), [printPrices, partLookup]);
+    Object.entries(rates?.print.per_gram ?? {}).flatMap(([id, price]) => { const n = partLookup.get(Number(id))?.name; return n ? [[n, price]] : []; }),
+  ), [rates, partLookup]);
   const p = useMemo(() => buildTotals(
     itemAnalytics(trackingEntries, partLookup, 'all', days),
     [],
     laserLedger([], [], [], 0, 0, days),
     printsByMaterial(serviceLines, days),
-    pricePerGram,
-  ).printing, [trackingEntries, partLookup, serviceLines, days, pricePerGram]);
+    pricePerGram, defaultPerGram,
+  ).printing, [trackingEntries, partLookup, serviceLines, days, pricePerGram, defaultPerGram]);
 
   const vol = volunteerPrints(serviceLines, days);
   if (loading) {
@@ -88,7 +87,7 @@ export default function PrintTab({ trackingEntries, serviceLines, loading, dateR
           </table>
           <p className="px-3 py-1.5 text-[10px] text-brand-black/60">
             {p.prints} print{p.prints === 1 ? '' : 's'} paid at the till. "Not paid in the system": paid elsewhere, or not printed yet.
-            Price per gram from the filament's "3D-print prijs per gram" in InvenTree, else €{PRICING.PRINTING_PER_GRAM.toFixed(2)};
+            Price per gram from the filament's "3D-print prijs per gram" in InvenTree, else €{defaultPerGram.toFixed(2)};
             spool weight from the product name (1 kg when it does not say).
           </p>
         </div>

@@ -35,23 +35,15 @@ import type {
 import { ApiCache, CACHE_TTL } from '../lib/cache';
 import { hasVolunteerSession, markSignedOut, VOLUNTEER_AUTH_FAILED } from '../auth/session';
 
-import { DEFAULTS } from '../constants';
 import type { ServiceLine } from '../lib/services';
 
 /** Per InvenTree call; uploads included, so not too tight. */
 const REQUEST_TIMEOUT_MS = 30_000;
 
-const CURRENCY = DEFAULTS.CURRENCY;
 
 /** Name of the InvenTree customer that till sales are booked on. */
 export const TILL_CUSTOMER = 'Walk-in customer';
 
-/** SalesOrderStatus.COMPLETE in InvenTree. */
-const SO_STATUS_COMPLETE = 30;
-
-/** How long checkout waits for InvenTree's worker to ship an order. */
-const SHIPMENT_TIMEOUT_MS = 30_000;
-const SHIPMENT_POLL_MS = 400;
 
 /** Still ours: not sold, installed, consumed or being built. */
 export function isHomeStock(item: InvenTreeStockItem): boolean {
@@ -427,112 +419,6 @@ export class InvenTreeClient {
         } catch (err) {
             if (!hasVolunteerSession()) {
                 throw new Error(`InvenTree has no "${TILL_CUSTOMER}" customer yet. A volunteer has to sign in once to set it up.`);
-            }
-            throw err;
-        }
-    }
-
-    /**
-     * Book a till sale as a sales order: create it, add the lines, issue it,
-     * allocate stock to one shipment, ship it and complete the order.
-     *
-     * Items the app thinks are out of stock are still sold: the line stays
-     * partly unshipped, which shows the difference in InvenTree instead of
-     * refusing the sale.
-     */
-    async sellParts(
-        lines: { partId: number; quantity: number; unitPrice: number }[],
-        extras: { reference: string; description?: string; quantity: number; unitPrice: number }[],
-        description: string,
-    ): Promise<{ reference: string; unshipped: { partId: number; quantity: number }[] }> {
-        const customer = await this.getTillCustomer();
-        const order = await this.request<{ pk: number; reference: string }>('/order/so/', 'POST', {
-            customer,
-            description: description.slice(0, 250),
-        }, false, false);
-
-        // Once a shipment is handed to InvenTree's worker, cancelling the order
-        // could leave stock shipped against a cancelled order.
-        let shipping = false;
-        try {
-            const lineItems: { pk: number; partId: number; quantity: number }[] = [];
-            for (const line of lines) {
-                const created = await this.request<{ pk: number }>('/order/so-line/', 'POST', {
-                    order: order.pk,
-                    part: line.partId,
-                    quantity: line.quantity,
-                    sale_price: line.unitPrice.toFixed(2),
-                    sale_price_currency: CURRENCY,
-                }, false, false);
-                lineItems.push({ pk: created.pk, partId: line.partId, quantity: line.quantity });
-            }
-            // One extra line per service, so the order shows what was used.
-            for (const extra of extras) {
-                if (extra.quantity <= 0) continue;
-                await this.request('/order/so-extra-line/', 'POST', {
-                    order: order.pk,
-                    reference: extra.reference,
-                    description: extra.description ?? '',
-                    quantity: extra.quantity,
-                    price: extra.unitPrice.toFixed(2),
-                    price_currency: CURRENCY,
-                }, false, false);
-            }
-
-            await this.request(`/order/so/${order.pk}/issue/`, 'POST', {}, false, false);
-
-            const allocations: { line_item: number; stock_item: number; quantity: number }[] = [];
-            const unshipped: { partId: number; quantity: number }[] = [];
-            for (const line of lineItems) {
-                let left = line.quantity;
-                for (const item of await this.getHomeStockItems(line.partId)) {
-                    if (left <= 0) break;
-                    const take = Math.min(left, item.quantity);
-                    if (take > 0) allocations.push({ line_item: line.pk, stock_item: item.pk, quantity: take });
-                    left -= take;
-                }
-                if (left > 0) unshipped.push({ partId: line.partId, quantity: left });
-            }
-
-            if (allocations.length > 0) {
-                const shipment = await this.request<{ pk: number }>('/order/so/shipment/', 'POST', {
-                    order: order.pk,
-                    reference: '1',
-                }, false, false);
-                await this.request(`/order/so/${order.pk}/allocate/`, 'POST', {
-                    items: allocations,
-                    shipment: shipment.pk,
-                }, false, false);
-                await this.request(`/order/so/shipment/${shipment.pk}/ship/`, 'POST', {}, false, false);
-                shipping = true;
-                // Shipping runs in InvenTree's background worker, which sets
-                // shipment_date when the stock has actually moved.
-                const deadline = Date.now() + SHIPMENT_TIMEOUT_MS;
-                for (;;) {
-                    const state = await this.request<{ shipment_date: string | null }>(
-                        `/order/so/shipment/${shipment.pk}/`, 'GET', undefined, false, false
-                    );
-                    if (state.shipment_date) break;
-                    if (Date.now() > deadline) {
-                        throw new Error(`${order.reference} is booked, but InvenTree is still shipping it. Check the order in InvenTree.`);
-                    }
-                    await new Promise(r => setTimeout(r, SHIPMENT_POLL_MS));
-                }
-            }
-
-            // Without SALESORDER_SHIP_COMPLETE the first call only reaches "shipped".
-            for (let i = 0; i < 2; i++) {
-                const state = await this.request<{ status: number }>(`/order/so/${order.pk}/`, 'GET', undefined, false, false);
-                if (state.status === SO_STATUS_COMPLETE) break;
-                await this.request(`/order/so/${order.pk}/complete/`, 'POST', { accept_incomplete: true }, false, false);
-            }
-
-            this.invalidateCache('/stock/');
-            return { reference: order.reference, unshipped };
-        } catch (err) {
-            // Leave no half-finished order behind, unless stock may already be moving.
-            if (!shipping) {
-                await this.request(`/order/so/${order.pk}/cancel/`, 'POST', {}, false, false).catch(() => undefined);
             }
             throw err;
         }
@@ -1033,30 +919,6 @@ export class InvenTreeClient {
      * purchase_price, which made InvenTree report the selling price as the cost
      * of goods and left every margin figure wrong.
      */
-    /**
-     * 3D-print price per gram per filament part, from the InvenTree parameter
-     * "3D-print prijs per gram". Parts without one use the default price.
-     */
-    async getPrintPricePerGram(): Promise<Record<number, number>> {
-        try {
-            const templates = await this.request<{ pk: number; name: string }[] | { results: { pk: number; name: string }[] }>(
-                '/parameter/template/?search=3D-print%20prijs', 'GET');
-            const list = Array.isArray(templates) ? templates : templates.results;
-            const template = list.find(t => t.name === '3D-print prijs per gram');
-            if (!template) return {};
-            const rows = await this.requestAll<{ model_id: number; data: string }>(
-                `/parameter/?model_type=part.part&template=${template.pk}&limit=500`);
-            const out: Record<number, number> = {};
-            for (const r of rows.results || []) {
-                const price = parseFloat(String(r.data).replace(',', '.'));
-                if (isFinite(price) && price > 0) out[r.model_id] = price;
-            }
-            return out;
-        } catch {
-            return {};   // not readable (dev, not signed in) or not set up: the default price
-        }
-    }
-
     async getSalePricePerPart(): Promise<Record<number, number>> {
         const resp = await this.requestAll<{ part: number; quantity: number; price: string | number }>(
             '/part/sale-price/?limit=500'

@@ -14,9 +14,6 @@ services:
         VITE_ORGANIZATION_URL: ${VITE_ORGANIZATION_URL}
         VITE_INVENTREE_URL: ${VITE_INVENTREE_URL}
         VITE_INVENTREE_PANEL_URL: ${VITE_INVENTREE_PANEL_URL}
-        VITE_LASER_PRICE_PER_MIN: ${VITE_LASER_PRICE_PER_MIN}
-        VITE_CNC_PRICE_PER_MIN: ${VITE_CNC_PRICE_PER_MIN}
-        VITE_PRINT_PRICE_PER_GRAM: ${VITE_PRINT_PRICE_PER_GRAM}
         VITE_CURRENCY: ${VITE_CURRENCY}
         VITE_PAYMENT_NAME: ${VITE_PAYMENT_NAME}
         VITE_PAYMENT_IBAN: ${VITE_PAYMENT_IBAN}
@@ -113,11 +110,11 @@ services:
       OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
       OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
 
-  # Laser time tracking (ESP32 on the laser, UDP 5005) and laser settings.
-  # nginx proxies /laser/ here; see laser/app.py.
-  laser:
-    build: ./laser
-    container_name: stock-laser
+  # The till (prices and books every sale, /api/till/, see core/till.py) and
+  # laser time tracking (ESP32 on the laser, UDP 5005) and laser settings (/laser/).
+  core:
+    build: ./core
+    container_name: stock-core
     environment:
       # Reads the material list from InvenTree (category Lasermaterialen).
       - INVENTREE_BACKEND_URL=${INVENTREE_BACKEND_URL}
@@ -127,10 +124,16 @@ services:
       - LASER_SIMULATE=${LASER_SIMULATE:-0}
       # Only these senders may report laser on/off (the ESP32); empty = anyone.
       - ESP_ALLOWED_IPS=${ESP_ALLOWED_IPS:-}
+      # Till: fallbacks when InvenTree has no price for CNC or a filament.
+      - CNC_PRICE_PER_MIN=${VITE_CNC_PRICE_PER_MIN:-0.50}
+      - PRINT_PRICE_PER_GRAM=${VITE_PRINT_PRICE_PER_GRAM:-0.10}
+      - PRINT_MINIMUM=${VITE_PRINT_MINIMUM:-5}
+      # Sales go on the TV's changelog.
+      - TV_PRESENTATION_URL=${VITE_TV_PRESENTATION_URL:-}
     ports:
       - "${LASER_UDP_PORT:-5005}:5005/udp"
     volumes:
-      - laser-data:/data
+      - laser-data:/data   # old name kept: renaming the volume would start an empty database
     restart: unless-stopped
     logging: *logging
 

@@ -1,4 +1,4 @@
-"""Load the material cutting library (laser/data/material_library.csv) into InvenTree.
+"""Load the material cutting library (core/data/material_library.csv) into InvenTree.
 
     INVENTREE_BACKEND_URL=http://10.72.3.68 INVENTREE_TOKEN=... python scripts/seed_inventree.py
 

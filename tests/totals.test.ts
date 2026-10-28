@@ -3,7 +3,6 @@ import type { InvenTreeTrackingEntry } from '../src/api/types';
 import { itemAnalytics, type PartPrice } from '../src/lib/itemAnalytics';
 import { serviceRevenue, laserLedger, printsByMaterial, type ServiceLine, type DiscardRow } from '../src/lib/services';
 import { buildTotals, spoolGrams } from '../src/lib/totals';
-import { PRICING } from '../src/constants';
 import { TRACKING } from '../src/lib/stockHistory';
 
 const now = new Date('2026-09-28T12:00:00');
@@ -103,13 +102,13 @@ describe('buildTotals', () => {
     const filament = new Map(parts).set(3, { name: 'PLA 1 kg', sellingPrice: 25, costPrice: 20, category: 'Filament' });
     const withUse = [...entries, entry(3, '2026-09-27', TRACKING.STOCK_REMOVE, { removed: 2 }, 'Internal use via Stock App')];
     const items = itemAnalytics(withUse, filament, 'all', 30, now);
-    const t = buildTotals(items, [], noLaser);
+    const t = buildTotals(items, [], noLaser, new Map(), {}, 0.1);
 
     expect(t.rows.find(r => r.label === 'Lab filament (3D printers)')).toMatchObject({ revenue: 0, costs: 40, profit: -40 });
     expect(t.rows.map(r => r.label)).not.toContain('Lab & workshop use (wood, ...)');   // only filament used
     // 2 spools of 1 kg (from the name); nothing printed at the till yet.
     expect(t.printing).toMatchObject({ grams: 2000, cost: 40, paidGrams: 0, paidRevenue: 0 });
-    expect(t.printing.potentialRevenue).toBeCloseTo(2000 * PRICING.PRINTING_PER_GRAM);
+    expect(t.printing.potentialRevenue).toBeCloseTo(2000 * 0.1);
     expect(t.rows.map(r => r.label)).not.toContain('Items sold · Filament');
     expect(t.total.revenue).toBeCloseTo(10);                // the items only
     expect(t.total.profit).toBeCloseTo(10 - 2.4 - 1.6 - 40);

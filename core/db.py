@@ -80,6 +80,14 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
             discarded_at TEXT NOT NULL
         );
 
+        -- Till checkouts by the key the client sends, so a retry never books a sale twice.
+        CREATE TABLE IF NOT EXISTS checkouts (
+            key TEXT PRIMARY KEY,
+            created TEXT NOT NULL,
+            state TEXT NOT NULL CHECK (state IN ('booking', 'done', 'failed')),
+            result TEXT  -- JSON: what the client got back
+        );
+
         -- Old: reports now live in InvenTree (feedback.py). Kept so
         -- app.migrate_feedback can move rows that are still here.
         CREATE TABLE IF NOT EXISTS attempts (

@@ -24,6 +24,8 @@ import time
 from datetime import datetime, timedelta
 from uuid import uuid4
 
+import requests
+
 from flask import Flask, Response, jsonify, request
 from flask_socketio import SocketIO
 
@@ -31,6 +33,7 @@ import db
 import feedback
 import inventree
 import lbrn
+import till
 from recommend import MAX_POWER, Point, recommend
 
 COST_PER_MIN = float(os.environ.get('COST_PER_MIN', '0.50'))
@@ -494,13 +497,11 @@ def checkout_session(sid):
     return {'ok': True}
 
 
-@app.post('/laser/api/sessions/<sid>/paid')
-def paid_session(sid):
-    """The checkout went through: keep the session as history with its order."""
-    order = ((request.json or {}).get('order') or '')[:40] or None
+def mark_paid(sid: str, order: str | None) -> bool:
+    """Keep the session as history with its order; False if it is not open."""
     rows = db.query('SELECT total_time FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,))
     if not rows:
-        return {'error': 'Session not found'}, 404
+        return False
     if rows[0]['total_time'] <= 0:
         # Nothing was lasered: not a session worth keeping, it would only skew the analytics.
         db.execute('DELETE FROM time_blocks WHERE session_id = ?', (sid,))
@@ -512,8 +513,110 @@ def paid_session(sid):
                'AND id IN (SELECT project_id FROM sessions WHERE paid_at IS NOT NULL) '
                'AND id NOT IN (SELECT project_id FROM sessions WHERE paid_at IS NULL AND project_id IS NOT NULL)',
                (datetime.now().isoformat(),))
+    return True
+
+
+@app.post('/laser/api/sessions/<sid>/paid')
+def paid_session(sid):
+    """The checkout went through: keep the session as history with its order."""
+    order = ((request.json or {}).get('order') or '')[:40] or None
+    if not mark_paid(sid, order):
+        return {'error': 'Session not found'}, 404
     broadcast_sessions()
     return {'ok': True}
+
+
+# ---------------------------------------------------------------- till
+
+# One sale at a time: two carts with the same cut must not both sell it.
+_till_lock = threading.Lock()
+
+
+def cart_cuts(cart: dict) -> list[dict]:
+    """The open laser cuts the cart names; refuses a cut that is paid or gone."""
+    ids = list(dict.fromkeys(str(i) for i in cart.get('cuts') or []))
+    if not ids:
+        return []
+    rows = db.query(f'SELECT id, name, total_time FROM sessions WHERE paid_at IS NULL AND id IN ({",".join("?" * len(ids))}) ORDER BY created, rowid',
+                    tuple(ids))
+    if len(rows) != len(ids):
+        raise till.CartError('A laser cut in this cart is already paid or deleted. Take it out and try again.')
+    return rows
+
+
+def till_bill(cart: dict):
+    """(bill, None) or (None, error response)."""
+    if _inventree is None:
+        return None, ({'error': 'InvenTree is not configured on the server'}, 503)
+    try:
+        return till.quote(cart, till.load_prices(_inventree), cart_cuts(cart)), None
+    except till.CartError as e:
+        return None, ({'error': str(e)}, 400)
+    except requests.RequestException as e:
+        return None, ({'error': f'Cannot reach InvenTree: {e}'}, 502)
+
+
+@app.get('/api/till/rates')
+def till_rates():
+    if _inventree is None:
+        return {'error': 'InvenTree is not configured on the server'}, 503
+    try:
+        return till.rates(till.load_prices(_inventree))
+    except requests.RequestException as e:
+        return {'error': f'Cannot reach InvenTree: {e}'}, 502
+
+
+@app.post('/api/till/quote')
+def till_quote():
+    """The bill for a cart, as the checkout would book it."""
+    bill, err = till_bill(request.get_json(silent=True) or {})
+    return err or bill
+
+
+@app.post('/api/till/checkout')
+def till_checkout():
+    """Book the cart as one sales order and mark its cuts paid.
+
+    `key` (from the client, new per sale) makes a retry safe: the same key
+    gets the first answer back instead of a second order.
+    """
+    cart = request.get_json(silent=True) or {}
+    key = str(cart.get('key') or '')[:64]
+    if len(key) < 8:
+        return {'error': 'key is required'}, 400
+    with _till_lock:
+        [row] = db.query('SELECT state, result FROM checkouts WHERE key = ?', (key,)) or [None]
+        if row and row['state'] == 'done':
+            return json.loads(row['result'])
+        if row and row['state'] == 'booking':
+            # Only after a crash halfway: whether the order exists is unknown.
+            return {'error': 'This sale was being booked when the server stopped. Check InvenTree before trying again.'}, 409
+        bill, err = till_bill(cart)
+        if err:
+            return err
+        if not bill['items'] and not bill['extras']:
+            return {'error': 'The cart is empty'}, 400
+        db.execute('INSERT OR REPLACE INTO checkouts (key, created, state) VALUES (?, ?, ?)',
+                   (key, datetime.now().isoformat(), 'booking'))
+        warning = None
+        try:
+            booked = till.book(_inventree, bill)
+            reference, unshipped = booked['reference'], booked['unshipped']
+        except till.BookedError as e:
+            reference, unshipped, warning = e.reference, [], str(e)
+        except Exception as e:
+            db.execute("UPDATE checkouts SET state = 'failed', result = ? WHERE key = ?", (json.dumps({'error': str(e)}), key))
+            print(f'[till] checkout failed: {e}', flush=True)
+            return {'error': f'The sale was not booked: {e}'}, 502
+        for e in bill['extras']:
+            for sid in e.get('cuts', []):
+                mark_paid(sid, reference)
+        result = {'reference': reference, 'unshipped': unshipped, 'warning': warning, 'bill': bill}
+        db.execute("UPDATE checkouts SET state = 'done', result = ? WHERE key = ?", (json.dumps(result), key))
+    print(f'[till] {reference}: {till.describe(bill)} = {bill["total"]:.2f}', flush=True)
+    broadcast_sessions()
+    till.tell_tv(bill, str(cart.get('source') or 'till')[:30])
+    return result
 
 
 def name_from_body():

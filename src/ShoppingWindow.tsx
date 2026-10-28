@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingCart';
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
-import { laserApi, laserMinutes, markPaidReliably, pendingPaidIds, type LaserSession } from './lib/laserApi';
-import { PRICING } from './constants';
-import { type ItemData, type ScanEvent, type ExtraLine, extraTotal, priced, topUp, extraLabel, describeExtra, handleCheckout as bookSale, handleVolunteerDrink, handleInternalUse, isLabMaterial, type CheckoutLine } from './sendCodeHandler';
+import { laserApi, pendingPaidIds, type LaserSession } from './lib/laserApi';
+import { type ItemData, type ScanEvent, handleVolunteerDrink, handleInternalUse, isLabMaterial } from './sendCodeHandler';
+import { tillApi, typedToCart, useBill, extraLabel, type TillCart, type TypedJob, type Bill } from './lib/tillApi';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import type { Invoice } from './lib/invoice';
@@ -37,22 +37,10 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     // in the useEffect dependency array (which would re-fire on every QR dismiss).
     const checkedOutResultRef = useRef(checkedOutResult);
     checkedOutResultRef.current = checkedOutResult;
-    const [typedExtras, setTypedExtras] = useState<ExtraLine[]>([]);
-    // Sold but not marked paid yet (laser service was away): never bill those again.
+    const [typedJobs, setTypedJobs] = useState<TypedJob[]>([]);
+    // Sold before the till marked cuts paid itself, and not marked yet: never bill those again.
     const pendingPaid = pendingPaidIds();
     const laserInCheckout = laserSessions.filter(s => s.checkout_at && s.total_time > 0 && !pendingPaid.has(s.id));
-    const extras: ExtraLine[] = [
-        // All laser cuts as one line, rounded up to whole minutes once.
-        ...(laserInCheckout.length ? [{
-            name: 'Lasertime', person: laserInCheckout.map(s => s.name).join(', ').slice(0, 120),
-            quantity: laserMinutes(laserInCheckout), unit: 'min',
-            ...priced(PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM), laserSessionIds: laserInCheckout.map(s => s.id),
-        }] : []),
-        ...typedExtras,
-    ];
-    // Machine lines at their own price, plus the top-up to the minimum per payment.
-    const minimumTopUp = topUp(extras);
-    const extraCosts = extraTotal(extras) + minimumTopUp;
     const [mode, setMode] = useState<VolunteerCartMode>('buy');
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -73,8 +61,16 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     // Volunteers buy like anyone else, or take items out for free (drink / lab / workshop).
     // Stock work (restock, set count) is on the Stock list.
     const free = isVolunteerMode && mode === 'drink';
-    const itemsTotal = cartItems.reduce((sum, i) => sum + i.price * i.cartQuantity, 0);
-    const toPay = (free ? 0 : itemsTotal) + extraCosts;
+    // What the till server prices and books. Free items are not a sale: they go out one by one below.
+    const machineCart: TillCart = { items: [], ...typedToCart(typedJobs), cuts: laserInCheckout.map(s => s.id) };
+    const cart: TillCart = free ? machineCart : { ...machineCart, items: cartItems.map(i => ({ part: i.id, quantity: i.cartQuantity })) };
+    const { bill, error: billError } = useBill(cart);
+    const extras = bill?.extras ?? [];
+    const minimumTopUp = bill?.top_up ?? 0;
+    const extraCosts = extras.reduce((sum, e) => sum + e.quantity * e.unit_price, 0) + minimumTopUp;
+    const toPay = bill?.total ?? 0;
+    // One key per sale: a retry after a network error books nothing twice. A new cart gets a new key.
+    const saleKey = useRef<{ cart: string; key: string } | null>(null);
 
     // The last sale, for the invoice PDF on the payment screen.
     const [invoice, setInvoice] = useState<Invoice | null>(null);
@@ -129,37 +125,37 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     };
 
     const handleCheckout = () => {
+        if (!bill) {
+            addToast(billError ? `Cannot price the cart: ${billError}` : 'Still pricing the cart, one moment', 'error');
+            return;
+        }
         setConfirmOpen(true);
     };
 
     /**
-     * One sales order for the paid lines and the extra services, then the QR
-     * code. Laser sessions on it are marked paid; if the laser service is away,
-     * that is retried later (markPaidReliably), the sale stands.
+     * The till server books the sale as one sales order and marks its laser cuts
+     * paid; then the QR code. Prices are the server's, from its answer.
      */
-    const sell = async (lines: CheckoutLine[]) => {
-        const reference = await bookSale(lines, extras);
-        for (const extra of extras) {
-            for (const id of extra.laserSessionIds ?? []) {
-                void markPaidReliably(id, reference).then(ok => {
-                    if (!ok) addToast('Sold, but a laser cut could not be marked paid yet. It is retried automatically.', 'warning');
-                });
-            }
-        }
+    const sell = async (sellCart: TillCart) => {
+        const cartKey = JSON.stringify(sellCart);
+        if (saleKey.current?.cart !== cartKey) saleKey.current = { cart: cartKey, key: crypto.randomUUID() };
+        const sale = await tillApi.checkout(sellCart, saleKey.current.key);
+        saleKey.current = null;
+        if (sale.warning) addToast(sale.warning, 'warning');
+        const b: Bill = sale.bill;
         localStorage.removeItem(EXTRAS_STORAGE_KEY);
+        setTypedJobs([]);
         setInvoice({
-            reference, date: new Date(),
+            reference: sale.reference, date: new Date(),
             lines: [
-                ...lines.map(l => ({ name: l.name, quantity: l.quantity, unitPrice: l.unitPrice })),
-                ...extras.map(e => ({ name: `${extraLabel(e)} (${e.unit})`, quantity: e.quantity, unitPrice: e.unitPrice })),
-                ...(minimumTopUp > 0 ? [{ name: 'Minimum per payment (machines)', quantity: 1, unitPrice: minimumTopUp }] : []),
+                ...b.items.map(i => ({ name: i.name, quantity: i.quantity, unitPrice: i.unit_price })),
+                ...b.extras.map(e => ({ name: `${extraLabel(e)} (${e.unit})`, quantity: e.quantity, unitPrice: e.unit_price })),
+                ...(b.top_up > 0 ? [{ name: 'Minimum per payment (machines)', quantity: 1, unitPrice: b.top_up }] : []),
             ],
         });
-        const total = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0) + extraCosts;
-        let desc = lines.map(l => `${l.name} x${l.quantity}`).join(', ');
-        if (extras.length) desc += (desc ? ', ' : '') + extras.map(describeExtra).join(', ');
+        let desc = [...b.items.map(i => `${i.name} x${i.quantity}`), ...b.extras.map(e => `${extraLabel(e)} ${e.quantity} ${e.unit}`)].join(', ');
         if (desc.length > 135) desc = desc.substring(0, 132) + '...';
-        setCheckedOut({ total, description: desc });
+        setCheckedOut({ total: b.total, description: desc });
     };
 
     const handleConfirmedCheckout = async () => {
@@ -168,7 +164,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
         try {
             if (!free) {
                 // A sale: one sales order for the whole cart.
-                await sell(cartItems.map(item => ({ partId: item.id, name: item.name, quantity: item.cartQuantity, unitPrice: item.price })));
+                await sell(cart);
                 setCartItems([]);
                 return;
             }
@@ -194,7 +190,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                 );
             }
             // Machine time is always paid.
-            if (extras.length) await sell([]);
+            if (extras.length) await sell(machineCart);
             else setCheckedOut(null);
         } catch (error) {
             console.error('[Checkout] Failed:', error);
@@ -234,7 +230,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                         </div>
                         <div className="p-4">
                             <Extras
-                                onExtrasChange={setTypedExtras}
+                                onExtrasChange={setTypedJobs}
+                                bill={bill}
                                 laserSessions={laserInCheckout}
                                 openLaserSessions={laserSessions.filter(s => !s.checkout_at && s.total_time > 0)}
                                 onAddLaserSession={(id) => laserApi.setCheckout(id, true).catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'))}
@@ -263,23 +260,23 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                             </p>
 
                             <div className="space-y-3">
-                                {cartItems.map((item) => (
+                                {cartItems.map((item) => ({ item, price: bill?.items.find(i => i.part === item.id)?.unit_price ?? item.price })).map(({ item, price }) => (
                                     <div key={item.id} className="flex justify-between items-center p-3 border border-lijn bg-white">
                                         <div className="flex flex-col">
                                             <span className="font-semibold text-sm">{item.name}</span>
-                                            <span className="text-[10px] font-bold text-brand-black/60">Qty: {item.cartQuantity} × €{item.price.toFixed(2)}</span>
+                                            <span className="text-[10px] font-bold text-brand-black/60">Qty: {item.cartQuantity} × €{price.toFixed(2)}</span>
                                         </div>
-                                        <div className="font-semibold text-sm">{free ? 'No charge' : `€${(item.cartQuantity * item.price).toFixed(2)}`}</div>
+                                        <div className="font-semibold text-sm">{free ? 'No charge' : `€${(item.cartQuantity * price).toFixed(2)}`}</div>
                                     </div>
                                 ))}
 
-                                {extras.map((extra) => (
-                                    <div key={extra.laserSessionIds?.join() ?? extra.name} className="flex justify-between items-center p-3 border border-lijn bg-brand-beige-dark">
+                                {extras.map((extra, i) => (
+                                    <div key={i} className="flex justify-between items-center p-3 border border-lijn bg-brand-beige-dark">
                                         <div className="flex flex-col">
                                             <span className="font-semibold text-sm">{extraLabel(extra)}</span>
-                                            <span className="text-[10px] font-bold text-brand-black/60">{extra.quantity} {extra.unit} × €{extra.unitPrice.toFixed(2)}</span>
+                                            <span className="text-[10px] font-bold text-brand-black/60">{extra.quantity} {extra.unit} × €{extra.unit_price.toFixed(2)}</span>
                                         </div>
-                                        <div className="font-semibold text-sm">€{(extra.quantity * extra.unitPrice).toFixed(2)}</div>
+                                        <div className="font-semibold text-sm">€{(extra.quantity * extra.unit_price).toFixed(2)}</div>
                                     </div>
                                 ))}
 
@@ -287,7 +284,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                     <div className="flex justify-between items-center p-3 border border-lijn bg-brand-beige-dark">
                                         <div className="flex flex-col">
                                             <span className="font-semibold text-sm">Minimum per payment</span>
-                                            <span className="text-[10px] font-bold text-brand-black/60">Machine use is at least €{(extraTotal(extras) + minimumTopUp).toFixed(2)} per payment</span>
+                                            <span className="text-[10px] font-bold text-brand-black/60">Machine use is at least €{extraCosts.toFixed(2)} per payment</span>
                                         </div>
                                         <div className="font-semibold text-sm">€{minimumTopUp.toFixed(2)}</div>
                                     </div>

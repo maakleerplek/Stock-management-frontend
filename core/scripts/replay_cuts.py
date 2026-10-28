@@ -1,7 +1,7 @@
 """Replay a laser log through the cut logic and show the cuts it makes.
 
     docker compose logs --no-color --timestamps laser | grep -F '[esp]' > esp.log
-    python laser/scripts/replay_cuts.py esp.log --gap 3 5 8 10
+    python core/scripts/replay_cuts.py esp.log --gap 3 5 8 10
 
 Reads the "[esp] ON/OFF: counter X s" lines, feeds them to esp_counter() with a fake
 clock and runs close_cut_if_idle() in between, in a throwaway database. Per gap value

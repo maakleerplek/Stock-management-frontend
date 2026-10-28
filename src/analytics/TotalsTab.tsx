@@ -1,11 +1,10 @@
-import { useMemo, useCallback, useEffect, useState } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Sigma, Download, AlertTriangle, BarChart3 } from 'lucide-react';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { itemAnalytics } from '../lib/itemAnalytics';
 import { serviceRevenue, laserLedger, printsByMaterial, DISCARD_KIND_LABELS, type ServiceLine, type DiscardRow, type LaserSessionRow, type LaserBucket } from '../lib/services';
 import { buildTotals, type Totals } from '../lib/totals';
-import { PRICING } from '../constants';
-import { inventreeClient } from '../api/inventreeClient';
+import { useRates } from '../lib/tillApi';
 import { cn } from '../lib/utils';
 import { usePartLookup } from './usePartLookup';
 import { Section } from './ui';
@@ -37,25 +36,25 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
   const days = dateRange.days ?? undefined;
 
   // 3D-print price per gram per filament (InvenTree parameter), by name like the print lines.
-  const [printPrices, setPrintPrices] = useState<Record<number, number>>({});
-  useEffect(() => { void inventreeClient.getPrintPricePerGram().then(setPrintPrices); }, []);
+  const rates = useRates();
+  const defaultPerGram = rates?.print.default_per_gram ?? 0, laserPerMinute = rates?.laser.per_minute ?? 0;
   const pricePerGram = useMemo(() => Object.fromEntries(
-    Object.entries(printPrices).flatMap(([id, price]) => { const n = partLookup.get(Number(id))?.name; return n ? [[n, price]] : []; }),
-  ), [printPrices, partLookup]);
+    Object.entries(rates?.print.per_gram ?? {}).flatMap(([id, price]) => { const n = partLookup.get(Number(id))?.name; return n ? [[n, price]] : []; }),
+  ), [rates, partLookup]);
 
   const totals = useMemo(() => buildTotals(
     itemAnalytics(trackingEntries, partLookup, 'all', days),
     serviceRevenue(serviceLines, days),
-    laserLedger(laserSessions.sessions, discarded, serviceLines, laserSessions.unassignedSeconds, PRICING.LASER_PER_MINUTE, days),
+    laserLedger(laserSessions.sessions, discarded, serviceLines, laserSessions.unassignedSeconds, laserPerMinute, days),
     printsByMaterial(serviceLines, days),
-    pricePerGram,
-  ), [trackingEntries, partLookup, serviceLines, discarded, laserSessions, days, pricePerGram]);
+    pricePerGram, defaultPerGram,
+  ), [trackingEntries, partLookup, serviceLines, discarded, laserSessions, days, pricePerGram, defaultPerGram, laserPerMinute]);
 
   const trend = useMemo(() => profitTrend({
     entries: trackingEntries, parts: partLookup, lines: serviceLines,
     sessions: laserSessions.sessions, discarded, unassignedSeconds: laserSessions.unassignedSeconds,
-    pricePerLaserMinute: PRICING.LASER_PER_MINUTE, pricePerGram, days,
-  }), [trackingEntries, partLookup, serviceLines, laserSessions, discarded, pricePerGram, days]);
+    pricePerLaserMinute: laserPerMinute, pricePerGram, days,
+  }), [trackingEntries, partLookup, serviceLines, laserSessions, discarded, pricePerGram, days, laserPerMinute]);
 
   const period = dateRange.days ? `Last ${dateRange.days} days` : 'All time';
 

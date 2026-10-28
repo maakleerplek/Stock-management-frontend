@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Zap, Users, Clock, Timer, Trash2, Euro, Wrench, Hourglass } from 'lucide-react';
 import { laserStats, lostLaserStats, laserLedger, laserSessionList, groupSessions, sessionUse, SESSION_STATUS_LABELS, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../lib/services';
-import { PRICING } from '../constants';
+import { useRates } from '../lib/tillApi';
 import { cn } from '../lib/utils';
 import { Section, Empty, StatCards } from './ui';
 import type { DateRange } from './AnalyticsPage';
@@ -25,11 +25,12 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
   refreshKey: number;
 }) {
   const days = dateRange.days ?? undefined;
+  const laserPerMinute = useRates()?.laser.per_minute ?? 0;
   const laser = useMemo(() => laserStats(serviceLines, days), [serviceLines, days]);
-  const lost = useMemo(() => lostLaserStats(discarded, PRICING.LASER_PER_MINUTE, days), [discarded, days]);
+  const lost = useMemo(() => lostLaserStats(discarded, laserPerMinute, days), [discarded, days, laserPerMinute]);
   const ledger = useMemo(
-    () => laserLedger(laserSessions.sessions, discarded, serviceLines, laserSessions.unassignedSeconds, PRICING.LASER_PER_MINUTE, days),
-    [laserSessions, discarded, serviceLines, days],
+    () => laserLedger(laserSessions.sessions, discarded, serviceLines, laserSessions.unassignedSeconds, laserPerMinute, days),
+    [laserSessions, discarded, serviceLines, days, laserPerMinute],
   );
   const sessions = useMemo(
     () => groupSessions(laserSessionList(laserSessions.sessions, discarded, serviceLines, days)),
@@ -58,7 +59,7 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
         { label: 'Paid', value: fmtMinutes(laser.minutes + paidOutside.minutes), sub: `€${(laser.revenue + paidOutside.value).toFixed(2)}`, icon: Euro, bg: 'bg-green-50' },
         { label: 'Workshop / HTL', value: fmtMinutes(workshop.minutes), sub: `€${workshop.value.toFixed(2)}`, icon: Wrench, bg: 'bg-brand-beige-dark' },
         // Deleted sessions marked volunteer, plus laser time booked at €0 by a volunteer at the kiosk.
-        { label: 'Volunteer (own credit)', value: fmtMinutes(volunteer.minutes + laser.volunteerMinutes), sub: `€${(volunteer.value + laser.volunteerMinutes * PRICING.LASER_PER_MINUTE).toFixed(2)}`, icon: Users, bg: 'bg-brand-beige-dark' },
+        { label: 'Volunteer (own credit)', value: fmtMinutes(volunteer.minutes + laser.volunteerMinutes), sub: `€${(volunteer.value + laser.volunteerMinutes * laserPerMinute).toFixed(2)}`, icon: Users, bg: 'bg-brand-beige-dark' },
         { label: 'Open sessions', value: fmtMinutes(notPaid.minutes), sub: `€${notPaid.value.toFixed(2)}`, icon: Clock, bg: notPaid.minutes ? 'bg-amber-50' : 'bg-brand-beige-dark' },
         { label: 'Not verified', value: fmtMinutes(ledger.unverified.minutes), sub: `€${ledger.unverified.value.toFixed(2)}`, icon: Trash2, bg: ledger.unverified.count ? 'bg-rose-50' : 'bg-brand-beige-dark' },
         {
@@ -89,7 +90,7 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
                     <td className="py-1.5 tabular-nums whitespace-nowrap">{fmtDate(s.date)}</td>
                     <td className="py-1.5 font-semibold">{s.name}{s.cuts > 1 && <span className="font-normal text-brand-black/60"> · {s.cuts} cuts</span>}</td>
                     <td className="py-1.5 text-right tabular-nums">{fmtMinutes(s.minutes)}</td>
-                    <td className="py-1.5 text-right tabular-nums">€{(s.minutes * PRICING.LASER_PER_MINUTE).toFixed(2)}</td>
+                    <td className="py-1.5 text-right tabular-nums">€{(s.minutes * laserPerMinute).toFixed(2)}</td>
                     <td className="py-1.5 pl-4 whitespace-nowrap">{SESSION_STATUS_LABELS[s.status]}</td>
                     <td className="py-1.5 pl-4 text-brand-black/70">{s.reason ?? '–'}</td>
                   </tr>
@@ -113,7 +114,7 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
                 <tr key={i} className="border-b border-lijn-zacht">
                   <td className="py-1.5 tabular-nums whitespace-nowrap">{fmtDate(r.discarded_at)}</td>
                   <td className="py-1.5 text-right tabular-nums">{fmtMinutes(r.seconds / 60)}</td>
-                  <td className="py-1.5 text-right tabular-nums">€{(r.seconds / 60 * PRICING.LASER_PER_MINUTE).toFixed(2)}</td>
+                  <td className="py-1.5 text-right tabular-nums">€{(r.seconds / 60 * laserPerMinute).toFixed(2)}</td>
                   <td className="py-1.5 pl-4 text-brand-black/70">{r.reason ?? '–'}</td>
                 </tr>
               ))}

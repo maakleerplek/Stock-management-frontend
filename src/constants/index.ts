@@ -55,18 +55,6 @@ export const DEFAULTS = {
   MOTION_DURATION: 0.6,
 } as const;
 
-// Extra Services Pricing (configurable via .env)
-export const PRICING = {
-  LASER_PER_MINUTE: parseFloat(import.meta.env.VITE_LASER_PRICE_PER_MIN || '0.50'),
-  CNC_PER_MINUTE: parseFloat(import.meta.env.VITE_CNC_PRICE_PER_MIN || '0.50'),
-  PRINTING_PER_GRAM: parseFloat(import.meta.env.VITE_PRINT_PRICE_PER_GRAM || '0.10'),
-  // Least a laser / CNC / 3D print job costs. shortcut: a copy of the "Minimum" parameter on the InvenTree
-  // machine parts (TV, kiosk); read it from InvenTree if it starts to change.
-  LASER_MINIMUM: parseFloat(import.meta.env.VITE_LASER_MINIMUM || '5'),
-  CNC_MINIMUM: parseFloat(import.meta.env.VITE_CNC_MINIMUM || '5'),
-  PRINTING_MINIMUM: parseFloat(import.meta.env.VITE_PRINT_MINIMUM || '5'),
-} as const;
-
 // Payment Configuration (configurable via .env)
 export const PAYMENT = {
   BENEFICIARY_NAME: import.meta.env.VITE_PAYMENT_NAME || 'Stock Manager',

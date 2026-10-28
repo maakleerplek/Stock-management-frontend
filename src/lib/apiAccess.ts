@@ -2,7 +2,8 @@
  * Who may call which InvenTree endpoint through the proxy.
  *
  * The proxy holds the InvenTree token; the browser never sees it. Anyone at the
- * till may read the catalogue and run a checkout. Everything else needs a
+ * till may read the catalogue and look up a barcode; the sale itself goes
+ * to the till server (core/till.py, /api/till/), which holds its own token. Everything else needs a
  * volunteer session: signed in through Authentik via oauth2-proxy, or on a
  * test server the shared volunteer password (AUTH_MODE=password).
  *
@@ -10,9 +11,8 @@
  * server imports this module. Keep the two in step.
  */
 
-/** Writes the till needs: barcode lookups and the checkout sales order. */
-export const CHECKOUT_WRITE =
-  /^\/api\/(barcode\/|order\/so\/(shipment\/(\d+\/ship\/)?|\d+\/(issue|allocate|complete|cancel)\/)?|order\/so-line\/|order\/so-extra-line\/)$/;
+/** The one write the till needs on InvenTree: a barcode lookup (a POST). */
+export const CHECKOUT_WRITE = /^\/api\/barcode\/$/;
 
 /** Catalogue anyone may read. */
 export const PUBLIC_READ = /^\/api\/(part|stock|company|order|barcode)\/|^\/api\/parameter\/template\/$/;

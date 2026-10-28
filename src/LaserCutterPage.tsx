@@ -3,12 +3,11 @@ import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOf
 import ImageDisplay from './ImageDisplay';
 import { useStock } from './StockContext';
 import { useVolunteer } from './VolunteerContext';
-import { laserSessionPrice } from './Extras';
+import { useRates, type Rates } from './lib/tillApi';
 import LaserAnimation from './components/LaserAnimation';
 import LaserLibrary from './components/LaserLibrary';
 import { useToast } from './ToastContext';
 import { cn } from './lib/utils';
-import { PRICING } from './constants';
 import { DISCARD_KIND_LABELS, type DiscardKind } from './lib/services';
 import {
   laserApi, useLaserSocket, shortDuration, cutPreviewUrl, type LaserSession, type LaserProject,
@@ -70,8 +69,13 @@ const TICKED_KEY = 'laserTickedCuts';
 const CUT_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] min-[480px]:grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2';
 
 /** What paying these cuts together costs: rounded up once, at least the machine minimum. */
-const payPrice = (list: LaserSession[]) =>
-  Math.max(laserSessionPrice(Math.ceil(list.reduce((t, s) => t + s.total_time, 0) / 60)), PRICING.LASER_MINIMUM);
+const payPrice = (list: LaserSession[], rate: LaserRate) =>
+  Math.max(laserSessionPrice(Math.ceil(list.reduce((t, s) => t + s.total_time, 0) / 60), rate), rate.minimum);
+type LaserRate = Rates['laser'];
+/** Until the till server's rates are in. */
+const NO_RATE: LaserRate = { per_minute: 0, minimum: 0 };
+const laserSessionPrice = (minutes: number, rate: LaserRate) => minutes * rate.per_minute;
+const useLaserRate = () => useRates()?.laser ?? NO_RATE;
 const cutCount = (n: number) => (n === 1 ? '1 cut' : `${n} cuts`);
 const LINK = 'text-sm font-semibold underline underline-offset-2 disabled:opacity-40 disabled:no-underline';
 
@@ -207,6 +211,7 @@ function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] 
 }
 
 function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
+  const rate = useLaserRate();
   const { connected, time, sessions, projects } = live;
   const { addToast } = useToast();
   // The cuts this visitor ticked. Unticking removes nothing: a cut stays until it is paid or deleted.
@@ -241,7 +246,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const older = loose.filter(s => new Date(s.created).getTime() < dayAgo);
   const picked = loose.filter(s => ticked.has(s.id) && !s.checkout_at);
   const pickedSeconds = picked.reduce((sum, s) => sum + s.total_time, 0);
-  const pickedPrice = payPrice(picked);
+  const pickedPrice = payPrice(picked, rate);
 
   // Forget ticks of cuts that are paid, deleted or in the checkout. Not before the list has loaded.
   useEffect(() => {
@@ -369,7 +374,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
         ))}
 
         <p className="text-sm text-grafiet">
-          Laser time costs {`€${PRICING.LASER_PER_MINUTE.toFixed(2)}`}/min; machine use is at least {`€${PRICING.LASER_MINIMUM.toFixed(2)}`} per payment.
+          Laser time costs {`€${rate.per_minute.toFixed(2)}`}/min; machine use is at least {`€${rate.minimum.toFixed(2)}`} per payment.
         </p>
         <WoodReminder onShop={onShop} />
       </div>
@@ -379,7 +384,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
           {deleting && (
             <DiscardConfirm
               what={`Delete ${picked.length === 1 ? '1 cut' : `${picked.length} cuts`} with ${shortDuration(pickedSeconds)} unpaid`}
-              value={laserSessionPrice(Math.ceil(pickedSeconds / 60))}
+              value={laserSessionPrice(Math.ceil(pickedSeconds / 60), rate)}
               askKind
               busy={busy}
               onCancel={() => setDeleting(false)}
@@ -440,6 +445,7 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup, drag }: {
   /** Hold (touch) or drag (mouse) to move the card to a project. */
   drag?: { onPointerDown: (e: React.PointerEvent) => void; dragging: boolean };
 }) {
+  const rate = useLaserRate();
   const dragAttrs = drag && {
     onPointerDown: drag.onPointerDown,
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),   // a long press must not open the menu
@@ -462,7 +468,7 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup, drag }: {
       {/* Unrounded: the till rounds up once for all ticked cuts together. */}
       <span className="flex justify-end">
         <span className="inline-flex items-center gap-1 border border-emerald-600 bg-emerald-50 text-emerald-700 px-1.5 py-0.5 text-xs font-semibold tabular-nums">
-          <Tag size={12} aria-hidden />€{laserSessionPrice(cut.total_time / 60).toFixed(2)}
+          <Tag size={12} aria-hidden />€{laserSessionPrice(cut.total_time / 60, rate).toFixed(2)}
         </span>
       </span>
     </span>
@@ -582,10 +588,11 @@ function ProjectBlock({ project, cuts, busy, run, onCheckout, dragProps, dropAct
   run: (fn: () => Promise<unknown>) => Promise<void>; onCheckout: (ids: string[]) => void;
   dragProps: (s: LaserSession) => React.ComponentProps<typeof CutRow>['drag']; dropActive: boolean;
 }) {
+  const rate = useLaserRate();
   const [renaming, setRenaming] = useState(false);
   const seconds = cuts.reduce((t, s) => t + s.total_time, 0);
-  const price = payPrice(cuts);
-  const atMinimum = laserSessionPrice(Math.ceil(seconds / 60)) < PRICING.LASER_MINIMUM;
+  const price = payPrice(cuts, rate);
+  const atMinimum = laserSessionPrice(Math.ceil(seconds / 60), rate) < rate.minimum;
   return (
     <section data-drop={project.id} className={cn('border-2 border-brand-black', dropActive ? 'bg-laser-licht' : 'bg-white')} aria-label={`Project ${project.name}`}>
       <div className="flex items-start gap-2 px-3 py-2 border-b border-lijn bg-brand-beige-dark">

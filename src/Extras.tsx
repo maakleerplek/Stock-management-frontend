@@ -1,18 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, Zap, Drill, Printer, Plus } from 'lucide-react';
-import { PRICING } from './constants';
-import { isFilament, filamentType, priced, topUp, extraLabel, type ExtraLine } from './sendCodeHandler';
+import { isFilament, filamentType } from './sendCodeHandler';
+import { useRates, type Bill, type TypedJob } from './lib/tillApi';
 import { useStock } from './StockContext';
-import { inventreeClient } from './api/inventreeClient';
 import { cutPreviewUrl, laserMinutes, shortDuration, type LaserSession } from './lib/laserApi';
 import { cn } from './lib/utils';
 
 /** Machine time added by hand survives a refresh, like the cart. Cleared after a sale. */
-export const EXTRAS_STORAGE_KEY = 'stockManagerExtras.v2';
+export const EXTRAS_STORAGE_KEY = 'stockManagerExtras.v3';
 
 interface ExtrasProps {
-    /** The machine time added to this checkout by hand, one line per job. */
-    onExtrasChange: (extras: ExtraLine[]) => void;
+    /** The machine time added to this checkout by hand, one entry per job. */
+    onExtrasChange: (jobs: TypedJob[]) => void;
+    /** The server's bill for the whole checkout: the minimum top-up comes from it. */
+    bill: Bill | null;
     /** Laser sessions in this checkout; their time comes from the laser service. */
     laserSessions: LaserSession[];
     /** Open laser sessions not in the checkout yet, to pick from. */
@@ -21,7 +22,7 @@ interface ExtrasProps {
     onRemoveLaserSession: (id: string) => void;
 }
 
-function stored(): ExtraLine[] {
+function stored(): TypedJob[] {
     try {
         const v = JSON.parse(localStorage.getItem(EXTRAS_STORAGE_KEY) || '[]');
         return Array.isArray(v) ? v : [];
@@ -31,20 +32,18 @@ function stored(): ExtraLine[] {
 }
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
-export const laserSessionPrice = (minutes: number) => minutes * PRICING.LASER_PER_MINUTE;
 /** Under each machine: its minimum counts once per payment, for all machine use together. */
 const minimumText = (minimum: number) => `min. ${eur(minimum)} per payment`;
 
-export default function Extras({ onExtrasChange, laserSessions, openLaserSessions, onAddLaserSession, onRemoveLaserSession }: ExtrasProps) {
-    const [added, setAdded] = useState<ExtraLine[]>(stored);
+export default function Extras({ onExtrasChange, bill, laserSessions, openLaserSessions, onAddLaserSession, onRemoveLaserSession }: ExtrasProps) {
+    const [added, setAdded] = useState<TypedJob[]>(stored);
+    const rates = useRates();
     const [laserMin, setLaserMin] = useState(0);
     const [cncMin, setCncMin] = useState(0);
     const [grams, setGrams] = useState(0);
     // 3D print: the type, then its colour (part id); both optional. Price per gram from InvenTree, else the default.
     const [printType, setPrintType] = useState<string | null>(null);
     const [printPart, setPrintPart] = useState<number | null>(null);
-    const [printPrices, setPrintPrices] = useState<Record<number, number>>({});
-    useEffect(() => { void inventreeClient.getPrintPricePerGram().then(setPrintPrices); }, []);
     const { items } = useStock();
     const filaments = useMemo(() => {
         const byPart = new Map<number, string>();
@@ -52,25 +51,29 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
         return [...byPart].map(([id, name]) => ({ id, name, ...filamentType(name) })).sort((a, b) => a.name.localeCompare(b.name));
     }, [items]);
     const types = [...new Set(filaments.map(f => f.type))].sort((a, b) => a.localeCompare(b));
-    const priceOf = (id: number) => printPrices[id] || PRICING.PRINTING_PER_GRAM;
+    const defaultPerGram = rates?.print.default_per_gram ?? 0;
+    const priceOf = (id: number) => rates?.print.per_gram[id] || defaultPerGram;
     const printFilament = filaments.find(f => f.id === printPart);
-    // Only a type: its cheapest filament. Only grams: the default price.
+    // Only a type: its cheapest filament prices it. Only grams: the default price.
     const ofType = filaments.filter(f => f.type === printType);
-    const perGram = printFilament ? priceOf(printFilament.id)
-        : ofType.length ? Math.min(...ofType.map(f => priceOf(f.id))) : PRICING.PRINTING_PER_GRAM;
+    const priceFilament = printFilament ?? [...ofType].sort((a, b) => priceOf(a.id) - priceOf(b.id))[0];
+    const perGram = priceFilament ? priceOf(priceFilament.id) : defaultPerGram;
+    const laserRate = rates?.laser.per_minute ?? 0, cncRate = rates?.cnc.per_minute ?? 0;
 
     useEffect(() => {
         localStorage.setItem(EXTRAS_STORAGE_KEY, JSON.stringify(added));
         onExtrasChange(added);
     }, [added, onExtrasChange]);
 
-    const add = (line: ExtraLine) => setAdded(a => [...a, line]);
-    // The top-up over everything in this checkout: the laser sessions and the added lines.
-    // The laser cuts are one line, rounded up once (as ShoppingWindow books them).
+    const add = (job: TypedJob) => setAdded(a => [...a, job]);
+    // The laser cuts are one line, rounded up once (the server books them the same way).
     const cutMinutes = laserMinutes(laserSessions);
-    const inCheckout: ExtraLine[] = [...(laserSessions.length ? [{ name: 'Lasertime', quantity: cutMinutes, unit: 'min', ...priced(PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM) }] : []), ...added];
-    const top = topUp(inCheckout);
-    const minimum = Math.max(0, ...inCheckout.map(e => e.minimum ?? 0));
+    const top = bill?.top_up ?? 0;
+    const minimum = Math.max(0, ...(bill?.extras.map(e => e.minimum) ?? []));
+    const jobPrice = (j: TypedJob) => j.kind === 'print' ? j.grams * (j.part != null ? priceOf(j.part) : defaultPerGram)
+        : j.minutes * (j.kind === 'cnc' ? cncRate : laserRate);
+    const jobTitle = (j: TypedJob) => j.kind === 'print' ? (j.material ? `3D printing – ${j.material}` : '3D printing')
+        : j.kind === 'cnc' ? 'CNC time' : 'Lasertime';
 
     return (
         <div className="space-y-4">
@@ -109,13 +112,13 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
                     {laserSessions.length > 0 && (
                         <Row icon={Zap} tone="text-laser"
                             title={`Lasercut · ${laserSessions.length === 1 ? laserSessions[0].name : `${laserSessions.length} cuts`}`}
-                            detail={`${cutMinutes} min, from the laser timer`} price={laserSessionPrice(cutMinutes)}
+                            detail={`${cutMinutes} min, from the laser timer`} price={cutMinutes * laserRate}
                             onRemove={() => laserSessions.forEach(s => onRemoveLaserSession(s.id))} />
                     )}
-                    {added.map((l, i) => (
-                        <Row key={i} icon={l.unit === 'g' ? Printer : l.name === 'CNC time' ? Drill : Zap}
-                            tone={l.unit === 'g' ? 'text-blue-600' : l.name === 'CNC time' ? 'text-cnc' : 'text-laser'}
-                            title={extraLabel(l)} detail={`${l.quantity} ${l.unit}`} price={l.quantity * l.unitPrice}
+                    {added.map((j, i) => (
+                        <Row key={i} icon={j.kind === 'print' ? Printer : j.kind === 'cnc' ? Drill : Zap}
+                            tone={j.kind === 'print' ? 'text-blue-600' : j.kind === 'cnc' ? 'text-cnc' : 'text-laser'}
+                            title={jobTitle(j)} detail={j.kind === 'print' ? `${j.grams} g` : `${j.minutes} min`} price={jobPrice(j)}
                             onRemove={() => setAdded(a => a.filter((_, j) => j !== i))} />
                     ))}
                     {top > 0 && (
@@ -129,19 +132,19 @@ export default function Extras({ onExtrasChange, laserSessions, openLaserSession
 
             <div className="grid grid-cols-1 gap-3">
                 <Machine icon={Zap} tone="text-laser" border="border-laser" name="Lasercut" unit="min"
-                    rate={`${eur(PRICING.LASER_PER_MINUTE)}/min · ${minimumText(PRICING.LASER_MINIMUM)}`}
-                    value={laserMin} onChange={setLaserMin} price={laserMin * PRICING.LASER_PER_MINUTE}
-                    onAdd={() => { add({ name: 'Lasertime', quantity: laserMin, unit: 'min', ...priced(PRICING.LASER_PER_MINUTE, PRICING.LASER_MINIMUM) }); setLaserMin(0); }} />
+                    rate={rates ? `${eur(laserRate)}/min · ${minimumText(rates.laser.minimum)}` : '…'}
+                    value={laserMin} onChange={setLaserMin} price={laserMin * laserRate}
+                    onAdd={() => { add({ kind: 'laser', minutes: laserMin }); setLaserMin(0); }} />
                 <Machine icon={Drill} tone="text-cnc" border="border-cnc" name="CNC" unit="min"
-                    rate={`${eur(PRICING.CNC_PER_MINUTE)}/min · ${minimumText(PRICING.CNC_MINIMUM)}`}
-                    value={cncMin} onChange={setCncMin} price={cncMin * PRICING.CNC_PER_MINUTE}
-                    onAdd={() => { add({ name: 'CNC time', quantity: cncMin, unit: 'min', ...priced(PRICING.CNC_PER_MINUTE, PRICING.CNC_MINIMUM) }); setCncMin(0); }} />
+                    rate={rates ? `${eur(cncRate)}/min · ${minimumText(rates.cnc.minimum)}` : '…'}
+                    value={cncMin} onChange={setCncMin} price={cncMin * cncRate}
+                    onAdd={() => { add({ kind: 'cnc', minutes: cncMin }); setCncMin(0); }} />
                 <Machine icon={Printer} tone="text-blue-600" border="border-blue-600" name="3D print" unit="g"
-                    rate={`${eur(perGram)}/g · ${minimumText(PRICING.PRINTING_MINIMUM)}`} value={grams} onChange={setGrams} price={grams * perGram}
+                    rate={rates ? `${eur(perGram)}/g · ${minimumText(rates.print.minimum)}` : '…'} value={grams} onChange={setGrams} price={grams * perGram}
                     onAdd={() => {
                         // Booked as the line's description, for the analytics per filament: the filament,
                         // only its type, or nothing.
-                        add({ name: '3D printing', quantity: grams, unit: 'g', ...priced(perGram, PRICING.PRINTING_MINIMUM), person: printFilament?.name ?? printType ?? undefined });
+                        add({ kind: 'print', grams, part: priceFilament?.id, material: printFilament?.name ?? printType ?? '' });
                         setGrams(0);
                     }}>
                     <Chips label="Filament (optional)" options={types.map(t => ({ key: t, text: t }))} value={printType}

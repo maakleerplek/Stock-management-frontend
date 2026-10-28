@@ -129,6 +129,8 @@ export default defineConfig(({ mode }) => {
       host: env.VITE_DEV_HOST || '0.0.0.0', // Configurable via .env, defaults to all network interfaces
       port: parseInt(env.VITE_DEV_PORT || '5173'), // Configurable via .env, defaults to 5173
       proxy: {
+        // The till is the core service, not InvenTree: listed before /api so it matches first.
+        '/api/till': { target: env.LASER_URL || 'http://127.0.0.1:5000' },
         '/api': proxyTarget,
         '/media': proxyTarget,
         '/laser': { target: env.LASER_URL || 'http://127.0.0.1:5000', ws: true },

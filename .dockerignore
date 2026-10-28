@@ -18,7 +18,7 @@ frontend-caddy-config/
 frontend-caddy-data/
 
 # Not part of the web build: changes here should not rebuild the frontend
-laser/
+core/
 tests/
 .github/
 **/__pycache__

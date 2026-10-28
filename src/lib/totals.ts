@@ -5,7 +5,6 @@
  */
 import type { ItemAnalytics } from './itemAnalytics';
 import type { ServiceRevenue, LaserLedger, LaserBucket, PrintUse } from './services';
-import { PRICING } from '../constants';
 
 /** Grams of filament in a spool, from its name ("PLA White (1 kg)", "750g"); 1 kg when it does not say. */
 export function spoolGrams(name: string): number {
@@ -49,7 +48,7 @@ const SERVICE_LABEL: Record<string, string> = { Lasertime: 'Laser time' };
 
 export function buildTotals(
   items: ItemAnalytics, services: ServiceRevenue[], laser: LaserLedger,
-  prints: Map<string, PrintUse> = new Map(), pricePerGram: Record<string, number> = {},
+  prints: Map<string, PrintUse> = new Map(), pricePerGram: Record<string, number> = {}, defaultPerGram = 0,
 ): Totals {
   const { paid, other, none } = laser.deleted;
   const deletedPaid = paid.value + other.value + none.value;
@@ -61,7 +60,7 @@ export function buildTotals(
     const m = material(p.name);
     const grams = p.used * spoolGrams(p.name);
     materials.set(p.name, { ...m, grams: m.grams + grams, cost: m.cost + p.used * p.costPrice,
-      potentialRevenue: m.potentialRevenue + grams * (pricePerGram[p.name] ?? PRICING.PRINTING_PER_GRAM) });
+      potentialRevenue: m.potentialRevenue + grams * (pricePerGram[p.name] ?? defaultPerGram) });
   }
   for (const [name, u] of prints) {
     const m = material(name);
