@@ -783,6 +783,10 @@ function SettingsPanel({ libraryVersion }: { libraryVersion: number }) {
       <div className="border-b border-lijn pb-3">
         <h2 className="text-lg font-semibold text-brand-black">Laser settings</h2>
       </div>
+      <p className="flex gap-2 border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-brand-black">
+        <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-700" aria-hidden />
+        <span><b>Always test first</b> on a small scrap of your material, for cutting and for engraving. Didn't work? Tell us under <b>Tried it? How did it go?</b> so the advice gets better.</span>
+      </p>
 
       {loadError && <p className="text-sm text-rood">Material list unavailable: {loadError}</p>}
       {materials && !materials.length && <p className="text-sm text-grafiet">No materials in InvenTree yet (category Lasermaterialen).</p>}
