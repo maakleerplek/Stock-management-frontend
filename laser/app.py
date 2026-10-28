@@ -21,7 +21,7 @@ import os
 import socket
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 from flask import Flask, Response, jsonify, request
@@ -291,15 +291,26 @@ def book_time(sid: str, seconds: float):
 
 def all_sessions() -> list[dict]:
     """Open sessions: not paid yet. Paid ones stay in the table as history."""
-    rows = db.query('SELECT id, name, email, created, total_time, total_cost, checkout_at, paid_at, order_ref, file, '
+    rows = db.query('SELECT id, name, email, created, total_time, total_cost, checkout_at, paid_at, order_ref, file, project_id, '
                     'preview IS NOT NULL AS has_preview FROM sessions WHERE paid_at IS NULL ORDER BY created DESC')
     for r in rows:
         r['minutes'] = math.ceil(round(r['total_time'], 3) / 60)   # what the till charges
     return rows
 
 
+def open_projects() -> list[dict]:
+    """Projects with unpaid cuts, and empty ones made in the last day (just started, or all cuts taken out)."""
+    since = (datetime.now() - timedelta(days=1)).isoformat()
+    return db.query('SELECT id, name, created FROM projects p WHERE created >= ? OR EXISTS '
+                    '(SELECT 1 FROM sessions s WHERE s.project_id = p.id AND s.paid_at IS NULL) ORDER BY created', (since,))
+
+
+def sessions_payload() -> dict:
+    return {'sessions': all_sessions(), 'projects': open_projects()}
+
+
 def broadcast_sessions():
-    socketio.emit('sessions', {'sessions': all_sessions()})
+    socketio.emit('sessions', sessions_payload())
 
 
 def client_name() -> str:
@@ -314,7 +325,7 @@ def on_connect():
     with state_lock:
         payload = time_payload()
     socketio.emit('time_update', payload, to=request.sid)
-    socketio.emit('sessions', {'sessions': all_sessions()}, to=request.sid)
+    socketio.emit('sessions', sessions_payload(), to=request.sid)
 
 
 @socketio.on('disconnect')
@@ -398,7 +409,7 @@ def session_preview(sid):
 
 @app.get('/laser/api/sessions')
 def get_sessions():
-    return {'sessions': all_sessions()}
+    return sessions_payload()
 
 
 @app.get('/laser/api/sessions/all')
@@ -495,6 +506,59 @@ def paid_session(sid):
         db.execute('DELETE FROM sessions WHERE id = ?', (sid,))
     else:
         db.execute('UPDATE sessions SET paid_at = ?, order_ref = ? WHERE id = ?', (datetime.now().isoformat(), order, sid))
+    # A project is done once all its cuts are paid.
+    db.execute('DELETE FROM projects WHERE id IN (SELECT project_id FROM sessions WHERE paid_at IS NOT NULL) '
+               'AND id NOT IN (SELECT project_id FROM sessions WHERE paid_at IS NULL AND project_id IS NOT NULL)')
+    broadcast_sessions()
+    return {'ok': True}
+
+
+def name_from_body():
+    name = ((request.get_json(silent=True) or {}).get('name') or '').strip()
+    return name[:80] if len(name) >= 2 else None
+
+
+@app.post('/laser/api/projects')
+def create_project():
+    name = name_from_body()
+    if not name:
+        return {'error': 'Enter at least 2 characters'}, 400
+    pid = str(uuid4())
+    db.execute('INSERT INTO projects (id, name, created) VALUES (?, ?, ?)', (pid, name, datetime.now().isoformat()))
+    broadcast_sessions()
+    return {'id': pid}
+
+
+@app.patch('/laser/api/projects/<pid>')
+def rename_project(pid):
+    name = name_from_body()
+    if not name:
+        return {'error': 'Enter at least 2 characters'}, 400
+    if not db.query('SELECT id FROM projects WHERE id = ?', (pid,)):
+        return {'error': 'Project not found'}, 404
+    db.execute('UPDATE projects SET name = ? WHERE id = ?', (name, pid))
+    broadcast_sessions()
+    return {'ok': True}
+
+
+@app.delete('/laser/api/projects/<pid>')
+def delete_project(pid):
+    """Only the group goes: its unpaid cuts go back to the new cuts."""
+    db.execute('UPDATE sessions SET project_id = NULL WHERE project_id = ? AND paid_at IS NULL', (pid,))
+    db.execute('DELETE FROM projects WHERE id = ?', (pid,))
+    broadcast_sessions()
+    return {'ok': True}
+
+
+@app.post('/laser/api/sessions/<sid>/project')
+def set_session_project(sid):
+    """Put an unpaid cut in a project, or (project_id null) back with the new cuts."""
+    pid = (request.get_json(silent=True) or {}).get('project_id')
+    if pid is not None and not db.query('SELECT id FROM projects WHERE id = ?', (pid,)):
+        return {'error': 'Project not found'}, 404
+    if not db.query('SELECT id FROM sessions WHERE id = ? AND paid_at IS NULL', (sid,)):
+        return {'error': 'Session not found'}, 404
+    db.execute('UPDATE sessions SET project_id = ? WHERE id = ?', (pid, sid))
     broadcast_sessions()
     return {'ok': True}
 

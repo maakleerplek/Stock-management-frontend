@@ -52,6 +52,13 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
             total_cost REAL NOT NULL DEFAULT 0
         );
 
+        -- Optional group of cuts, for someone lasering a long time with others in between.
+        CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            created TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS time_blocks (
             id INTEGER PRIMARY KEY,
             session_id TEXT NOT NULL,
@@ -92,7 +99,7 @@ def connect(path: str = DB_PATH) -> sqlite3.Connection:
     # Added later: a session is 'in checkout' once someone pressed Pay, and
     # 'paid' with the InvenTree order once the checkout went through.
     have = {r[1] for r in _conn.execute('PRAGMA table_info(sessions)')}
-    for column in ('checkout_at', 'paid_at', 'order_ref', 'file'):
+    for column in ('checkout_at', 'paid_at', 'order_ref', 'file', 'project_id'):
         if column not in have:
             _conn.execute(f'ALTER TABLE sessions ADD COLUMN {column} TEXT')
     # A cut's LightBurn thumbnail (PNG), from the watcher on the laser PC.

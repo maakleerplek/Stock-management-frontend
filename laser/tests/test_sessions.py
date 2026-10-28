@@ -171,3 +171,31 @@ def test_rename_open_session_only(tmp_path):
     assert c.get('/laser/api/sessions').json['sessions'][0]['name'] == 'Box for Jan'
     db.execute('UPDATE sessions SET paid_at = ? WHERE id = ?', ('2026-10-15', sid))
     assert c.patch(f'/laser/api/sessions/{sid}', json={'name': 'Later'}).status_code == 404
+
+
+def test_projects_group_cuts_and_go_once_paid(tmp_path):
+    c = client(tmp_path)
+    a = c.post('/laser/api/sessions', json={'name': 'Cut 10:00'}).json['id']
+    b = c.post('/laser/api/sessions', json={'name': 'Cut 10:20'}).json['id']
+    db.execute('UPDATE sessions SET total_time = 120')
+    assert c.post('/laser/api/projects', json={'name': 'x'}).status_code == 400
+    pid = c.post('/laser/api/projects', json={'name': 'Ruben lamp'}).json['id']
+    assert c.post(f'/laser/api/sessions/{a}/project', json={'project_id': 'nope'}).status_code == 404
+    for sid in (a, b):
+        assert c.post(f'/laser/api/sessions/{sid}/project', json={'project_id': pid}).status_code == 200
+    c.post(f'/laser/api/sessions/{b}/project', json={'project_id': None})   # taken out again
+    data = c.get('/laser/api/sessions').json
+    assert {s['id']: s['project_id'] for s in data['sessions']} == {a: pid, b: None}
+    assert [p['name'] for p in data['projects']] == ['Ruben lamp']
+
+    # Deleting the project keeps its cuts, as new cuts.
+    c.delete(f'/laser/api/projects/{pid}')
+    data = c.get('/laser/api/sessions').json
+    assert data['projects'] == [] and all(s['project_id'] is None for s in data['sessions'])
+
+    # Paying the last cut of a project closes it; another open project stays.
+    pid = c.post('/laser/api/projects', json={'name': 'Ruben lamp'}).json['id']
+    other = c.post('/laser/api/projects', json={'name': 'Empty'}).json['id']
+    c.post(f'/laser/api/sessions/{a}/project', json={'project_id': pid})
+    c.post(f'/laser/api/sessions/{a}/paid', json={'order': 'SO-0050'})
+    assert [p['id'] for p in c.get('/laser/api/sessions').json['projects']] == [other]

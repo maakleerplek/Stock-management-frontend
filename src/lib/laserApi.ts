@@ -21,6 +21,15 @@ export interface LaserSession {
   file?: string | null;
   /** 1 when LightBurn's thumbnail of that file is stored: GET /sessions/<id>/preview. */
   has_preview?: number;
+  /** The project this cut is grouped in; null with the new cuts. */
+  project_id?: string | null;
+}
+
+/** An optional named group of cuts, for a long session with other people's cuts in between. */
+export interface LaserProject {
+  id: string;
+  name: string;
+  created: string;
 }
 
 /** Every session, open and paid, for the analytics (GET /sessions/all). */
@@ -168,6 +177,11 @@ export const laserApi = {
   renameSession: (id: string, name: string) => call('/sessions/' + encodeURIComponent(id), 'PATCH', { name }),
   deleteSession: (id: string, reason?: string, kind?: DiscardKind) => call('/sessions/' + encodeURIComponent(id), 'DELETE', { reason, kind }),
   setCheckout: (id: string, on: boolean) => call(`/sessions/${encodeURIComponent(id)}/checkout`, 'POST', { on }),
+  createProject: (name: string) => call<{ id: string }>('/projects', 'POST', { name }),
+  renameProject: (id: string, name: string) => call('/projects/' + encodeURIComponent(id), 'PATCH', { name }),
+  deleteProject: (id: string) => call('/projects/' + encodeURIComponent(id), 'DELETE'),
+  setProject: (sessionId: string, projectId: string | null) =>
+    call(`/sessions/${encodeURIComponent(sessionId)}/project`, 'POST', { project_id: projectId }),
   markPaid: (id: string, order: string) => call(`/sessions/${encodeURIComponent(id)}/paid`, 'POST', { order }),
   flush: (sessionId: string) => call<{ flushed_time: number }>('/flush', 'POST', { session_id: sessionId }),
   reset: (reason?: string) => call('/reset', 'POST', { reason }),
@@ -267,6 +281,7 @@ export function useLaserSocket() {
   const [connected, setConnected] = useState(false);
   const [time, setTime] = useState<LaserTime | null>(null);
   const [sessions, setSessions] = useState<LaserSession[]>([]);
+  const [projects, setProjects] = useState<LaserProject[]>([]);
 
   useEffect(() => {
     const socket = io({ path: '/laser/socket.io' });
@@ -281,11 +296,14 @@ export function useLaserSocket() {
         clientLog('laser_state', { laser_state: t.laser_state, global_time: Math.round(t.global_time), esp_connected: t.esp_connected });
       }
     });
-    socket.on('sessions', (d: { sessions: LaserSession[] }) => setSessions(d.sessions));
+    socket.on('sessions', (d: { sessions: LaserSession[]; projects?: LaserProject[] }) => {
+      setSessions(d.sessions);
+      setProjects(d.projects ?? []);
+    });
     return () => { socket.disconnect(); };
   }, []);
 
-  return { connected, time, sessions };
+  return { connected, time, sessions, projects };
 }
 
 /** Whole minutes the till charges for these cuts together: rounded up once, not per cut. */
