@@ -93,10 +93,25 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
     if (e.button !== 0) return;
     const x0 = e.clientX, y0 = e.clientY;
     const touch = e.pointerType !== 'mouse';
+    const card = e.currentTarget as HTMLElement;
     let active = false;
+    // The card itself follows the finger: a copy at full size, held where it was grabbed.
+    let ghost: HTMLElement | null = null;
+    let grabX = 0, grabY = 0;
+    const place = (x: number, y: number) => { if (ghost) ghost.style.transform = `translate(${x - grabX}px, ${y - grabY}px) rotate(2deg)`; };
     const begin = (x: number, y: number) => {
       active = true;
       navigator.vibrate?.(15);
+      const r = card.getBoundingClientRect();
+      grabX = x0 - r.left;
+      grabY = y0 - r.top;
+      ghost = card.cloneNode(true) as HTMLElement;
+      Object.assign(ghost.style, {
+        position: 'fixed', left: '0', top: '0', width: `${r.width}px`, height: `${r.height}px`, margin: '0',
+        zIndex: '60', pointerEvents: 'none', boxShadow: '0 12px 28px rgba(0,0,0,0.3)', listStyle: 'none',
+      });
+      document.body.appendChild(ghost);
+      place(x, y);
       setDrag({ cut, x, y, over: null });
     };
     // Touch: hold still 350 ms. Mouse: just move 8 px with the button down.
@@ -108,6 +123,7 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
         if (touch) return cleanup();          // moved before the hold: it's a scroll
         begin(ev.clientX, ev.clientY);
       }
+      place(ev.clientX, ev.clientY);
       const zone = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-drop]');
       setDrag(d => d && { ...d, x: ev.clientX, y: ev.clientY, over: (zone?.dataset.drop as DropTarget) ?? null });
     };
@@ -121,6 +137,7 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
       if (d?.over) dropRef.current(d.cut, d.over);
     };
     const cleanup = () => {
+      ghost?.remove();
       window.clearTimeout(timer);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
@@ -371,15 +388,6 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
         </div>
       )}
       {drag && <DropTray drag={drag} projects={projects} />}
-      {drag && (
-        <div className="fixed z-[60] pointer-events-none w-20 border-2 border-brand-black bg-white shadow-lg -translate-x-1/2 -translate-y-full rotate-3"
-          style={{ left: drag.x, top: drag.y - 24 }} aria-hidden>
-          {drag.cut.has_preview
-            ? <img src={cutPreviewUrl(drag.cut.id)} alt="" className="w-full aspect-[4/3] object-contain p-1" />
-            : <span className="w-full aspect-[4/3] flex items-center justify-center"><Scissors size={24} className="text-lijn" /></span>}
-          <span className="block px-1 pb-1 text-[10px] font-semibold truncate">{drag.cut.name}</span>
-        </div>
-      )}
     </section>
   );
 }
