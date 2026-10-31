@@ -142,17 +142,17 @@ function ShoppingCart({
 
                         {invoice && (invoiceFor === null ? (
                             <button onClick={() => setInvoiceFor('')} className="brutalist-button px-4 py-2 text-xs bg-white flex items-center gap-2">
-                                <FileText size={14} /> Need an invoice (factuur)?
+                                <FileText size={14} /> Need a receipt?
                             </button>
                         ) : (
                             <form
                                 className="w-full max-w-sm border border-lijn bg-white p-3 space-y-2 text-left"
                                 onSubmit={e => {
                                     e.preventDefault();
-                                    downloadInvoice(invoice, invoiceFor).catch(() => addToast('Could not make the invoice PDF', 'error'));
+                                    downloadInvoice(invoice, invoiceFor).catch(() => addToast('Could not make the receipt PDF', 'error'));
                                 }}
                             >
-                                <label htmlFor="invoice-customer" className="text-xs font-semibold">Invoice for (name or company, address, VAT nr)</label>
+                                <label htmlFor="invoice-customer" className="text-xs font-semibold">Receipt for (name or company, optional)</label>
                                 <textarea
                                     id="invoice-customer" rows={3} value={invoiceFor} autoFocus
                                     onChange={e => setInvoiceFor(e.target.value)}
@@ -160,7 +160,7 @@ function ShoppingCart({
                                     placeholder={'Jane Doe\nStreet 1, 9000 Gent\nBE0123.456.789'}
                                 />
                                 <button type="submit" className="brutalist-button w-full py-2 text-xs font-semibold bg-brand-black text-white flex items-center justify-center gap-2">
-                                    <FileText size={14} /> Download invoice PDF ({invoice.reference})
+                                    <FileText size={14} /> Download receipt PDF ({invoice.reference})
                                 </button>
                             </form>
                         ))}

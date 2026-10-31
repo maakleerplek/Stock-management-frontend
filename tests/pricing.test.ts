@@ -154,5 +154,6 @@ describe('filamentType', () => {
     expect(filamentType('PLA Matt Black (1 kg)')).toEqual({ type: 'PLA', colour: 'Matt Black' });
     expect(filamentType('Refill PLA Grey Beige (750 g)')).toEqual({ type: 'PLA', colour: 'Grey Beige (refill)' });
     expect(filamentType('rTPU 95A Traffic White (1 kg)')).toEqual({ type: 'rTPU 95A', colour: 'Traffic White' });
+    expect(filamentType('EasyFil ePLA Traffic Red (1 kg)')).toEqual({ type: 'PLA', colour: 'Traffic Red' });
   });
 });

@@ -698,7 +698,7 @@ function DiscardConfirm({ what, value, askKind = false, busy, onCancel, onConfir
         <input
           value={reason}
           onChange={e => setReason(e.target.value)}
-          placeholder={kind === 'other' ? 'Why? (required, e.g. test cut, wants an invoice)' : 'Note (optional, e.g. paid cash to Ruben)'}
+          placeholder={kind === 'other' ? 'Why? (required, e.g. test cut, wants a receipt)' : 'Note (optional, e.g. paid cash to Ruben)'}
           className="w-full h-9 px-3 border border-lijn bg-white text-sm"
           maxLength={200}
           autoFocus

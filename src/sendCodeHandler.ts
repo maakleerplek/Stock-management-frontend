@@ -179,13 +179,16 @@ export type { ItemData };
 /**
  * Type and colour from a filament's InvenTree name, "[Refill] TYPE [hardness] Colour (weight)",
  * the same as the touch kiosk: "Refill PLA Grey Beige (750 g)" is PLA / "Grey Beige (refill)",
- * "rTPU 95A Traffic White (1 kg)" is rTPU 95A / "Traffic White". A new spool shows up by itself.
+ * "rTPU 95A Traffic White (1 kg)" is rTPU 95A / "Traffic White". A brand in front is dropped and
+ * ePLA prints as PLA: "EasyFil ePLA Traffic Red (1 kg)" is PLA / "Traffic Red". A new spool shows up by itself.
  */
 export function filamentType(name: string): { type: string; colour: string } {
     const words = name.split(' (')[0].trim().split(/\s+/);
     const refill = /^refill$/i.test(words[0] ?? '');
     if (refill) words.shift();
+    if (/^easyfil$/i.test(words[0] ?? '')) words.shift();
     let type = words.shift() ?? '';
+    if (/^epla$/i.test(type)) type = 'PLA';
     // TPU hardness ("90A") is part of the type: 90A and 95A print differently.
     if (/^\d+a$/i.test(words[0] ?? '')) type += ` ${words.shift()}`;
     const colour = words.join(' ');

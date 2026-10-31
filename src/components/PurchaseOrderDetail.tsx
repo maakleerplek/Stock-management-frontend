@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Loader2, ShoppingBag, X } from 'lucide-react';
+import { FileDown, Loader2, ShoppingBag, X } from 'lucide-react';
 import inventreeClient from '../api/inventreeClient';
 import type { PurchaseOrderLine, PurchaseOrderSummary } from '../api/types';
 import { DEFAULTS } from '../constants';
 import { cn } from '@/lib/utils';
 import ModalFrame from './ModalFrame';
 import ImageDisplay from '../ImageDisplay';
+import { downloadPurchaseOrder } from '../lib/purchaseOrderPdf';
 
 interface Row {
   pk: number;
   name: string;
+  sku: string | null;
   image: string | null;
   packs: number;
   received: number;
@@ -57,6 +59,7 @@ export default function PurchaseOrderDetail({ po, statusClass, onClose }: {
         return {
           pk: l.pk,
           name: l.internal_part_name || l.part_detail?.name || l.sku || `Line ${l.pk}`,
+          sku: l.sku || null,
           image: l.part_detail?.thumbnail || l.part_detail?.image || null,
           packs: l.quantity,
           received: l.received,
@@ -73,11 +76,30 @@ export default function PurchaseOrderDetail({ po, statusClass, onClose }: {
   const anyEstimated = rows?.some(r => r.estimated) ?? false;
   const anyUnknown = rows?.some(r => r.cost === null) ?? false;
 
+  const exportPdf = () => {
+    if (!rows) return;
+    downloadPurchaseOrder({
+      reference: po.reference,
+      date: new Date(po.issue_date || po.creation_date || Date.now()),
+      supplier: po.supplier_detail?.name || po.supplier_name || '',
+      description: po.description,
+      currency,
+      lines: rows.map(r => ({ name: r.name, sku: r.sku, quantity: r.packs, unitPrice: r.cost === null ? null : r.cost / r.packs })),
+    }).catch(e => setError(e instanceof Error ? e.message : 'Could not make the PDF'));
+  };
+
   return (
     <ModalFrame onClose={onClose} maxWidth="max-w-2xl">
       <div className="flex items-center gap-2 p-4 border-b border-lijn bg-brand-black text-white sticky top-0">
         <ShoppingBag size={16} />
         <h2 className="text-sm font-semibold flex-1">{po.reference}</h2>
+        <button
+          onClick={exportPdf}
+          disabled={!rows}
+          className="h-10 px-3 flex items-center gap-1.5 text-xs font-semibold border border-white/40 disabled:opacity-40"
+        >
+          <FileDown size={14} /> PDF
+        </button>
         <button onClick={onClose} className="w-10 h-10 -mr-2 flex items-center justify-center" aria-label="Close">
           <X size={18} />
         </button>

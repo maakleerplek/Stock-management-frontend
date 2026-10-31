@@ -1,6 +1,6 @@
 /**
- * Invoice (factuur) PDF for a till sale, made in the browser. The sales order
- * reference is the invoice number: unique and in order.
+ * Receipt (betalingsbewijs) PDF for a till sale, made in the browser. Not an
+ * invoice: that needs a proper invoice form. The sales order reference is the number.
  */
 import type { jsPDF as JsPDF } from 'jspdf';
 import { PAYMENT } from '../constants';
@@ -19,7 +19,7 @@ export function drawInvoice(doc: JsPDF, inv: Invoice, customer: string, logo?: U
   const tx = logo ? x + 20 : x;
   if (wordmark) doc.addImage(wordmark, 'PNG', tx, y - 8, 47, 13.2);   // 1738 × 488 px
   else doc.setFont('helvetica', 'bold').setFontSize(18).text(PAYMENT.INVOICE_SELLER_NAME, tx, y - 1);
-  doc.setFont('helvetica', 'bold').setFontSize(12).text('Factuur', x, y + 18);
+  doc.setFont('helvetica', 'bold').setFontSize(12).text('Betalingsbewijs', x, y + 18);
   doc.setFont('helvetica', 'normal').setFontSize(9);
   y -= 5;
   for (const line of [PAYMENT.INVOICE_SELLER_NAME, ...PAYMENT.INVOICE_SELLER.split('\n').filter(Boolean), `IBAN ${PAYMENT.IBAN}`]) {
@@ -64,8 +64,8 @@ export function drawInvoice(doc: JsPDF, inv: Invoice, customer: string, logo?: U
 }
 
 export async function downloadInvoice(inv: Invoice, customer: string): Promise<void> {
-  const { jsPDF } = await import('jspdf');   // only loaded when someone asks for an invoice
+  const { jsPDF } = await import('jspdf');   // only loaded when someone asks for a receipt
   const image = (path: string) => fetch(path).then(r => r.ok ? r.arrayBuffer() : undefined).then(b => b && new Uint8Array(b)).catch(() => undefined);
   const [logo, wordmark] = await Promise.all([image('/invoice-logo.png'), image('/invoice-wordmark.png')]);
-  drawInvoice(new jsPDF(), inv, customer, logo, wordmark).save(`factuur-${inv.reference}.pdf`);
+  drawInvoice(new jsPDF(), inv, customer, logo, wordmark).save(`betalingsbewijs-${inv.reference}.pdf`);
 }
