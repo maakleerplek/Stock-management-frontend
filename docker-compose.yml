@@ -120,6 +120,8 @@ services:
       - INVENTREE_BACKEND_URL=${INVENTREE_BACKEND_URL}
       - INVENTREE_TOKEN=${INVENTREE_TOKEN:-${VITE_INVENTREE_TOKEN}}
       - COST_PER_MIN=${VITE_LASER_PRICE_PER_MIN:-0.50}
+      # Cut times are stored and shown as local time (the image defaults to UTC: cards were 1 h early).
+      - TZ=Europe/Brussels
       # 1 = test buttons that switch the laser on/off without the ESP32.
       - LASER_SIMULATE=${LASER_SIMULATE:-0}
       # Only these senders may report laser on/off (the ESP32); empty = anyone.

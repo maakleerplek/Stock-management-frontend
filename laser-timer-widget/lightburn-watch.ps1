@@ -80,6 +80,8 @@ while ($true) {
         if ($p -and $p.MainWindowTitle -match '^(.*?)( \*)? - .* - LightBurn') {
             $name = $Matches[1]; $unsaved = [bool]$Matches[2]
             $copy = Get-WorkingCopy $p $name
+            # LightBurn may still be writing it (autosave every 10 s): read it once it is 3 s old.
+            if ($copy -and ((Get-Date).ToUniversalTime() - $copy.LastWriteTimeUtc).TotalSeconds -lt 3) { Start-Sleep -Seconds 2; continue }
             $key = "$($p.Id)|$name|$(if ($copy) { $copy.LastWriteTimeUtc.Ticks })"
             # On a change at once, otherwise every minute so the service knows the watcher still runs.
             if ($key -ne $sent -or ((Get-Date) - $sentAt).TotalSeconds -ge 60) {
