@@ -4,7 +4,7 @@ import { PROFIT_SERIES, type ProfitBucket, type ProfitSeries } from '../lib/prof
 // Categorical slots 1-8 in fixed order (dataviz reference palette, validated on white).
 const COLORS: Record<ProfitSeries, string> = {
   'Drinks': '#2a78d6', 'Wood': '#eb6834', 'Filament': '#1baf7a', 'Other items': '#eda100',
-  'Laser': '#e87ba4', 'Machines (3D print, CNC)': '#008300', 'Volunteer drinks': '#6250d6', 'Lab use': '#e34948',
+  'Laser': '#e87ba4', 'Machines (3D print, CNC)': '#008300', 'Volunteer items': '#6250d6', 'Lab use': '#e34948',
 };
 const eur = (n: number) => `${n < 0 ? '−' : ''}€${Math.abs(n).toFixed(2)}`;
 

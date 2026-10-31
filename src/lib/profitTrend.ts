@@ -9,7 +9,7 @@ import { buildTotals } from './totals';
 
 /** Fixed order: the chart colours follow it (categorical slots 1-8). */
 export const PROFIT_SERIES = [
-  'Drinks', 'Wood', 'Filament', 'Other items', 'Laser', 'Machines (3D print, CNC)', 'Volunteer drinks', 'Lab use',
+  'Drinks', 'Wood', 'Filament', 'Other items', 'Laser', 'Machines (3D print, CNC)', 'Volunteer items', 'Lab use',
 ] as const;
 export type ProfitSeries = typeof PROFIT_SERIES[number];
 
@@ -17,7 +17,7 @@ export type ProfitSeries = typeof PROFIT_SERIES[number];
 export function seriesOf(label: string): ProfitSeries {
   const sold = /^Items sold · (.+)$/.exec(label)?.[1];
   if (sold) return (['Drinks', 'Wood', 'Filament'] as const).find(c => c.toLowerCase() === sold.toLowerCase()) ?? 'Other items';
-  if (label === 'Volunteer drinks') return 'Volunteer drinks';
+  if (label === 'Volunteer items') return 'Volunteer items';
   if (/^Lab /.test(label)) return 'Lab use';
   if (/^Laser time/.test(label)) return 'Laser';
   return 'Machines (3D print, CNC)';

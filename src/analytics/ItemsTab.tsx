@@ -23,6 +23,8 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
   dateRange: DateRange;
 }) {
   const [kind, setKind] = useState<SaleKind>('all');
+  // The chart's category filter, also applied to the volunteer list.
+  const [offCategories, setOffCategories] = useState<Set<string>>(new Set());
 
   const partLookup = usePartLookup();
 
@@ -53,8 +55,8 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
   );
 
   const mostGiven = useMemo(() =>
-    analytics.byPart.filter(p => p.given > 0).sort((a, b) => b.given - a.given).slice(0, 10),
-    [analytics]
+    analytics.byPart.filter(p => p.given > 0 && !offCategories.has(p.category)).sort((a, b) => b.given - a.given).slice(0, 10),
+    [analytics, offCategories]
   );
 
   const mostAdded = useMemo(() =>
@@ -104,8 +106,8 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
       ['--- TOTALS ---'],
       ['Transactions', String(analytics.totalTransactions)],
       ['Total Units Out', String(analytics.totalRemoved)],
-      ['Volunteer Drinks', String(analytics.totalGiven)],
-      ['Volunteer Drinks Cost (€)', analytics.givenCost.toFixed(2)],
+      ['Volunteer Items', String(analytics.totalGiven)],
+      ['Volunteer Items Cost (€)', analytics.givenCost.toFixed(2)],
       ['Internal Use Cost (€)', analytics.usedCost.toFixed(2)],
       ['Total Units In', String(analytics.totalAdded)],
       ['Total Revenue (€)', analytics.totalRevenue.toFixed(2)],
@@ -156,7 +158,7 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
       label: 'Units out',
       value: analytics.totalRemoved,
       sub: [
-        hasGiven && `${analytics.totalGiven} volunteer drink${analytics.totalGiven === 1 ? '' : 's'}`,
+        hasGiven && `${analytics.totalGiven} volunteer item${analytics.totalGiven === 1 ? '' : 's'}`,
         analytics.totalUsed > 0 && `${analytics.totalUsed} internal use`,
       ].filter(Boolean).join(' · ') || undefined,
       icon: TrendingDown,
@@ -177,7 +179,7 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <SegmentedButtons options={SALE_KINDS} value={kind} onChange={setKind} title="Paid sales, free volunteer drinks, or both" />
+        <SegmentedButtons options={SALE_KINDS} value={kind} onChange={setKind} title="Paid sales, free volunteer items, or both" />
         <button
           onClick={exportCSV}
           disabled={analytics.totalTransactions === 0}
@@ -192,7 +194,7 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
       <StatCards cards={statCards} />
 
       {trackingEntries.length > 0 && (
-        <StockHistoryChart entries={trackingEntries} parts={chartParts} days={dateRange.days} kind={kind} />
+        <StockHistoryChart entries={trackingEntries} parts={chartParts} days={dateRange.days} kind={kind} offCategories={offCategories} setOffCategories={setOffCategories} />
       )}
 
       {analytics.totalTransactions === 0 && (
@@ -261,9 +263,9 @@ export default function ItemsTab({ trackingEntries, loading, error, onRetry, dat
             ))}
           </Section>
 
-          {/* Volunteer drinks: taken free after a shift, cost only */}
+          {/* Volunteer items: taken free after a shift, cost only */}
           {mostGiven.length > 0 && (
-            <Section title="Volunteer drinks" icon={HandHeart}>
+            <Section title="Volunteer items" icon={HandHeart}>
               {mostGiven.map(item => (
                 <BrutalistBar
                   key={item.partId}

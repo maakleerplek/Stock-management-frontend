@@ -73,7 +73,7 @@ describe('buildTotals', () => {
       [], 0, 0.5, 30, now);
     const t = buildTotals(items, serviceRevenue([line({})], 30, now), laser);
 
-    expect(t.rows.map(r => r.label)).toEqual(['Items sold · Drinks', 'Items sold · Misc', 'Volunteer drinks', 'Laser time', 'Laser time · paid outside checkout']);
+    expect(t.rows.map(r => r.label)).toEqual(['Items sold · Drinks', 'Items sold · Misc', 'Volunteer items', 'Laser time', 'Laser time · paid outside checkout']);
     expect(t.total.revenue).toBeCloseTo(17);                // a deleted session counts as paid                // 10 items + 5 laser + 2 paid in cash
     expect(t.total.costs).toBeCloseTo(4);                   // 2.4 + 1.6
     expect(t.total.profit).toBeCloseTo(13);
@@ -95,7 +95,7 @@ describe('buildTotals', () => {
     const base = buildTotals(itemAnalytics(entries, filament, 'all', 30, now), [], noLaser);
     expect(t.rows.find(r => r.label === 'Lab filament (3D printers)')).toMatchObject({ costs: 20 });   // only the "drink"
     expect(t.printing.grams).toBe(1000);
-    expect(t.rows.find(r => r.label === 'Volunteer drinks')?.costs).toBe(base.rows.find(r => r.label === 'Volunteer drinks')?.costs);
+    expect(t.rows.find(r => r.label === 'Volunteer items')?.costs).toBe(base.rows.find(r => r.label === 'Volunteer items')?.costs);
   });
 
   it('counts lab use (filament for the open-lab printers) as a cost', () => {

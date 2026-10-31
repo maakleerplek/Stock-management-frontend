@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { cn } from '../lib/utils';
@@ -16,6 +17,9 @@ interface Props {
   days: number | null;
   /** Which removals the "Sold" view counts. */
   kind?: SaleKind;
+  /** Categories switched off; owned by the parent so its lists follow the same filter. */
+  offCategories: Set<string>;
+  setOffCategories: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
 
 const H = 320;
@@ -116,10 +120,9 @@ const bucketLabel = (t: number, bucket: Bucket) =>
     ? new Date(t).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
     : `${bucket === 'week' ? 'Week of ' : ''}${new Date(t).toLocaleDateString('en-GB', { weekday: bucket === 'day' ? 'short' : undefined, day: 'numeric', month: 'short' })}`;
 
-export default function StockHistoryChart({ entries, parts, days, kind = 'paid' }: Props) {
+export default function StockHistoryChart({ entries, parts, days, kind = 'paid', offCategories, setOffCategories }: Props) {
   const [measure, setMeasure] = useState<Measure>('stock');
   const [bucket, setBucket] = useState<Bucket>('week');
-  const [offCategories, setOffCategories] = useState<Set<string>>(new Set());
   const [hidden, setHidden] = useState<Set<number>>(new Set());
   const [focus, setFocus] = useState<number | null>(null);
   const [hoverX, setHoverX] = useState<number | null>(null);
@@ -149,7 +152,7 @@ export default function StockHistoryChart({ entries, parts, days, kind = 'paid' 
     if (initialised || categories.length === 0) return;
     if (categories.includes('Drinks')) setOffCategories(new Set(categories.filter(c => c !== 'Drinks')));
     setInitialised(true);
-  }, [categories, initialised]);
+  }, [categories, initialised, setOffCategories]);
 
   const colors = useMemo(() => assignColors(entries, partIds), [entries, partIds]);
   const levels = useMemo(() => stockLevels(entries), [entries]);

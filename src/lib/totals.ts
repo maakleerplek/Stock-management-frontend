@@ -77,7 +77,7 @@ export function buildTotals(
   const all: TotalsRow[] = [
     // Items sold, one row per stock category.
     ...items.byCategory.map(c => ({ label: `Items sold · ${c.category}`, revenue: c.revenue, costs: c.paidCost, profit: c.revenue - c.paidCost })),
-    { label: 'Volunteer drinks', revenue: 0, costs: items.givenCost, profit: -items.givenCost },
+    { label: 'Volunteer items', revenue: 0, costs: items.givenCost, profit: -items.givenCost },
     // Free items a volunteer put to use in the lab: filament for the 3D printers apart from wood, ...
     { label: 'Lab filament (3D printers)', revenue: 0, costs: filament.cost, profit: -filament.cost },
     { label: 'Lab & workshop use (wood, ...)', revenue: 0, costs: items.usedCost - filament.cost, profit: filament.cost - items.usedCost },
