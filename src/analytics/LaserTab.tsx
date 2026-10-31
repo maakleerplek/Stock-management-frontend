@@ -76,10 +76,10 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-brand-black/60 border-b border-lijn">
-                  <th className="py-1.5 font-semibold">When</th>
+                  <th className="py-1.5 pr-4 font-semibold">When</th>
                   <th className="py-1.5 font-semibold">Name / project</th>
-                  <th className="py-1.5 font-semibold text-right">Time</th>
-                  <th className="py-1.5 font-semibold text-right">Value</th>
+                  <th className="py-1.5 pl-4 font-semibold text-right">Time</th>
+                  <th className="py-1.5 pl-4 font-semibold text-right">Value</th>
                   <th className="py-1.5 font-semibold pl-4">Status</th>
                   <th className="py-1.5 font-semibold pl-4">Note</th>
                 </tr>
@@ -87,10 +87,10 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
               <tbody>
                 {sessions.map((s, i) => (
                   <tr key={i} className={cn('border-b border-lijn-zacht', s.status === 'open' && 'bg-amber-50')}>
-                    <td className="py-1.5 tabular-nums whitespace-nowrap">{fmtDate(s.date)}</td>
-                    <td className="py-1.5 font-semibold">{s.name}{s.cuts > 1 && <span className="font-normal text-brand-black/60"> · {s.cuts} cuts</span>}</td>
-                    <td className="py-1.5 text-right tabular-nums">{fmtMinutes(s.minutes)}</td>
-                    <td className="py-1.5 text-right tabular-nums">€{(s.minutes * laserPerMinute).toFixed(2)}</td>
+                    <td className="py-1.5 pr-4 tabular-nums whitespace-nowrap">{fmtDate(s.date)}</td>
+                    <td className="py-1.5 font-semibold" title={s.name}><span className="line-clamp-2">{s.name}{s.cuts > 1 && <span className="font-normal text-brand-black/60"> · {s.cuts} cuts</span>}</span></td>
+                    <td className="py-1.5 pl-4 text-right tabular-nums whitespace-nowrap">{fmtMinutes(s.minutes)}</td>
+                    <td className="py-1.5 pl-4 text-right tabular-nums whitespace-nowrap">€{(s.minutes * laserPerMinute).toFixed(2)}</td>
                     <td className="py-1.5 pl-4 whitespace-nowrap">{SESSION_STATUS_LABELS[s.status]}</td>
                     <td className="py-1.5 pl-4 text-brand-black/70">{s.reason ?? '–'}</td>
                   </tr>
@@ -112,9 +112,9 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
             <tbody>
               {resets.map((r, i) => (
                 <tr key={i} className="border-b border-lijn-zacht">
-                  <td className="py-1.5 tabular-nums whitespace-nowrap">{fmtDate(r.discarded_at)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{fmtMinutes(r.seconds / 60)}</td>
-                  <td className="py-1.5 text-right tabular-nums">€{(r.seconds / 60 * laserPerMinute).toFixed(2)}</td>
+                  <td className="py-1.5 pr-4 tabular-nums whitespace-nowrap">{fmtDate(r.discarded_at)}</td>
+                  <td className="py-1.5 pl-4 text-right tabular-nums whitespace-nowrap">{fmtMinutes(r.seconds / 60)}</td>
+                  <td className="py-1.5 pl-4 text-right tabular-nums whitespace-nowrap">€{(r.seconds / 60 * laserPerMinute).toFixed(2)}</td>
                   <td className="py-1.5 pl-4 text-brand-black/70">{r.reason ?? '–'}</td>
                 </tr>
               ))}
