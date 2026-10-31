@@ -25,3 +25,7 @@ frontend-caddy-config/
 
 # AI tool working dir
 .antigravitycli/
+
+# ESP firmware: passwords and the version stay on the server (scripts/esp-ota.sh)
+esp/monitorOTA/secrets.h
+esp/monitorOTA/version.h

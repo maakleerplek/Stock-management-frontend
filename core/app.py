@@ -64,6 +64,7 @@ global_time = 0.0        # finished laser-on seconds, not yet assigned
 laser_on = False
 on_since: datetime | None = None
 esp_ip: str | None = None
+esp_fw: str | None = None   # firmware version from the heartbeat (esp/monitorOTA, scripts/esp-ota.sh)
 esp_last_seen = 0.0
 esp_boot = None          # boot id and on_ms of the last counter packet
 esp_on_ms = 0
@@ -203,7 +204,7 @@ def take_time() -> float:
 
 
 def udp_server():
-    global esp_ip, esp_last_seen
+    global esp_ip, esp_last_seen, esp_fw
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', UDP_PORT))
@@ -216,6 +217,10 @@ def udp_server():
             esp_ip, esp_last_seen = addr[0], time.time()
             if message.get('type') == 'heartbeat':
                 sock.sendto(json.dumps({'type': 'ack'}).encode(), addr)
+                fw = str(message.get('fw') or 'unknown')[:40]
+                if fw != esp_fw:
+                    print(f'[esp] firmware {fw} at {addr[0]}')
+                    esp_fw = fw
             elif message.get('state') in ('ON', 'OFF') and 'on_ms' in message:
                 esp_counter(message['state'] == 'ON', int(message['on_ms']), message.get('boot'))
             elif message.get('state') in ('ON', 'OFF'):  # old firmware: time by arrival
@@ -352,6 +357,12 @@ def client_log():
 @app.get('/laser/api/health')
 def health():
     return {'ok': True}
+
+
+@app.get('/laser/api/esp')
+def get_esp():
+    """For scripts/esp-ota.sh: is the ESP32 there, where, and which firmware it runs."""
+    return {'connected': time.time() - esp_last_seen < ESP_TIMEOUT, 'ip': esp_ip, 'fw': esp_fw}
 
 
 @app.get('/laser/api/config')
