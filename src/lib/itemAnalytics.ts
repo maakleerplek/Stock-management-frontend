@@ -3,7 +3,7 @@
  * per part and in total. Used by the Items and Totals analytics tabs.
  */
 import type { InvenTreeTrackingEntry } from '../api/types';
-import { isSale, isVolunteerDrink, isInternalUse, unitsSold, unitsGiven, unitsUsed, TRACKING, type SaleKind } from './stockHistory';
+import { isSale, isVolunteerDrink, isInternalUse, unitsSold, unitsGiven, unitsUsed, unitsRestocked, type SaleKind } from './stockHistory';
 
 export interface PartPrice {
   name: string;
@@ -79,7 +79,7 @@ export function itemAnalytics(
       used += given;
       given = 0;
     }
-    const added = entry.tracking_type === TRACKING.STOCK_ADD ? entry.deltas?.added ?? 0 : 0;
+    const added = unitsRestocked(entry);
     if (paid === 0 && given === 0 && used === 0 && added === 0) continue;
 
     const name = info?.name ?? `Part #${partId}`;
@@ -131,7 +131,7 @@ export function itemAnalytics(
     totalTransactions: filtered.filter(e =>
       (kind !== 'volunteer' && isSale(e)) ||
       (kind !== 'paid' && (isVolunteerDrink(e) || isInternalUse(e))) ||
-      e.tracking_type === TRACKING.STOCK_ADD
+      unitsRestocked(e) > 0
     ).length,
     hasCostPrices: byPart.some(p => p.costPrice > 0),
     uncostedUnits,

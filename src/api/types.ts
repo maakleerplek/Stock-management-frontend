@@ -180,7 +180,7 @@ export interface CreateLocationPayload {
 }
 export interface InvenTreeTrackingEntry {
     pk: number;
-    item: number;
+    item: number | null; // null once the stock item is deleted (e.g. merged)
     part: number;
     date: string;
     deltas: {

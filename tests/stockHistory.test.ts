@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 import { NOTES } from '../src/sendCodeHandler';
 import {
-  isSale, isVolunteerDrink, isInternalUse, unitsUsed, unitsGiven, describeMovement, stockLevels, levelAt, bucketStart, bucketRange, salesPerBucket, assignColors, SERIES_COLORS,
+  isSale, isVolunteerDrink, isInternalUse, unitsUsed, unitsGiven, unitsRestocked, describeMovement, stockLevels, levelAt, bucketStart, bucketRange, salesPerBucket, assignColors, SERIES_COLORS,
 } from '../src/lib/stockHistory';
 
 let pk = 0;
-function entry(part: number, item: number, date: string, type: number, deltas: InvenTreeTrackingEntry['deltas'], notes = ''): InvenTreeTrackingEntry {
+function entry(part: number, item: number | null, date: string, type: number, deltas: InvenTreeTrackingEntry['deltas'], notes = ''): InvenTreeTrackingEntry {
   return { pk: ++pk, part, item, date, tracking_type: type, deltas, label: '', notes, user: 1 };
 }
 
@@ -104,6 +104,25 @@ describe('stockLevels', () => {
     expect(levels.map(p => p.level)).toEqual([5, 4]);
     expect(levelAt(levels, Date.parse('2026-04-30T00:00'))).toBeNull();
     expect(levelAt(levels, Date.parse('2026-05-02T00:00'))).toBe(5);
+  });
+});
+
+describe('purchase-order receipts', () => {
+  // Real log of 24 Sep: received into a new item, then merged into item 9.
+  const log = [
+    entry(8, 9, '2026-09-21T12:28', 10, { quantity: 2 }),
+    entry(8, null, '2026-09-24T14:13', 70, { quantity: 24, purchaseorder: 5 }),
+    entry(8, 9, '2026-09-24T14:13', 45, { added: 24, quantity: 25 }, 'Consolidated after receiving a purchase order'),
+    entry(8, 9, '2026-10-01T10:00', 12, { removed: 1, quantity: 24 }),
+  ];
+
+  it('count as restocks once, not again for the merge', () => {
+    expect(log.map(unitsRestocked)).toEqual([0, 24, 0, 0]);
+    expect(unitsRestocked(entry(1, 1, '2026-05-01', 11, { added: 3, quantity: 5 }))).toBe(3);
+  });
+
+  it('do not leave a ghost item in the stock level', () => {
+    expect(stockLevels(log).get(8)!.map(p => p.level)).toEqual([2, 25, 24]);
   });
 });
 

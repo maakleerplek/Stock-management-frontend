@@ -31,6 +31,7 @@ export const TRACKING = {
   SPLIT_FROM_PARENT: 40,
   SPLIT_CHILD_ITEM: 42,
   SHIPPED_AGAINST_SALES_ORDER: 60,
+  RECEIVED_AGAINST_PURCHASE_ORDER: 70,
   SENT_TO_CUSTOMER: 100,
 } as const;
 
@@ -90,6 +91,17 @@ export function unitsOut(e: InvenTreeTrackingEntry, kind: SaleKind): number {
   return (kind === 'volunteer' ? 0 : unitsSold(e)) + (kind === 'paid' ? 0 : unitsGiven(e));
 }
 
+/**
+ * Units that came in: a manual restock, or a purchase-order receipt. A receipt
+ * creates a new stock item that the app merges straight away; the merge entry
+ * repeats those units, so only the receipt counts.
+ */
+export function unitsRestocked(e: InvenTreeTrackingEntry): number {
+  if (e.tracking_type === TRACKING.STOCK_ADD) return e.deltas?.added ?? 0;
+  if (e.tracking_type === TRACKING.RECEIVED_AGAINST_PURCHASE_ORDER) return e.deltas?.quantity ?? 0;
+  return 0;
+}
+
 /** Units sold by a sale entry, 0 for anything else. */
 export function unitsSold(e: InvenTreeTrackingEntry): number {
   if (!isSale(e)) return 0;
@@ -99,7 +111,9 @@ export function unitsSold(e: InvenTreeTrackingEntry): number {
 /** Stock level of each part after every change, oldest first. */
 export function stockLevels(entries: InvenTreeTrackingEntry[]): Map<number, LevelPoint[]> {
   const sorted = entries
-    .filter(e => typeof e.deltas?.quantity === 'number')
+    // item is null once the stock item is gone (merged into the part's main item
+    // after a purchase order); the merge entry on the surviving item carries its units.
+    .filter((e): e is InvenTreeTrackingEntry & { item: number } => e.item != null && typeof e.deltas?.quantity === 'number')
     .sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
 
   const perItem = new Map<number, Map<number, number>>();
@@ -236,7 +250,7 @@ export function describeMovement(e: InvenTreeTrackingEntry): MovementSummary {
       return { quantity: d.added ?? null, what: 'restocked', direction: 'in' };
     case TRACKING.STOCK_COUNT:
       return { quantity: null, what: `stock set to ${d.quantity ?? '?'}`, direction: 'none' };
-    case 70: // RECEIVED_AGAINST_PURCHASE_ORDER
+    case TRACKING.RECEIVED_AGAINST_PURCHASE_ORDER:
       return { quantity: d.quantity ?? d.added ?? null, what: 'received from a purchase order', direction: 'in' };
     case 1: // CREATED
       return { quantity: d.quantity ?? null, what: 'new stock', direction: 'in' };
