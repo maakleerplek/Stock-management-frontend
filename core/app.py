@@ -47,7 +47,8 @@ ESP_ALLOWED_IPS = {ip.strip() for ip in os.environ.get('ESP_ALLOWED_IPS', '').sp
 # Laser time is split into cuts: once the laser is off this long, the time so far is one cut.
 # On the real laser 87 of 128 pauses inside the same month were under 5 s, 34 over 30 s.
 CUT_GAP_S = float(os.environ.get('CUT_GAP_S', '5'))
-MIN_CUT_SECONDS = db.MIN_LOGGED_SECONDS   # shorter is a test pulse, not a job: dropped
+MIN_CUT_SECONDS = 10   # shorter is a test pulse or Frame, not a job: dropped (free)
+ESP_OFF_DELAY_S = 1.0   # monitorOTA.ino offDelay: the OFF packet comes 1 s after the beam stopped
 
 app = Flask(__name__)
 socketio = SocketIO(app, path='/laser/socket.io', async_mode='threading', cors_allowed_origins='*')  # only nginx reaches it
@@ -171,6 +172,9 @@ def esp_counter(on: bool, on_ms: int, boot):
         changed = added > 0 or laser_on != on or on_since is not None
         if added > 0 and global_time <= 0:
             begin_cut(now - added / 1000)
+        if on and not laser_on and not boot_changed and global_time > 0:
+            # A pause inside a cut (head moving) is billed too, not only beam time.
+            global_time += min(now - last_on_at + ESP_OFF_DELAY_S, CUT_GAP_S)
         if added > 0 or on or laser_on:
             last_on_at = now
         global_time += added / 1000
@@ -266,7 +270,7 @@ def close_cut_if_idle(now: float | None = None) -> str | None:
         global_time, cut_started, cut_job = 0.0, None, None
         save_state()
     if seconds < MIN_CUT_SECONDS:
-        print(f'[cut] {seconds:.1f} s is a test pulse, not booked')
+        print(f"[cut] {seconds:.1f} s from {datetime.fromtimestamp(started):%H:%M:%S} is under {MIN_CUT_SECONDS} s, not booked")
         return None
     start = datetime.fromtimestamp(started)
     sid = str(uuid4())

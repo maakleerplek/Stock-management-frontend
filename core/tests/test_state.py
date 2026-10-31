@@ -59,7 +59,20 @@ def test_a_short_pause_stays_one_cut(tmp_path):
     laser.esp_counter(True, 20_000, 'b1')
     laser.esp_counter(False, 50_000, 'b1')
     laser.close_cut_if_idle(time.time() + laser.CUT_GAP_S + 0.1)
-    assert [round(c['total_time']) for c in _open_cuts()] == [50]
+    assert [round(c['total_time']) for c in _open_cuts()] == [51]   # 50 s beam + the 1 s pause
+
+
+def test_the_pause_inside_a_cut_is_billed(tmp_path, monkeypatch):
+    _fresh(tmp_path)
+    t0 = time.time()
+    monkeypatch.setattr(laser.time, 'time', lambda: t0)
+    laser.esp_counter(True, 0, 'b1')
+    laser.esp_counter(False, 10_000, 'b1')   # beam stopped 1 s before this packet (ESP offDelay)
+    monkeypatch.setattr(laser.time, 'time', lambda: t0 + 3)
+    laser.esp_counter(True, 10_000, 'b1')    # back on: pause was 3 + 1 = 4 s
+    laser.esp_counter(False, 20_000, 'b1')
+    laser.close_cut_if_idle(t0 + 3 + laser.CUT_GAP_S + 0.1)
+    assert [round(c['total_time']) for c in _open_cuts()] == [24]
 
 
 def test_two_jobs_are_two_cuts_and_a_test_pulse_none(tmp_path):
