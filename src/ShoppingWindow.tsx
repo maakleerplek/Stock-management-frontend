@@ -247,6 +247,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                     freeUse={visitorFree}
                     onToggleFreeUse={isVolunteerMode ? undefined : () => (freeUse ? setFreeUse(false) : setAskFree(true))}
                     checkedOutFree={!!checkedOutResult?.free}
+                    machineLines={extras.map(e => ({ label: extraLabel(e), detail: `${e.quantity} ${e.unit}`, price: e.quantity * e.booked_price }))}
                 />
 
                 {/* Extras (laser time, machine time) below the cart, also for volunteers: those are always paid. */}

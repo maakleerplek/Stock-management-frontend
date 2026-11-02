@@ -45,6 +45,8 @@ interface ShoppingCartProps {
     onToggleFreeUse?: () => void;
     /** The finished checkout was volunteer / workshop use: nothing to pay, no QR code. */
     checkedOutFree?: boolean;
+    /** Machine time in this checkout (typed in or laser cuts), shown as cart lines. */
+    machineLines?: { label: string; detail: string; price: number }[];
 }
 
 function ShoppingCart({
@@ -65,6 +67,7 @@ function ShoppingCart({
     freeUse = false,
     onToggleFreeUse,
     checkedOutFree = false,
+    machineLines = [],
 }: ShoppingCartProps) {
     const { addToast } = useToast();
     const [lastActionId, setLastActionId] = useState<number | null>(null);
@@ -210,7 +213,7 @@ function ShoppingCart({
                     </div>
                 ) : (
                     <>
-                        {cartItems.length > 0 ? (
+                        {cartItems.length > 0 || machineLines.length > 0 ? (
                             <>
                                 {/* Items List */}
                                 <div className="flex-1 overflow-y-auto">
@@ -341,6 +344,15 @@ function ShoppingCart({
                                             );
                                         })}
                                     </AnimatePresence>
+                                    {machineLines.map((m, i) => (
+                                        <div key={i} className="px-3 py-3 border-b border-lijn bg-brand-beige-dark flex items-center justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-sm truncate">{m.label}</p>
+                                                <p className="text-[10px] font-bold text-brand-black/60">{m.detail}</p>
+                                            </div>
+                                            <span className={cn("font-semibold text-lg shrink-0", freeUse && "text-emerald-600")}>{freeUse ? 'Free' : `€${m.price.toFixed(2)}`}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </>
                         ) : (
