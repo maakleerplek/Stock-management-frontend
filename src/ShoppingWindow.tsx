@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import ShoppingCart, { type CartItem, type VolunteerCartMode } from './ShoppingCart';
+import ShoppingCart, { type CartItem } from './ShoppingCart';
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
 import { laserApi, pendingPaidIds, type LaserSession } from './lib/laserApi';
-import { type ItemData, type ScanEvent, handleVolunteerDrink, handleInternalUse, isLabMaterial } from './sendCodeHandler';
+import { type ItemData, type ScanEvent, isLabMaterial } from './sendCodeHandler';
 import { checkoutApi, typedToCart, useBill, extraLabel, type CheckoutCart, type TypedJob, type Bill } from './lib/checkoutApi';
 import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
@@ -59,24 +59,21 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     // Sold before the till marked cuts paid itself, and not marked yet: never bill those again.
     const pendingPaid = pendingPaidIds();
     const laserInCheckout = laserSessions.filter(s => s.checkout_at && s.total_time > 0 && !pendingPaid.has(s.id));
-    const [mode, setMode] = useState<VolunteerCartMode>('buy');
     const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     // Seconds before "Complete checkout" can be pressed: time to read what is being booked (as on the kiosk).
     const lockLeft = useLock(confirmOpen);
-    // Visitor cart: VOLUNTEER / WORKSHOP makes the whole cart free, after "for volunteers only".
+    // VOLUNTEER / WORKSHOP makes the whole cart free, after "for volunteers only" (signed-in volunteers skip that).
     const [freeUse, setFreeUse] = useState(false);
     const [askFree, setAskFree] = useState(false);
     const askLeft = useLock(askFree);
     const { addToast } = useToast();
     const { isVolunteerMode } = useVolunteer();
-    // Volunteers buy like anyone else, or take items out for free (drink / lab / workshop).
     // Stock work (restock, set count) is on the Stock list.
-    const free = isVolunteerMode && mode === 'drink';
-    const visitorFree = !isVolunteerMode && freeUse;
+    const visitorFree = freeUse;
     // What the checkout server prices and books. Free items are not a sale: they go out one by one below.
     const machineCart: CheckoutCart = { items: [], ...typedToCart(typedJobs), cuts: laserInCheckout.map(s => s.id) };
-    const cart: CheckoutCart = free ? machineCart : { ...machineCart, items: cartItems.map(i => ({ part: i.id, quantity: i.cartQuantity })) };
+    const cart: CheckoutCart = { ...machineCart, items: cartItems.map(i => ({ part: i.id, quantity: i.cartQuantity })) };
     // Priced as a normal sale, so the cart can show what it would have cost; booked with volunteer on.
     const { bill, error: billError } = useBill(cart);
     const volunteerCart: CheckoutCart = { ...cart, items: cartItems.map(i => ({ part: i.id, quantity: i.cartQuantity, lab: isLabMaterial(i) })), volunteer: true };
@@ -188,36 +185,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                 setFreeUse(false);
                 return;
             }
-            if (!free) {
-                // A sale: one sales order for the whole cart.
-                await sell(cart);
-                setCartItems([]);
-                return;
-            }
-
-            // Free: a drink is the volunteer's own; the rest (filament, wood, workshop material) is for the lab. Item by item.
-            for (const item of cartItems) {
-                const success = isLabMaterial(item)
-                    ? await handleInternalUse(item.id, item.cartQuantity, item.name)
-                    : await handleVolunteerDrink(item.id, item.cartQuantity, item.name);
-                if (!success) {
-                    addToast(`Failed to process "${item.name}". Operation stopped.`, 'error');
-                    return;
-                }
-                // Done: out of the cart, so a retry cannot apply it twice.
-                setCartItems(prev => prev.filter(i => i.id !== item.id));
-            }
-            if (cartItems.length) {
-                const lab = cartItems.filter(isLabMaterial).length;
-                const drinks = cartItems.length - lab;
-                addToast(
-                    [drinks && 'Enjoy your drink! Booked as a free volunteer drink.', lab && `${lab} item${lab > 1 ? 's' : ''} booked for the lab / workshop.`].filter(Boolean).join(' '),
-                    'success',
-                );
-            }
-            // Machine time is always paid.
-            if (extras.length) await sell(machineCart);
-            else setCheckedOut(null);
+            // A sale: one sales order for the whole cart.
+            await sell(cart);
+            setCartItems([]);
         } catch (error) {
             console.error('[Checkout] Failed:', error);
             addToast(error instanceof Error ? `Checkout failed: ${error.message}` : 'Checkout failed', 'error');
@@ -240,12 +210,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                     onClearCheckout={() => setCheckedOut(null)}
                     extraCosts={extraCosts}
                     toPay={toPay}
-                    isVolunteerMode={isVolunteerMode}
-                    mode={mode}
-                    onModeChange={setMode}
                     isCheckingOut={isCheckingOut}
                     freeUse={visitorFree}
-                    onToggleFreeUse={isVolunteerMode ? undefined : () => (freeUse ? setFreeUse(false) : setAskFree(true))}
+                    onToggleFreeUse={() => (freeUse ? setFreeUse(false) : isVolunteerMode ? setFreeUse(true) : setAskFree(true))}
                     checkedOutFree={!!checkedOutResult?.free}
                     machineLines={extras.map(e => ({ label: extraLabel(e), detail: `${e.quantity} ${e.unit}`, price: e.quantity * e.booked_price }))}
                 />
@@ -329,7 +296,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                             <span className="font-semibold text-sm">{item.name}</span>
                                             <span className="text-[10px] font-bold text-brand-black/60">Qty: {item.cartQuantity} × €{price.toFixed(2)}</span>
                                         </div>
-                                        <div className="font-semibold text-sm">{free || visitorFree ? 'No charge' : `€${(item.cartQuantity * price).toFixed(2)}`}</div>
+                                        <div className="font-semibold text-sm">{visitorFree ? 'No charge' : `€${(item.cartQuantity * price).toFixed(2)}`}</div>
                                     </div>
                                 ))}
 
@@ -357,7 +324,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                             <div className="border-t-[3px] border-lijn pt-6 flex flex-col items-end">
                                 <span className="text-[10px] font-semibold text-brand-black/50">{visitorFree ? `Normally €${normalTotal.toFixed(2)}` : 'Total amount'}</span>
                                 <span className={`text-5xl font-semibold tracking-tight ${visitorFree ? 'text-emerald-600' : 'text-brand-black'}`}>
-                                    {visitorFree || (free && toPay === 0) ? 'Free' : `€${toPay.toFixed(2)}`}
+                                    {visitorFree ? 'Free' : `€${toPay.toFixed(2)}`}
                                 </span>
                             </div>
                         </div>
@@ -377,7 +344,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                                     <span className="flex items-center gap-2">Processing...</span>
                                 ) : (
                                     <>
-                                        <Check size={20} /> {visitorFree ? 'I swear it' : free && toPay === 0 ? 'Confirm' : 'Complete checkout'}{lockLeft > 0 && <span className="tabular-nums">({lockLeft})</span>}
+                                        <Check size={20} /> {visitorFree ? 'I swear it' : 'Complete checkout'}{lockLeft > 0 && <span className="tabular-nums">({lockLeft})</span>}
                                     </>
                                 )}
                             </button>

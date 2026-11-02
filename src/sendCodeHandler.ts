@@ -100,25 +100,8 @@ export async function handleRemoveItem(
     }
 }
 
-/** Volunteer: take a free drink. Out of stock, never paid; counted apart from sales. */
-export async function handleVolunteerDrink(
-    partId: number,
-    quantity: number,
-    itemName?: string,
-    source = 'volunteer-scanner',
-): Promise<boolean> {
-    try {
-        await inventreeClient.removeStockFromPart(partId, quantity, NOTES.DRINK);
-        if (itemName) void sendChangelogEvent('volunteer', itemName, quantity, source);
-        return true;
-    } catch (error) {
-        console.error(`Failed to book volunteer drink for part ${partId}:`, error);
-        return false;
-    }
-}
-
 /**
- * Free items from the volunteer tab: a drink is drunk by the volunteer; anything
+ * Free items in a volunteer / workshop cart: a drink is drunk by the volunteer; anything
  * else (filament for the open-lab 3D printers, wood, workshop material, ...) is
  * used in the lab or a workshop and booked as internal use.
  */
@@ -128,24 +111,6 @@ export function isLabMaterial(item: Pick<ItemData, 'category'>): boolean {
 
 export const isFilament = (item: Pick<ItemData, 'category' | 'ipn'>) =>
     /filament/i.test(item.category ?? '') || /^FIL-/i.test(item.ipn ?? '');
-
-/** Volunteer: take items out for the lab itself (filament, materials). Out of stock, never paid. */
-export async function handleInternalUse(
-    partId: number,
-    quantity: number,
-    itemName?: string,
-    source = 'volunteer-scanner',
-): Promise<boolean> {
-    try {
-        await inventreeClient.removeStockFromPart(partId, quantity, NOTES.INTERNAL);
-        // The TV changelog knows no 'internal': it is stock going out, like a removal.
-        if (itemName) void sendChangelogEvent('remove', itemName, quantity, source);
-        return true;
-    } catch (error) {
-        console.error(`Failed to book internal use for part ${partId}:`, error);
-        return false;
-    }
-}
 
 /** Volunteer: set a part's total stock. */
 export async function handleSetItem(

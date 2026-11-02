@@ -12,17 +12,6 @@ export interface CartItem extends ItemData {
     cartQuantity: number;
 }
 
-/** What a volunteer's cart does: buy at the normal price, or take items out for free. Restocking is on the Stock list. */
-export type VolunteerCartMode = 'buy' | 'drink';
-
-const MODE_HINTS: Record<VolunteerCartMode, string> = {
-    buy: 'You pay the normal price. Restocking and counting are on the Stock list.',
-    drink: 'Free volunteer drink, or material for the lab / a workshop.',
-};
-const MODE_LABELS: Record<VolunteerCartMode, { tab: string; title: string; action: string }> = {
-    buy: { tab: 'Buy', title: 'Your cart', action: 'Pay' },
-    drink: { tab: 'Free (drink / lab / workshop)', title: 'Take out for free', action: 'Take out of stock' },
-};
 interface ShoppingCartProps {
     cartItems: CartItem[];
     onUpdateQuantity: (itemId: number, newQuantity: number) => void;
@@ -35,13 +24,10 @@ interface ShoppingCartProps {
     extraCosts: number;
     /** Items (not in free mode) plus extras. */
     toPay: number;
-    isVolunteerMode: boolean;
-    mode?: VolunteerCartMode;
-    onModeChange?: (mode: VolunteerCartMode) => void;
     isCheckingOut?: boolean;
-    /** Visitor cart: VOLUNTEER / WORKSHOP is on, the whole cart is free (as on the kiosk). */
+    /** VOLUNTEER / WORKSHOP is on: the whole cart is free (as on the kiosk). */
     freeUse?: boolean;
-    /** Visitor cart only: the VOLUNTEER / WORKSHOP button. */
+    /** The VOLUNTEER / WORKSHOP button. */
     onToggleFreeUse?: () => void;
     /** The finished checkout was volunteer / workshop use: nothing to pay, no QR code. */
     checkedOutFree?: boolean;
@@ -60,9 +46,6 @@ function ShoppingCart({
     onClearCheckout,
     extraCosts,
     toPay,
-    isVolunteerMode,
-    mode = 'buy',
-    onModeChange,
     isCheckingOut = false,
     freeUse = false,
     onToggleFreeUse,
@@ -76,7 +59,7 @@ function ShoppingCart({
     // Invoice: null = closed, string = the customer details typed so far.
     const [invoiceFor, setInvoiceFor] = useState<string | null>(null);
 
-    const free = (isVolunteerMode && mode === 'drink') || freeUse;
+    const free = freeUse;
     const empty = cartItems.length === 0 && machineLines.length === 0 && extraCosts <= 0;
 
     const handleUpdateQuantityWithFeedback = (id: number, qty: number) => {
@@ -103,36 +86,9 @@ function ShoppingCart({
                     ) : (
                         <ShoppingCartIcon className="w-4 h-4" />
                     )}
-                    {isVolunteerMode ? MODE_LABELS[mode].title : freeUse ? 'Volunteer / workshop' : 'Your cart'}
+                    {freeUse ? 'Volunteer / workshop' : 'Your cart'}
                 </h2>
             </div>
-
-            {/* Volunteer Mode Toggle */}
-            {isVolunteerMode && onModeChange && (
-                <div className="px-4 py-3 border-b border-lijn bg-brand-beige-dark">
-                    <div className="grid grid-cols-2 gap-0">
-                        {(Object.keys(MODE_LABELS) as VolunteerCartMode[]).map((m, i) => (
-                            <button
-                                key={m}
-                                onClick={() => {
-                                    if ('vibrate' in navigator) navigator.vibrate(20);
-                                    onModeChange(m);
-                                }}
-                                className={cn(
-                                    "py-2.5 text-[10px] font-semibold cursor-pointer border border-lijn flex items-center justify-center gap-1.5 transition-colors",
-                                    i > 0 && "border-l-0",
-                                    mode === m
-                                        ? "bg-blue-600 text-white"
-                                        : "bg-brand-beige text-brand-black hover:bg-blue-100"
-                                )}
-                            >
-                                {MODE_LABELS[m].tab}
-                            </button>
-                        ))}
-                    </div>
-                    <p className="mt-2 text-[10px] text-brand-black/70">{MODE_HINTS[mode]}</p>
-                </div>
-            )}
 
             {/* Content */}
             <div className="flex-1 flex flex-col bg-brand-beige overflow-y-auto">
@@ -405,9 +361,7 @@ function ShoppingCart({
                                     disabled={isCheckingOut || empty}
                                     className={cn(
                                         "flex-1 py-4 text-base font-semibold flex items-center justify-center gap-2 border border-lijn transition-all",
-                                        free && !freeUse
-                                            ? "bg-amber-300 text-brand-black hover:brightness-95"
-                                            : "bg-emerald-400 text-brand-black hover:brightness-95",
+                                        "bg-emerald-400 text-brand-black hover:brightness-95",
                                         (isCheckingOut || empty) && "opacity-50 cursor-not-allowed"
                                     )}
                                 >
@@ -417,7 +371,7 @@ function ShoppingCart({
                                             Processing...
                                         </>
                                     ) : (
-                                        freeUse ? 'Check out →' : free && cartItems.length > 0 && toPay === 0 ? MODE_LABELS[mode].action : `Pay €${toPay.toFixed(2)}`
+                                        freeUse ? 'Check out →' : `Pay €${toPay.toFixed(2)}`
                                     )}
                                 </button>
                                 </div>

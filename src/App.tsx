@@ -797,8 +797,9 @@ function AppContent() {
                   className="flex-1 flex flex-col lg:flex-row overflow-auto"
                 >
                   {/* Main Content Area (Scanner) - same as checkout */}
-                  <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center bg-brand-beige min-h-[50vh] lg:min-h-0">
+                  <div className="flex-1 p-4 sm:p-6 flex flex-col items-center gap-6 bg-brand-beige min-h-[50vh] lg:min-h-0 lg:overflow-y-auto">
                     <BarcodeScannerContainer onItemScanned={handleItemScanned} />
+                    <ProductPicker category={shopCategory} onCategory={setShopCategory} onAdd={handleItemScanned} />
                   </div>
 
                   {/* Right Sidebar: Shopping Cart in volunteer mode */}
