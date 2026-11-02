@@ -39,6 +39,12 @@ interface ShoppingCartProps {
     mode?: VolunteerCartMode;
     onModeChange?: (mode: VolunteerCartMode) => void;
     isCheckingOut?: boolean;
+    /** Visitor cart: VOLUNTEER / WORKSHOP is on, the whole cart is free (as on the kiosk). */
+    freeUse?: boolean;
+    /** Visitor cart only: the VOLUNTEER / WORKSHOP button. */
+    onToggleFreeUse?: () => void;
+    /** The finished checkout was volunteer / workshop use: nothing to pay, no QR code. */
+    checkedOutFree?: boolean;
 }
 
 function ShoppingCart({
@@ -56,6 +62,9 @@ function ShoppingCart({
     mode = 'buy',
     onModeChange,
     isCheckingOut = false,
+    freeUse = false,
+    onToggleFreeUse,
+    checkedOutFree = false,
 }: ShoppingCartProps) {
     const { addToast } = useToast();
     const [lastActionId, setLastActionId] = useState<number | null>(null);
@@ -64,7 +73,7 @@ function ShoppingCart({
     // Invoice: null = closed, string = the customer details typed so far.
     const [invoiceFor, setInvoiceFor] = useState<string | null>(null);
 
-    const free = isVolunteerMode && mode === 'drink';
+    const free = (isVolunteerMode && mode === 'drink') || freeUse;
 
     const handleUpdateQuantityWithFeedback = (id: number, qty: number) => {
         if ('vibrate' in navigator) navigator.vibrate(10);
@@ -90,7 +99,7 @@ function ShoppingCart({
                     ) : (
                         <ShoppingCartIcon className="w-4 h-4" />
                     )}
-                    {isVolunteerMode ? MODE_LABELS[mode].title : "Your cart"}
+                    {isVolunteerMode ? MODE_LABELS[mode].title : freeUse ? 'Volunteer / workshop' : 'Your cart'}
                 </h2>
             </div>
 
@@ -123,7 +132,19 @@ function ShoppingCart({
 
             {/* Content */}
             <div className="flex-1 flex flex-col bg-brand-beige overflow-y-auto">
-                {checkedOutTotal !== null ? (
+                {checkedOutTotal !== null && checkedOutFree ? (
+                    <div className="text-center py-8 px-4 flex flex-col items-center gap-4 bg-brand-beige">
+                        <div className="text-emerald-600"><CheckCircle className="w-12 h-12" /></div>
+                        <h3 className="text-2xl font-semibold">Booked, enjoy!</h3>
+                        <p className="text-sm text-grafiet max-w-xs">Booked as volunteer / workshop use. Nothing to pay.</p>
+                        {checkedOutDescription && <p className="text-xs border border-lijn bg-white px-3 py-2 max-w-sm">{checkedOutDescription}</p>}
+                        {onClearCheckout && (
+                            <button onClick={onClearCheckout} className="brutalist-button mt-2 px-6 py-3 text-xs bg-white flex items-center gap-2">
+                                <X size={14} /> Start new transaction
+                            </button>
+                        )}
+                    </div>
+                ) : checkedOutTotal !== null ? (
                     <div className="text-center py-8 px-4 flex flex-col items-center gap-4 animate-in fade-in duration-500 bg-brand-beige">
                         <div className="text-emerald-500">
                             <CheckCircle className="w-12 h-12" />
@@ -334,11 +355,33 @@ function ShoppingCart({
                         {(cartItems.length > 0 || extraCosts > 0) && (
                             <div className="mt-auto border-t border-lijn bg-brand-beige p-4">
                                 {/* Free items cost nothing; machine time on top is still paid. */}
-                                {(!free || toPay > 0) && (
+                                {freeUse ? (
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="text-sm font-semibold text-brand-black/60">Total</span>
+                                        <span className="flex items-baseline gap-2">
+                                            <span className="text-sm text-grafiet line-through">€{toPay.toFixed(2)}</span>
+                                            <span className="font-semibold text-2xl text-emerald-600">Free</span>
+                                        </span>
+                                    </div>
+                                ) : (!free || toPay > 0) && (
                                     <div className="flex justify-between items-center mb-3">
                                         <span className="text-sm font-semibold text-brand-black/60">{free ? 'To pay' : 'Total'}</span>
                                         <span className="font-semibold text-2xl">€{toPay.toFixed(2)}</span>
                                     </div>
+                                )}
+                                <div className="flex gap-2">
+                                {onToggleFreeUse && (
+                                    <button
+                                        onClick={onToggleFreeUse}
+                                        disabled={isCheckingOut}
+                                        aria-pressed={freeUse}
+                                        className={cn(
+                                            "w-36 shrink-0 px-2 py-4 text-xs font-bold flex items-center justify-center gap-1.5 border-2 border-emerald-600 transition-colors",
+                                            freeUse ? "bg-emerald-600 text-white" : "bg-white text-emerald-600 hover:bg-emerald-50"
+                                        )}
+                                    >
+                                        {freeUse && <CheckCircle size={14} aria-hidden />} VOLUNTEER / WORKSHOP
+                                    </button>
                                 )}
                                 <button
                                     onClick={() => {
@@ -347,8 +390,8 @@ function ShoppingCart({
                                     }}
                                     disabled={isCheckingOut}
                                     className={cn(
-                                        "w-full py-4 text-base font-semibold flex items-center justify-center gap-2 border border-lijn transition-all",
-                                        free
+                                        "flex-1 py-4 text-base font-semibold flex items-center justify-center gap-2 border border-lijn transition-all",
+                                        free && !freeUse
                                             ? "bg-amber-300 text-brand-black hover:brightness-95"
                                             : "bg-emerald-400 text-brand-black hover:brightness-95",
                                         isCheckingOut && "opacity-75 cursor-not-allowed"
@@ -360,9 +403,11 @@ function ShoppingCart({
                                             Processing...
                                         </>
                                     ) : (
-                                        free && cartItems.length > 0 && toPay === 0 ? MODE_LABELS[mode].action : `Pay €${toPay.toFixed(2)}`
+                                        freeUse ? 'Check out →' : free && cartItems.length > 0 && toPay === 0 ? MODE_LABELS[mode].action : `Pay €${toPay.toFixed(2)}`
                                     )}
                                 </button>
+                                </div>
+                                {freeUse && <p className="mt-2 text-[11px] text-emerald-600">Tap the green button again to pay normally.</p>}
                             </div>
                         )}
                     </>

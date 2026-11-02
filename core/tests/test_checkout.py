@@ -94,12 +94,30 @@ def test_print_price_per_gram_from_the_filament(env):
     assert bill['extras'][0]['unit_price'] == 0.08 and bill['total'] == 8.0
 
 
-def test_volunteer_machine_use_is_free_and_no_products(env):
+def test_volunteer_machine_use_is_free(env):
     c, _ = env
     bill = c.post('/api/checkout/quote', json={'volunteer': True, 'machines': [{'tool': 'laser', 'minutes': 4}]}).json
     assert bill['total'] == 0 and bill['extras'][0]['booked_price'] == 0
-    r = c.post('/api/checkout/quote', json={'volunteer': True, 'items': [{'part': COLA, 'quantity': 1}]})
-    assert r.status_code == 400
+
+
+def test_volunteer_cart_takes_products_out_and_books_cuts_at_zero(env):
+    c, inv = env
+    inv.stock[PLA] = [{'pk': 601, 'quantity': 5}]
+    sid = cut('Cut 20:14', 300)
+    r = c.post('/api/checkout/', json={'key': 'vol-12345', 'volunteer': True, 'cuts': [sid],
+                                       'items': [{'part': COLA, 'quantity': 1}, {'part': PLA, 'quantity': 2, 'lab': True}]}).json
+    assert r['bill']['total'] == 0 and r['reference'] == 'SO-0042'
+    removals = [b for p, b in inv.posts if p == 'stock/remove/']
+    assert removals == [{'items': [{'pk': 501, 'quantity': 1}], 'notes': 'Volunteer drink via Stock App'},
+                        {'items': [{'pk': 601, 'quantity': 2}], 'notes': 'Internal use via Stock App'}]
+    assert not [p for p in inv.paths() if p == 'order/so-line/']   # products are not on the order
+    assert db.query('SELECT paid_at FROM sessions WHERE id = ?', (sid,))[0]['paid_at']
+
+
+def test_volunteer_drinks_only_needs_no_order(env):
+    c, inv = env
+    r = c.post('/api/checkout/', json={'key': 'vol-drink-1', 'volunteer': True, 'items': [{'part': COLA, 'quantity': 2}]}).json
+    assert r['bill']['total'] == 0 and 'order/so/' not in inv.paths()
 
 
 def test_part_without_price_is_refused(env):

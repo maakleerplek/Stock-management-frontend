@@ -11,7 +11,8 @@ export type TypedJob =
   | { kind: 'laser' | 'cnc'; minutes: number };
 
 export interface CheckoutCart {
-  items: { part: number; quantity: number }[];
+  /** lab: material for the lab / a workshop (a volunteer cart books it as internal use, not as a drink). */
+  items: { part: number; quantity: number; lab?: boolean }[];
   prints: { part?: number; material: string; grams: number }[];
   machines: { tool: 'laser' | 'cnc'; minutes: number }[];
   cuts: string[];

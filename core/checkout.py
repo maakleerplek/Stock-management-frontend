@@ -11,14 +11,15 @@ pricing and booking it themselves, so the rules live in one place:
   "Minimum" among them, per payment; drinks and products do not count. The
   top-up is spread over the machine lines in proportion to their price, so the
   analytics give each machine its share;
-- volunteer machine use (kiosk VOLUNTEER) is booked at EUR 0.
+- volunteer / workshop use (VOLUNTEER on the kiosk and the stock app) is free: machine
+  lines at EUR 0 on the order, products taken out of stock as a volunteer drink or lab use.
 
 A cart (JSON):
-    items     [{part, quantity}]                 products
+    items     [{part, quantity, lab}]            products; lab = material for the lab (volunteer only)
     prints    [{part, material, grams}]          part = the filament, for its price per gram
     machines  [{tool: laser|cnc, minutes}]       time typed in at the till
     cuts      [session id]                       laser cuts from the laser timer
-    volunteer bool                               machine use at EUR 0; no products then
+    volunteer bool                               volunteer / workshop use: everything free
     source    "stock-app" | "interface-stock"    shown on the TV changelog
 """
 import math
@@ -150,12 +151,13 @@ def quote(cart: dict, prices: Prices, cuts: list[dict]) -> dict:
     for line in cart.get('items') or []:
         pk, qty = _int(line.get('part'), 'part'), _int(line.get('quantity'), 'quantity')
         name = prices.names.get(pk, f'Part {pk}')
+        if volunteer:
+            items.append({'part': pk, 'name': name, 'quantity': qty, 'unit_price': 0.0, 'lab': bool(line.get('lab'))})
+            continue
         if pk not in prices.sale:
             # Never sell at 0 by accident: the kiosk showed 0 for these on purpose.
             raise CartError(f'No price for {name}. Ask a volunteer.')
         items.append({'part': pk, 'name': name, 'quantity': qty, 'unit_price': prices.sale[pk]})
-    if volunteer and items:
-        raise CartError('Volunteer checkout is for machine use only')
 
     extras = []   # machine lines, each with its minimum
     for p in cart.get('prints') or []:
@@ -220,7 +222,46 @@ def describe(bill: dict) -> str:
     return ', '.join(parts)
 
 
+# The analytics find free products by these notes (as the stock app's own volunteer mode wrote them).
+VOLUNTEER_NOTES = {False: 'Volunteer drink via Stock App', True: 'Internal use via Stock App'}
+
+
+def take_out(inv, items: list[dict]):
+    """Volunteer / workshop products: out of stock, not sold. One request per note, all or nothing."""
+    for lab in (False, True):
+        rows = []
+        for i in (i for i in items if bool(i.get('lab')) == lab):
+            left = i['quantity']
+            for s in _home_stock(inv, i['part']):
+                take = min(left, float(s['quantity']))
+                if take > 0:
+                    rows.append({'pk': s['pk'], 'quantity': take})
+                    left -= take
+                if left <= 0:
+                    break
+            if left > 0:
+                raise CartError(f"Only {i['quantity'] - left:g} {i['name']} in stock")
+        if rows:
+            inv.post('stock/remove/', {'items': rows, 'notes': VOLUNTEER_NOTES[lab]})
+
+
 def book(inv, bill: dict) -> dict:
+    """Volunteer: products out of stock, machine use on a EUR 0 order. Otherwise book_sale."""
+    if not bill['volunteer']:
+        return book_sale(inv, bill)
+    reference = ''
+    if bill['extras']:
+        reference = book_sale(inv, {**bill, 'items': []})['reference']
+    try:
+        take_out(inv, bill['items'])
+    except Exception as e:
+        if reference:
+            raise BookedError(reference, e) from e
+        raise
+    return {'reference': reference or 'volunteer', 'unshipped': []}
+
+
+def book_sale(inv, bill: dict) -> dict:
     """One sales order: lines, extra lines, issue, ship the products, complete.
 
     Products the till thinks are out of stock are still sold: the line stays

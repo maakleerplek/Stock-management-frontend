@@ -260,11 +260,37 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   useEffect(() => { if (!picked.length) { setDeleting(false); setMoving(false); } }, [picked.length]);
   useEffect(() => { if (!moving) setNameFirst(false); }, [moving]);
 
-  const toggle = (id: string) => setTicked(prev => {
-    const next = new Set(prev);
-    if (!next.delete(id)) next.add(id);
-    return next;
-  });
+  // Shift-click ticks every new cut between the last clicked card and this one (as in photo apps);
+  // while Shift is held, hovering shows that range first.
+  const lastClicked = useRef<string | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [shiftHeld, setShiftHeld] = useState(false);
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => setShiftHeld(e.shiftKey);
+    const off = () => setShiftHeld(false);
+    window.addEventListener('keydown', on);
+    window.addEventListener('keyup', on);
+    window.addEventListener('blur', off);
+    return () => { window.removeEventListener('keydown', on); window.removeEventListener('keyup', on); window.removeEventListener('blur', off); };
+  }, []);
+  const tickable = loose.filter(c => !c.checkout_at).map(c => c.id);
+  const range = (to: string | null): string[] => {
+    const a = lastClicked.current ? tickable.indexOf(lastClicked.current) : -1, b = to ? tickable.indexOf(to) : -1;
+    return a >= 0 && b >= 0 ? tickable.slice(Math.min(a, b), Math.max(a, b) + 1) : [];
+  };
+  const preview = new Set(shiftHeld ? range(hovered) : []);
+  const toggle = (id: string, shift = false) => {
+    const order = tickable;
+    const from = lastClicked.current ? order.indexOf(lastClicked.current) : -1, to = order.indexOf(id);
+    lastClicked.current = id;
+    setTicked(prev => {
+      const next = new Set(prev);
+      if (shift && from >= 0 && to >= 0) {
+        for (const c of order.slice(Math.min(from, to), Math.max(from, to) + 1)) next.add(c);
+      } else if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  };
 
   const { drag, start: startDrag } = useCutDrag((cut, target) => {
     if (target === 'newproject') {
@@ -285,7 +311,8 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   };
 
   const row = (s: LaserSession) => (
-    <CutRow key={s.id} cut={s} ticked={ticked.has(s.id)} busy={busy} onToggle={() => toggle(s.id)} drag={dragProps(s)}
+    <CutRow key={s.id} cut={s} ticked={ticked.has(s.id)} busy={busy} onToggle={shift => toggle(s.id, shift)} drag={dragProps(s)}
+      preview={preview.has(s.id) && !ticked.has(s.id)} onHover={on => setHovered(on ? s.id : null)}
       onTakeOut={() => run(() => laserApi.setCheckout(s.id, false))} />
   );
 
@@ -438,14 +465,18 @@ function cutStart(name: string, iso: string) {
 
 /** One open cut as a card: LightBurn's picture of the job large on top, name, start and length under it.
  *  Tap to tick it for paying or deleting; in the checkout it can be taken out again. */
-function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup, drag }: {
-  cut: LaserSession; ticked: boolean; busy: boolean; onToggle: () => void; onTakeOut: () => void;
+function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup, drag, preview = false, onHover }: {
+  cut: LaserSession; ticked: boolean; busy: boolean; onToggle: (shift: boolean) => void; onTakeOut: () => void;
+  /** Shift is held and this card is in the range a shift-click would tick. */
+  preview?: boolean;
+  onHover?: (on: boolean) => void;
   /** Set inside a project: the card gets an × that sends the cut back to the new cuts, instead of a tick. */
   onUngroup?: () => void;
   /** Hold (touch) or drag (mouse) to move the card to a project. */
   drag?: { onPointerDown: (e: React.PointerEvent) => void; dragging: boolean };
 }) {
   const rate = useLaserRate();
+  const shift = useRef(false);   // the label's click knows Shift; the checkbox's change does not
   const dragAttrs = drag && {
     onPointerDown: drag.onPointerDown,
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),   // a long press must not open the menu
@@ -501,12 +532,15 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup, drag }: {
   }
   return (
     <li {...dragAttrs} className={cn('select-none', drag?.dragging && 'opacity-30')}>
-      <label className={cn('relative flex flex-col h-full border-2 cursor-pointer bg-white', ticked ? 'border-laser bg-laser-licht/30' : 'border-lijn hover:border-grafiet')}>
-        <input type="checkbox" checked={ticked} onChange={onToggle} className="sr-only peer" aria-label={`${cut.name}, ${shortDuration(cut.total_time)}`} />
+      <label onClickCapture={e => { shift.current = e.shiftKey; }}
+        onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}
+        className={cn('relative flex flex-col h-full border-2 cursor-pointer bg-white',
+          ticked ? 'border-laser bg-laser-licht/30' : preview ? 'border-laser border-dashed bg-laser-licht/20' : 'border-lijn hover:border-grafiet')}>
+        <input type="checkbox" checked={ticked} onChange={() => { onToggle(shift.current); shift.current = false; }} className="sr-only peer" aria-label={`${cut.name}, ${shortDuration(cut.total_time)}`} />
         {picture}
         <span aria-hidden className={cn('absolute top-2 left-2 w-7 h-7 border-2 border-brand-black flex items-center justify-center peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2',
-          ticked ? 'bg-brand-black text-white' : 'bg-white')}>
-          {ticked && <Check size={18} />}
+          ticked ? 'bg-brand-black text-white' : preview ? 'bg-laser-licht' : 'bg-white')}>
+          {(ticked || preview) && <Check size={18} className={cn(!ticked && 'opacity-50')} />}
         </span>
         {info}
       </label>
@@ -686,9 +720,9 @@ function DiscardConfirm({ what, value, askKind = false, busy, onCancel, onConfir
       </div>
       {askKind && (
         <div className="grid grid-cols-2 gap-1.5">
-          {(['paid', 'workshop', 'volunteer', 'other'] as const).map(k => (
+          {(['paid', 'volunteer', 'other'] as const).map(k => (
             <button key={k} type="button" onClick={() => setKind(k)} aria-pressed={kind === k}
-              className={cn('brutalist-button px-2 py-1.5 text-xs', kind === k ? 'bg-brand-black text-white' : 'bg-white')}>
+              className={cn('brutalist-button px-2 py-1.5 text-xs', k === 'other' && 'col-span-2', kind === k ? 'bg-brand-black text-white' : 'bg-white')}>
               {DISCARD_KIND_LABELS[k]}
             </button>
           ))}

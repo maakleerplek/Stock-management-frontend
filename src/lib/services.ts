@@ -100,7 +100,7 @@ export function laserStats(lines: ServiceLine[], days?: number, now: Date = new 
  *  (workshops are billed separately); volunteer = a volunteer's own credit, trusted to be fair. */
 export type DiscardKind = 'paid' | 'workshop' | 'volunteer' | 'other';
 export const DISCARD_KIND_LABELS: Record<DiscardKind | 'none', string> = {
-  paid: 'Already paid (cash / transfer)', workshop: 'Workshop / HTL use', volunteer: 'Volunteer (own credit)', other: 'Other (say why)', none: 'No reason given',
+  paid: 'Already paid (cash / transfer)', workshop: 'Workshop / HTL use', volunteer: 'Volunteer / workshop', other: 'Other (say why)', none: 'No reason given',
 };
 
 /** Shape of a row from the laser service's GET /discarded. */
@@ -205,7 +205,8 @@ export function laserLedger(
     const ref = /SO-\d+/.exec(r.reason ?? '')?.[0];
     if (ref && paidRefs.has(ref)) continue;
     if (r.source === 'session' && r.session_name) {
-      const kind = r.kind ?? 'none';
+      // Workshop and volunteer are one kind since 2026-11-02: free use, never paid.
+      const kind = r.kind === 'workshop' ? 'volunteer' : r.kind ?? 'none';
       add(deleted[kind], r.seconds);
     } else {
       add(unverified, r.seconds);

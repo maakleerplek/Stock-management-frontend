@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Zap, Users, Clock, Timer, Trash2, Euro, Wrench, Hourglass } from 'lucide-react';
+import { Zap, Users, Clock, Timer, Trash2, Euro, Hourglass } from 'lucide-react';
 import { laserStats, lostLaserStats, laserLedger, laserSessionList, groupSessions, sessionUse, SESSION_STATUS_LABELS, type ServiceLine, type DiscardRow, type LaserSessionRow } from '../lib/services';
 import { useRates } from '../lib/checkoutApi';
 import { cn } from '../lib/utils';
@@ -57,9 +57,8 @@ export default function LaserTab({ serviceLines, discarded, laserSessions, loadi
         { label: 'Sessions (excl. workshop / HTL)', value: use.count, icon: Zap, bg: 'bg-brand-beige-dark' },
         { label: 'Avg per session (excl. workshop / HTL)', value: use.count ? fmtMinutes(use.avgMinutes) : '–', icon: Hourglass, bg: 'bg-brand-beige-dark' },
         { label: 'Paid', value: fmtMinutes(laser.minutes + paidOutside.minutes), sub: `€${(laser.revenue + paidOutside.value).toFixed(2)}`, icon: Euro, bg: 'bg-green-50' },
-        { label: 'Workshop / HTL', value: fmtMinutes(workshop.minutes), sub: `€${workshop.value.toFixed(2)}`, icon: Wrench, bg: 'bg-brand-beige-dark' },
-        // Deleted sessions marked volunteer, plus laser time booked at €0 by a volunteer at the kiosk.
-        { label: 'Volunteer (own credit)', value: fmtMinutes(volunteer.minutes + laser.volunteerMinutes), sub: `€${(volunteer.value + laser.volunteerMinutes * laserPerMinute).toFixed(2)}`, icon: Users, bg: 'bg-brand-beige-dark' },
+        // Deleted sessions marked volunteer / workshop, plus laser time booked at €0 at the kiosk or the stock app.
+        { label: 'Volunteer / workshop', value: fmtMinutes(volunteer.minutes + laser.volunteerMinutes), sub: `€${(volunteer.value + laser.volunteerMinutes * laserPerMinute).toFixed(2)}`, icon: Users, bg: 'bg-brand-beige-dark' },
         { label: 'Open sessions', value: fmtMinutes(notPaid.minutes), sub: `€${notPaid.value.toFixed(2)}`, icon: Clock, bg: notPaid.minutes ? 'bg-amber-50' : 'bg-brand-beige-dark' },
         { label: 'Not verified', value: fmtMinutes(ledger.unverified.minutes), sub: `€${ledger.unverified.value.toFixed(2)}`, icon: Trash2, bg: ledger.unverified.count ? 'bg-rose-50' : 'bg-brand-beige-dark' },
         {
