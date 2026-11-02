@@ -23,3 +23,6 @@ tests/
 .github/
 **/__pycache__
 **/.pytest_cache
+
+# Design files (FigCraft), not part of the web build
+design/
