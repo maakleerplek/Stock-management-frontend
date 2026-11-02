@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import { useStock } from '../StockContext';
@@ -10,12 +10,20 @@ const ROTATE_MS = 6000;
 // Drinks first, then wood (for the lasercutter); other stock is not advertised.
 const rank = (i: ItemData) => (/drink|drank/i.test(i.category) ? 0 : /wood|hout/i.test(i.category) ? 1 : 2);
 
-/** "Want to buy?": one item for sale at a time, drinks then wood. Add to cart works like a scan. */
+/** "Want to buy?": one item for sale at a time, drinks then wood, each in a random order. Add to cart works like a scan. */
 export default function BuyCarousel({ onAdd }: { onAdd: (item: ItemData) => void }) {
     const { items } = useStock();
-    const picks = useMemo(() => items
-        .filter(i => i.quantity > 0 && i.price > 0 && rank(i) < 2)
-        .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)), [items]);
+    // One random number per item for as long as the page is open, so a stock refresh doesn't reshuffle.
+    const shuffle = useRef(new Map<number, number>());
+    const picks = useMemo(() => {
+        const key = (i: ItemData) => {
+            if (!shuffle.current.has(i.id)) shuffle.current.set(i.id, Math.random());
+            return shuffle.current.get(i.id)!;
+        };
+        return items
+            .filter(i => i.quantity > 0 && i.price > 0 && rank(i) < 2)
+            .sort((a, b) => rank(a) - rank(b) || key(a) - key(b));
+    }, [items]);
     const [index, setIndex] = useState(0);
     const [paused, setPaused] = useState(false);
     const still = useReducedMotion();
