@@ -77,6 +77,7 @@ function ShoppingCart({
     const [invoiceFor, setInvoiceFor] = useState<string | null>(null);
 
     const free = (isVolunteerMode && mode === 'drink') || freeUse;
+    const empty = cartItems.length === 0 && machineLines.length === 0 && extraCosts <= 0;
 
     const handleUpdateQuantityWithFeedback = (id: number, qty: number) => {
         if ('vibrate' in navigator) navigator.vibrate(10);
@@ -364,7 +365,8 @@ function ShoppingCart({
                         )}
 
                         {/* Footer: Total & Checkout */}
-                        {(cartItems.length > 0 || extraCosts > 0) && (
+                        {/* Always there: VOLUNTEER can be switched on first; Pay waits for something in the cart. */}
+                        {(
                             <div className="mt-auto border-t border-lijn bg-brand-beige p-4">
                                 {/* Free items cost nothing; machine time on top is still paid. */}
                                 {freeUse ? (
@@ -400,13 +402,13 @@ function ShoppingCart({
                                         if ('vibrate' in navigator) navigator.vibrate(50);
                                         onCheckout();
                                     }}
-                                    disabled={isCheckingOut}
+                                    disabled={isCheckingOut || empty}
                                     className={cn(
                                         "flex-1 py-4 text-base font-semibold flex items-center justify-center gap-2 border border-lijn transition-all",
                                         free && !freeUse
                                             ? "bg-amber-300 text-brand-black hover:brightness-95"
                                             : "bg-emerald-400 text-brand-black hover:brightness-95",
-                                        isCheckingOut && "opacity-75 cursor-not-allowed"
+                                        (isCheckingOut || empty) && "opacity-50 cursor-not-allowed"
                                     )}
                                 >
                                     {isCheckingOut ? (
