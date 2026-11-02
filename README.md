@@ -138,6 +138,19 @@ Checkout books every sale as an InvenTree sales order on the customer
 The look follows [maakleerplek.be](https://maakleerplek.be/nl). See
 [STYLING_GUIDE.md](./STYLING_GUIDE.md) for colours, type and components.
 
+The screens live as editable designs in [`design/`](./design), for
+[FigCraft](https://github.com/storytold/figcraft) (open source, `File ▸ Open`):
+
+| File | What |
+|---|---|
+| `stock-frontend.figcraft` | This app: public and volunteer pages, every tab at 1440, 820 and 390 px |
+| `stock-interface.figcraft` | The touch kiosk (Interface-stock), 25 screens at 1280×720 as screenshots |
+| `kiosk-tv.figcraft` | The TV page next to the kiosk (Tv-Presentation), 1920×1080 |
+
+They were rebuilt from the live pages on 2 Nov 2026: `design/tools/capture.js` reads a
+page's DOM in the browser, `design/tools/build.py` turns that into a FigCraft script
+(`figcraft-cli run <script> --out <file>`).
+
 ## Project Structure
 
 ```
