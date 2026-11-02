@@ -20,6 +20,9 @@ interface ShoppingWindowProps {
 // v2: cart entries are keyed by part ID. Carts from before hold stock item IDs.
 const CART_STORAGE_KEY = 'stockManagerCartItems.v2';
 
+/** The last scan put in the cart: kept outside the component, so it survives a remount. */
+let handledScanId: number | null = null;
+
 /** Seconds a button stays locked after `open` turns true: time to read first (as on the kiosk). */
 function useLock(open: boolean, seconds = 3): number {
     const [left, setLeft] = useState(0);
@@ -121,7 +124,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     }, []); // stable: reads checkedOutResult via a ref, not state
 
     useEffect(() => {
-        if (scanEvent) {
+        // App keeps the last scan; a remount (back from another tab) must not add it again.
+        if (scanEvent && scanEvent.id !== handledScanId) {
+            handledScanId = scanEvent.id;
             handleAddItemToCart(scanEvent.item);
         }
     }, [scanEvent, handleAddItemToCart]);
