@@ -528,6 +528,9 @@ def mark_paid(sid: str, order: str | None) -> bool:
                'AND id IN (SELECT project_id FROM sessions WHERE paid_at IS NOT NULL) '
                'AND id NOT IN (SELECT project_id FROM sessions WHERE paid_at IS NULL AND project_id IS NOT NULL)',
                (datetime.now().isoformat(),))
+    # Cuts taken out of their project and paid as new cuts: the empty folder goes too.
+    db.execute('DELETE FROM projects WHERE closed_at IS NULL '
+               'AND id NOT IN (SELECT project_id FROM sessions WHERE project_id IS NOT NULL)')
     return True
 
 
