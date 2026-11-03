@@ -600,7 +600,7 @@ function ProjectNameForm({ initial = '', label, busy, onSave, onCancel }: {
         placeholder="Your name + what you make, e.g. Jan – lamp" aria-label="Project name"
         className="flex-1 min-w-0 h-10 px-2 border-2 border-brand-black bg-white text-sm" />
       <button type="submit" disabled={!ok || busy} className="brutalist-button h-10 px-3 bg-brand-black text-white text-sm font-semibold disabled:opacity-40">{label}</button>
-      <button type="button" onClick={onCancel} aria-label="Cancel" className="brutalist-button h-10 w-10 shrink-0 bg-white flex items-center justify-center"><X size={16} aria-hidden /></button>
+      <button type="button" onClick={onCancel} className="brutalist-button h-10 px-3 shrink-0 bg-white text-sm font-semibold">Cancel</button>
     </form>
   );
 }
