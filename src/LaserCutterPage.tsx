@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Tag, Folder, FolderPlus, Pencil, ChevronUp, FolderInput, Undo2 } from 'lucide-react';
+import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Tag, Folder, FolderPlus, FolderX, Pencil, ChevronUp, FolderInput, Undo2, ArrowRight } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { useStock } from './StockContext';
 import { useVolunteer } from './VolunteerContext';
@@ -600,7 +600,7 @@ function ProjectNameForm({ initial = '', label, busy, onSave, onCancel }: {
         placeholder="Your name + what you make, e.g. Jan – lamp" aria-label="Project name"
         className="flex-1 min-w-0 h-10 px-2 border-2 border-brand-black bg-white text-sm" />
       <button type="submit" disabled={!ok || busy} className="brutalist-button h-10 px-3 bg-brand-black text-white text-sm font-semibold disabled:opacity-40">{label}</button>
-      <button type="button" onClick={onCancel} className="brutalist-button h-10 px-3 shrink-0 bg-white text-sm font-semibold">Cancel</button>
+      <button type="button" onClick={onCancel} aria-label="Cancel" title="Cancel" className="brutalist-button h-10 w-10 p-0! shrink-0 bg-white flex items-center justify-center"><X size={22} strokeWidth={2.5} aria-hidden /></button>
     </form>
   );
 }
@@ -676,9 +676,11 @@ function ProjectBlock({ project, cuts, busy, run, onCheckout, dragProps, dropAct
             disabled={busy || !cuts.some(s => !s.checkout_at)} onClick={() => onCheckout(cuts.filter(s => !s.checkout_at).map(s => s.id))}>
             <ShoppingCart size={16} aria-hidden /> Pay €{price.toFixed(2)}{atMinimum && cuts.length > 0 && <span className="text-xs font-normal">(minimum)</span>}
           </button>
-          <button className="brutalist-button h-12 px-3 shrink-0 bg-white text-sm font-semibold disabled:opacity-40" disabled={busy}
-            title="Ends the project; its cuts go back to New cuts" onClick={() => run(() => laserApi.deleteProject(project.id))}>
-            Ungroup
+          {/* Removes only the folder: the cuts go back to New cuts, nothing is deleted. */}
+          <button className="brutalist-button h-12 w-12 p-0! shrink-0 bg-white text-red-600 hover:bg-red-50 flex items-center justify-center disabled:opacity-40" disabled={busy}
+            aria-label={`Remove the project ${project.name}; its cuts go back to New cuts`} title="Remove the project (its cuts go back to New cuts)"
+            onClick={() => run(() => laserApi.deleteProject(project.id))}>
+            <FolderX size={22} aria-hidden />
           </button>
         </div>
       </div>
@@ -702,8 +704,9 @@ function WoodReminder({ onShop }: { onShop: () => void }) {
         <p className="text-sm font-semibold">Need wood for your job?</p>
         <p className="text-xs text-grafiet">MDF and poplar sheets for the laser, from €{from.toFixed(2)}.</p>
       </div>
-      <button onClick={onShop} className="brutalist-button h-11 px-3 bg-white text-sm font-semibold shrink-0 flex items-center gap-1.5">
-        <ShoppingCart size={16} className="text-emerald-600" aria-hidden /> See the wood
+      <button onClick={onShop} aria-label="See the wood at the checkout" title="See the wood at the checkout"
+        className="brutalist-button h-11 px-3 bg-white shrink-0 flex items-center gap-1 hover:brightness-95">
+        <ArrowRight size={18} aria-hidden /><ShoppingCart size={20} className="text-emerald-600" aria-hidden />
       </button>
     </div>
   );
