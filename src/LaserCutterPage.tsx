@@ -10,7 +10,7 @@ import { useToast } from './ToastContext';
 import { cn } from './lib/utils';
 import { DISCARD_KIND_LABELS, type DiscardKind } from './lib/services';
 import {
-  laserApi, useLaserSocket, shortDuration, cutPreviewUrl, type LaserSession, type LaserProject,
+  laserApi, useLaserSocket, shortDuration, cutPreviewUrl, isNewCut, useNow, NEW_TAG, type LaserSession, type LaserProject,
   type LaserMaterial, type LaserOperation, type LaserOutcome, type LaserSetting,
 } from './lib/laserApi';
 
@@ -214,6 +214,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const rate = useLaserRate();
   const { connected, time, sessions, projects } = live;
   const { addToast } = useToast();
+  const now = useNow();
   // The cuts this visitor ticked. Unticking removes nothing: a cut stays until it is paid or deleted.
   // Ticks survive a reload (this browser only).
   const [ticked, setTicked] = useState<Set<string>>(() => {
@@ -311,7 +312,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   };
 
   const row = (s: LaserSession) => (
-    <CutRow key={s.id} cut={s} ticked={ticked.has(s.id)} busy={busy} onToggle={shift => toggle(s.id, shift)} drag={dragProps(s)}
+    <CutRow key={s.id} cut={s} ticked={ticked.has(s.id)} fresh={isNewCut(s, now)} busy={busy} onToggle={shift => toggle(s.id, shift)} drag={dragProps(s)}
       preview={preview.has(s.id) && !ticked.has(s.id)} onHover={on => setHovered(on ? s.id : null)}
       onTakeOut={() => run(() => laserApi.setCheckout(s.id, false))} />
   );
@@ -465,8 +466,10 @@ function cutStart(name: string, iso: string) {
 
 /** One open cut as a card: LightBurn's picture of the job large on top, name, start and length under it.
  *  Tap to tick it for paying or deleting; in the checkout it can be taken out again. */
-function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup, drag, preview = false, onHover }: {
-  cut: LaserSession; ticked: boolean; busy: boolean; onToggle: (shift: boolean) => void; onTakeOut: () => void;
+function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngroup, drag, preview = false, onHover }: {
+  cut: LaserSession; ticked: boolean;
+  /** Made in the last 20 minutes: NEW tag and a laser edge, so people spot their own cut. */
+  fresh?: boolean; busy: boolean; onToggle: (shift: boolean) => void; onTakeOut: () => void;
   /** Shift is held and this card is in the range a shift-click would tick. */
   preview?: boolean;
   onHover?: (on: boolean) => void;
@@ -535,13 +538,14 @@ function CutRow({ cut, ticked, busy, onToggle, onTakeOut, onUngroup, drag, previ
       <label onClickCapture={e => { shift.current = e.shiftKey; }}
         onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}
         className={cn('relative flex flex-col h-full border-2 cursor-pointer bg-white',
-          ticked ? 'border-laser bg-laser-licht/30' : preview ? 'border-laser border-dashed bg-laser-licht/20' : 'border-lijn hover:border-grafiet')}>
+          ticked ? 'border-laser bg-laser-licht/30' : preview ? 'border-laser border-dashed bg-laser-licht/20' : fresh ? 'border-laser' : 'border-lijn hover:border-grafiet')}>
         <input type="checkbox" checked={ticked} onChange={() => { onToggle(shift.current); shift.current = false; }} className="sr-only peer" aria-label={`${cut.name}, ${shortDuration(cut.total_time)}`} />
         {picture}
         <span aria-hidden className={cn('absolute top-2 left-2 w-7 h-7 border-2 border-brand-black flex items-center justify-center peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2',
           ticked ? 'bg-brand-black text-white' : preview ? 'bg-laser-licht' : 'bg-white')}>
           {(ticked || preview) && <Check size={18} className={cn(!ticked && 'opacity-50')} />}
         </span>
+        {fresh && <span className={cn('absolute top-2 right-2', NEW_TAG)}>NEW</span>}
         {info}
       </label>
     </li>

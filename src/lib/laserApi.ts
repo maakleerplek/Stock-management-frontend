@@ -308,6 +308,21 @@ export function useLaserSocket() {
   return { connected, time, sessions, projects };
 }
 
+/** A cut this young gets a NEW tag: it is probably the visitor's own. */
+export const NEW_CUT_MS = 20 * 60_000;
+export const isNewCut = (s: Pick<LaserSession, 'created'>, now: number) => now - new Date(s.created).getTime() < NEW_CUT_MS;
+export const NEW_TAG = 'border-2 border-brand-black bg-laser text-white px-1.5 py-0.5 text-[11px] font-bold tracking-wider leading-none';
+
+/** The time now, refreshed every interval, so NEW tags go away without new data. */
+export function useNow(intervalMs = 30_000) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
 /** Whole minutes the till charges for these cuts together: rounded up once, not per cut. */
 export const laserMinutes = (sessions: Pick<LaserSession, 'total_time'>[]) =>
   Math.ceil(Math.round(sessions.reduce((t, s) => t + s.total_time, 0) * 1000) / 1000 / 60);

@@ -3,7 +3,7 @@ import { X, Zap, Drill, Printer, Plus } from 'lucide-react';
 import { isFilament, filamentType } from './sendCodeHandler';
 import { useRates, type Bill, type TypedJob } from './lib/checkoutApi';
 import { useStock } from './StockContext';
-import { cutPreviewUrl, laserMinutes, shortDuration, type LaserSession } from './lib/laserApi';
+import { cutPreviewUrl, laserMinutes, shortDuration, isNewCut, useNow, NEW_TAG, type LaserSession } from './lib/laserApi';
 import { cn } from './lib/utils';
 
 /** Machine time added by hand survives a refresh, like the cart. Cleared after a sale. */
@@ -38,6 +38,7 @@ const minimumText = (minimum: number) => `min. ${eur(minimum)} per payment`;
 export default function Extras({ onExtrasChange, bill, laserSessions, openLaserSessions, onAddLaserSession, onRemoveLaserSession }: ExtrasProps) {
     const [added, setAdded] = useState<TypedJob[]>(stored);
     const rates = useRates();
+    const now = useNow();
     const [laserMin, setLaserMin] = useState(0);
     const [cncMin, setCncMin] = useState(0);
     const [grams, setGrams] = useState(0);
@@ -93,7 +94,7 @@ export default function Extras({ onExtrasChange, bill, laserSessions, openLaserS
                                     {s.has_preview ? <img src={cutPreviewUrl(s.id)} alt="" className="w-full h-full object-contain" loading="lazy" /> : <Zap size={16} className="text-grafiet" />}
                                 </span>
                                 <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-semibold truncate">{s.name}</div>
+                                    <div className="text-sm font-semibold flex items-center gap-1.5 min-w-0"><span className="truncate">{s.name}</span>{isNewCut(s, now) && <span className={cn('shrink-0', NEW_TAG)}>NEW</span>}</div>
                                     <div className="text-xs text-grafiet">{new Date(s.created).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
                                 </div>
                                 <span className="font-semibold tabular-nums">{shortDuration(s.total_time)}</span>
