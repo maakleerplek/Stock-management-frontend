@@ -436,9 +436,11 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
             <span className="font-semibold">€{pickedPrice.toFixed(2)}</span>
           </div>
           <div className="flex gap-2">
-            <button className="flex-1 basis-0 brutalist-button h-12 px-2 bg-emerald-400 text-brand-black font-semibold whitespace-nowrap flex items-center justify-center gap-1.5 disabled:opacity-40"
+            {/* Says where Pay goes: people did not know the cuts are paid at the checkout. */}
+            <button className="flex-1 basis-0 brutalist-button h-12 px-2 bg-emerald-400 text-brand-black font-semibold whitespace-nowrap flex flex-col items-center justify-center leading-tight disabled:opacity-40"
               disabled={busy} onClick={() => onCheckout(picked.map(s => s.id))}>
-              <ShoppingCart size={16} aria-hidden /> Pay €{pickedPrice.toFixed(2)}
+              <span className="flex items-center gap-1.5"><ShoppingCart size={16} aria-hidden /> Pay €{pickedPrice.toFixed(2)} →</span>
+              <span className="text-[11px] font-normal">at the checkout</span>
             </button>
             <button className={cn('flex-1 basis-0 brutalist-button h-12 px-2 text-sm font-semibold whitespace-nowrap flex items-center justify-center gap-1.5 disabled:opacity-40', moving ? 'bg-laser-licht' : 'bg-white')}
               aria-expanded={moving} disabled={busy} onClick={() => { setMoving(m => !m); setDeleting(false); }}>
