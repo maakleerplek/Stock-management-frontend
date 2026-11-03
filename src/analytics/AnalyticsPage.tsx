@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Drill, GraduationCap, Package, Printer, RefreshCw, Sigma, Zap } from 'lucide-react';
+import { Cuboid, Drill, GraduationCap, Package, RefreshCw, Sigma, Zap } from 'lucide-react';
 import inventreeClient from '../api/inventreeClient';
 import type { InvenTreeTrackingEntry } from '../api/types';
 import { laserApi } from '../lib/laserApi';
@@ -28,7 +28,7 @@ const TABS = [
   { id: 'totals', label: 'Totals', icon: Sigma, subtitle: 'Revenue, costs and profit' },
   { id: 'items', label: 'Items', icon: Package, subtitle: 'Stock movement & revenue' },
   { id: 'laser', label: 'Laser', icon: Zap, subtitle: 'Laser time, paid via a session or not' },
-  { id: 'print', label: '3D printing', icon: Printer, subtitle: 'Prints paid per filament, against the filament used' },
+  { id: 'print', label: '3D printing', icon: Cuboid, subtitle: 'Prints paid and by volunteers, against the filament taken' },
   { id: 'cnc', label: 'CNC', icon: Drill, subtitle: 'CNC time paid, per job' },
   { id: 'workshops', label: 'Workshops', icon: GraduationCap, subtitle: 'HTL workshops on the agenda' },
 ] as const;

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Zap, Drill, Printer, Plus } from 'lucide-react';
+import { Zap, Drill, Cuboid, Plus } from 'lucide-react';
 import { isFilament, filamentType } from './sendCodeHandler';
 import { useRates, type TypedJob } from './lib/checkoutApi';
 import { useStock } from './StockContext';
@@ -87,7 +87,7 @@ export default function Extras({ onAdd: add, openLaserSessions, onAddLaserSessio
                     rate={rates ? `${eur(cncRate)}/min · ${minimumText(rates.cnc.minimum)}` : '…'}
                     value={cncMin} onChange={setCncMin} price={cncMin * cncRate}
                     onAdd={() => { add({ kind: 'cnc', minutes: cncMin }); setCncMin(0); }} />
-                <Machine icon={Printer} tone="text-blue-600" border="border-blue-600" name="3D print" unit="g"
+                <Machine icon={Cuboid} tone="text-blue-600" border="border-blue-600" name="3D print" unit="g"
                     rate={rates ? `${eur(perGram)}/g · ${minimumText(rates.print.minimum)}` : '…'} value={grams} onChange={setGrams} price={grams * perGram}
                     onAdd={() => {
                         // Booked as the line's description, for the analytics per filament: the filament,

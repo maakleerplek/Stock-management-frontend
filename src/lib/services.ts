@@ -16,7 +16,7 @@ export interface ServiceLine {
 
 // InvenTree SalesOrderStatus: 20 shipped, 30 complete. Pending, cancelled,
 // lost and returned orders are not money in.
-const COUNTED = new Set([20, 30]);
+export const COUNTED = new Set([20, 30]);
 
 /** One row in "Recent activity": a stock movement or a paid machine service. */
 export type Activity<M> = { kind: 'stock'; date: string; move: M } | { kind: 'service'; date: string; line: ServiceLine };

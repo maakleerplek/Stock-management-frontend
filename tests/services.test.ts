@@ -73,9 +73,10 @@ describe('laserLedger', () => {
       [], 0, 0.5, 30, today);
     expect(l.unpaid).toEqual({ minutes: 15, value: 7.5, count: 2 });
     expect(l.deleted.none.minutes).toBe(20);
-    expect(l.deleted.workshop.minutes).toBe(10);
+    // Workshop and volunteer are one kind since 2026-11-02: old workshop rows count as volunteer.
+    expect(l.deleted.workshop.minutes).toBe(0);
     expect(l.deleted.paid.value).toBe(2.5);
-    expect(l.deleted.volunteer.minutes).toBe(1);
+    expect(l.deleted.volunteer.minutes).toBe(11);
     expect(l.unverified.count).toBe(0);
   });
 
