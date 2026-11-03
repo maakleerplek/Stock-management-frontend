@@ -481,7 +481,6 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
   drag?: { onPointerDown: (e: React.PointerEvent) => void; dragging: boolean };
 }) {
   const rate = useLaserRate();
-  const shift = useRef(false);   // the label's click knows Shift; the checkbox's change does not
   const dragAttrs = drag && {
     onPointerDown: drag.onPointerDown,
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),   // a long press must not open the menu
@@ -537,13 +536,14 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
   }
   return (
     <li {...dragAttrs} className={cn('select-none', drag?.dragging && 'opacity-30')}>
-      {/* The label passes its click on to the checkbox without Shift: only the click on the card itself counts. */}
-      <label onClickCapture={e => { if (!(e.target instanceof HTMLInputElement)) shift.current = e.shiftKey; }}
+      {/* The card toggles itself: Firefox does not pass a Shift-click on a label on to its checkbox, and
+          Chrome passes it on without Shift. Space on the focused checkbox also lands here (target = input). */}
+      <label onClick={e => { e.preventDefault(); onToggle(e.shiftKey); }}
         onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}
         // Hover darkens the whole card and a press sinks it: the card itself is the button, not only the checkbox.
         className={cn('group relative flex flex-col h-full border-2 cursor-pointer bg-white transition-[filter,scale] duration-100 hover:brightness-95 active:brightness-90 active:scale-[0.98]',
           ticked ? 'border-laser bg-laser-licht/30' : preview ? 'border-laser border-dashed bg-laser-licht/20' : fresh ? 'border-laser' : 'border-lijn hover:border-brand-black')}>
-        <input type="checkbox" checked={ticked} onChange={() => { onToggle(shift.current); shift.current = false; }} className="sr-only peer" aria-label={`${cut.name}, ${shortDuration(cut.total_time)}`} />
+        <input type="checkbox" checked={ticked} readOnly className="sr-only peer" aria-label={`${cut.name}, ${shortDuration(cut.total_time)}`} />
         {picture}
         <span aria-hidden className={cn('absolute top-2 left-2 w-7 h-7 border-2 border-brand-black flex items-center justify-center peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2',
           ticked ? 'bg-brand-black text-white' : preview ? 'bg-laser-licht' : 'bg-white')}>
