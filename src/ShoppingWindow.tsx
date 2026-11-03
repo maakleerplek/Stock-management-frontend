@@ -38,6 +38,16 @@ function useLock(open: boolean, seconds = 3): number {
     return left;
 }
 
+/** Hand-typed machine time of the open checkout, kept over a refresh like the cart. */
+function storedJobs(): TypedJob[] {
+    try {
+        const v = JSON.parse(localStorage.getItem(EXTRAS_STORAGE_KEY) || '[]');
+        return Array.isArray(v) ? v : [];
+    } catch {
+        return [];
+    }
+}
+
 export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, laserSessions }: ShoppingWindowProps) {
     const [cartItems, setCartItems] = useState<CartItem[]>(() => {
         try {
@@ -55,7 +65,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     // in the useEffect dependency array (which would re-fire on every QR dismiss).
     const checkedOutResultRef = useRef(checkedOutResult);
     checkedOutResultRef.current = checkedOutResult;
-    const [typedJobs, setTypedJobs] = useState<TypedJob[]>([]);
+    const [typedJobs, setTypedJobs] = useState<TypedJob[]>(storedJobs);
+    useEffect(() => { localStorage.setItem(EXTRAS_STORAGE_KEY, JSON.stringify(typedJobs)); }, [typedJobs]);
     // Sold before the till marked cuts paid itself, and not marked yet: never bill those again.
     const pendingPaid = pendingPaidIds();
     const laserInCheckout = laserSessions.filter(s => s.checkout_at && s.total_time > 0 && !pendingPaid.has(s.id));
@@ -82,6 +93,22 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
     const extraCosts = extras.reduce((sum, e) => sum + e.quantity * e.unit_price, 0) + minimumTopUp;
     const toPay = bill?.total ?? 0;
     const normalTotal = toPay;
+    // The cart's machine lines, each with its own Remove. The server lists prints, then the laser cuts,
+    // then the typed machine time, in the order they were sent (typedToCart keeps the typed order).
+    const printJobs = typedJobs.flatMap((j, i) => (j.kind === 'print' ? [i] : []));
+    const machineJobs = typedJobs.flatMap((j, i) => (j.kind !== 'print' ? [i] : []));
+    let nextPrint = 0, nextMachine = 0;
+    const machineLines = extras.map(e => {
+        const job = e.cuts ? null : e.kind === 'print' ? printJobs[nextPrint++] : machineJobs[nextMachine++];
+        return {
+            label: extraLabel(e),
+            detail: `${e.quantity} ${e.unit}${minimumTopUp > 0 ? ' · incl. minimum per payment' : ''}`,
+            price: e.quantity * e.booked_price,
+            onRemove: e.cuts
+                ? () => e.cuts!.forEach(id => laserApi.setCheckout(id, false).catch(err => addToast(err instanceof Error ? err.message : String(err), 'error')))
+                : () => setTypedJobs(jobs => jobs.filter((_, i) => i !== job)),
+        };
+    });
     // One key per sale: a retry after a network error books nothing twice. A new cart gets a new key.
     const saleKey = useRef<{ cart: string; key: string } | null>(null);
 
@@ -214,7 +241,7 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                     freeUse={visitorFree}
                     onToggleFreeUse={() => (freeUse ? setFreeUse(false) : isVolunteerMode ? setFreeUse(true) : setAskFree(true))}
                     checkedOutFree={!!checkedOutResult?.free}
-                    machineLines={extras.map(e => ({ label: extraLabel(e), detail: `${e.quantity} ${e.unit}`, price: e.quantity * e.booked_price }))}
+                    machineLines={machineLines}
                 />
 
                 {/* Extras (laser time, machine time) below the cart, also for volunteers: those are always paid. */}
@@ -227,12 +254,9 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
                         </div>
                         <div className="p-4">
                             <Extras
-                                onExtrasChange={setTypedJobs}
-                                bill={bill}
-                                laserSessions={laserInCheckout}
+                                onAdd={job => setTypedJobs(jobs => [...jobs, job])}
                                 openLaserSessions={laserSessions.filter(s => !s.checkout_at && s.total_time > 0)}
                                 onAddLaserSession={(id) => laserApi.setCheckout(id, true).catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'))}
-                                onRemoveLaserSession={(id) => laserApi.setCheckout(id, false).catch(e => addToast(e instanceof Error ? e.message : String(e), 'error'))}
                             />
                         </div>
                     </div>

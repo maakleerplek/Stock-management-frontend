@@ -1,42 +1,27 @@
-import { useState, useEffect, useMemo } from 'react';
-import { X, Zap, Drill, Printer, Plus } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Zap, Drill, Printer, Plus } from 'lucide-react';
 import { isFilament, filamentType } from './sendCodeHandler';
-import { useRates, type Bill, type TypedJob } from './lib/checkoutApi';
+import { useRates, type TypedJob } from './lib/checkoutApi';
 import { useStock } from './StockContext';
-import { cutPreviewUrl, laserMinutes, shortDuration, isNewCut, useNow, NEW_TAG, type LaserSession } from './lib/laserApi';
+import { cutPreviewUrl, shortDuration, isNewCut, useNow, NEW_TAG, type LaserSession } from './lib/laserApi';
 import { cn } from './lib/utils';
 
 /** Machine time added by hand survives a refresh, like the cart. Cleared after a sale. */
 export const EXTRAS_STORAGE_KEY = 'stockManagerExtras.v3';
 
 interface ExtrasProps {
-    /** The machine time added to this checkout by hand, one entry per job. */
-    onExtrasChange: (jobs: TypedJob[]) => void;
-    /** The server's bill for the whole checkout: the minimum top-up comes from it. */
-    bill: Bill | null;
-    /** Laser sessions in this checkout; their time comes from the laser service. */
-    laserSessions: LaserSession[];
+    /** Add machine time typed in by hand; it shows up as a line in the cart. */
+    onAdd: (job: TypedJob) => void;
     /** Open laser sessions not in the checkout yet, to pick from. */
     openLaserSessions: LaserSession[];
     onAddLaserSession: (id: string) => void;
-    onRemoveLaserSession: (id: string) => void;
-}
-
-function stored(): TypedJob[] {
-    try {
-        const v = JSON.parse(localStorage.getItem(EXTRAS_STORAGE_KEY) || '[]');
-        return Array.isArray(v) ? v : [];
-    } catch {
-        return [];
-    }
 }
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
 /** Under each machine: its minimum counts once per payment, for all machine use together. */
 const minimumText = (minimum: number) => `min. ${eur(minimum)} per payment`;
 
-export default function Extras({ onExtrasChange, bill, laserSessions, openLaserSessions, onAddLaserSession, onRemoveLaserSession }: ExtrasProps) {
-    const [added, setAdded] = useState<TypedJob[]>(stored);
+export default function Extras({ onAdd: add, openLaserSessions, onAddLaserSession }: ExtrasProps) {
     const rates = useRates();
     const now = useNow();
     const [laserMin, setLaserMin] = useState(0);
@@ -60,21 +45,6 @@ export default function Extras({ onExtrasChange, bill, laserSessions, openLaserS
     const priceFilament = printFilament ?? [...ofType].sort((a, b) => priceOf(a.id) - priceOf(b.id))[0];
     const perGram = priceFilament ? priceOf(priceFilament.id) : defaultPerGram;
     const laserRate = rates?.laser.per_minute ?? 0, cncRate = rates?.cnc.per_minute ?? 0;
-
-    useEffect(() => {
-        localStorage.setItem(EXTRAS_STORAGE_KEY, JSON.stringify(added));
-        onExtrasChange(added);
-    }, [added, onExtrasChange]);
-
-    const add = (job: TypedJob) => setAdded(a => [...a, job]);
-    // The laser cuts are one line, rounded up once (the server books them the same way).
-    const cutMinutes = laserMinutes(laserSessions);
-    const top = bill?.top_up ?? 0;
-    const minimum = Math.max(0, ...(bill?.extras.map(e => e.minimum) ?? []));
-    const jobPrice = (j: TypedJob) => j.kind === 'print' ? j.grams * (j.part != null ? priceOf(j.part) : defaultPerGram)
-        : j.minutes * (j.kind === 'cnc' ? cncRate : laserRate);
-    const jobTitle = (j: TypedJob) => j.kind === 'print' ? (j.material ? `3D printing – ${j.material}` : '3D printing')
-        : j.kind === 'cnc' ? 'CNC time' : 'Lasertime';
 
     return (
         <div className="space-y-4">
@@ -106,29 +76,6 @@ export default function Extras({ onExtrasChange, bill, laserSessions, openLaserS
                         ))}
                     </ul>
                 </div>
-            )}
-
-            {(laserSessions.length > 0 || added.length > 0) && (
-                <ul className="space-y-2" aria-label="Machine time in this checkout">
-                    {laserSessions.length > 0 && (
-                        <Row icon={Zap} tone="text-laser"
-                            title={`Lasercut · ${laserSessions.length === 1 ? laserSessions[0].name : `${laserSessions.length} cuts`}`}
-                            detail={`${cutMinutes} min, from the laser timer`} price={cutMinutes * laserRate}
-                            onRemove={() => laserSessions.forEach(s => onRemoveLaserSession(s.id))} />
-                    )}
-                    {added.map((j, i) => (
-                        <Row key={i} icon={j.kind === 'print' ? Printer : j.kind === 'cnc' ? Drill : Zap}
-                            tone={j.kind === 'print' ? 'text-blue-600' : j.kind === 'cnc' ? 'text-cnc' : 'text-laser'}
-                            title={jobTitle(j)} detail={j.kind === 'print' ? `${j.grams} g` : `${j.minutes} min`} price={jobPrice(j)}
-                            onRemove={() => setAdded(a => a.filter((_, j) => j !== i))} />
-                    ))}
-                    {top > 0 && (
-                        <li className="flex items-center justify-between gap-2 border border-lijn bg-white p-3 text-sm">
-                            <span><span className="font-semibold">Minimum per payment</span> · machine use together is at least {eur(minimum)}</span>
-                            <span className="font-semibold">{eur(top)}</span>
-                        </li>
-                    )}
-                </ul>
             )}
 
             <div className="grid grid-cols-1 gap-3">
@@ -177,28 +124,6 @@ function Chips({ label, options, value, onChange }: {
                 ))}
             </div>
         </fieldset>
-    );
-}
-
-function Row({ icon: Icon, tone, title, detail, price, onRemove }: {
-    icon: React.ElementType; tone: string; title: string; detail: string; price: number; onRemove: () => void;
-}) {
-    return (
-        <li className="flex items-center justify-between gap-3 border border-lijn p-3 bg-white">
-            <div className="flex items-center gap-2 min-w-0">
-                <Icon size={18} className={cn('shrink-0', tone)} aria-hidden />
-                <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">{title}</div>
-                    <div className="text-xs text-grafiet">{detail}</div>
-                </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-                <span className="text-lg font-semibold tabular-nums">{eur(price)}</span>
-                <button onClick={onRemove} className="h-11 px-3 border border-lijn bg-white text-xs font-semibold flex items-center gap-1 hover:bg-red-50 text-red-600">
-                    <X size={14} aria-hidden /> Remove
-                </button>
-            </div>
-        </li>
     );
 }
 

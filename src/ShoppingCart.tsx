@@ -32,7 +32,7 @@ interface ShoppingCartProps {
     /** The finished checkout was volunteer / workshop use: nothing to pay, no QR code. */
     checkedOutFree?: boolean;
     /** Machine time in this checkout (typed in or laser cuts), shown as cart lines. */
-    machineLines?: { label: string; detail: string; price: number }[];
+    machineLines?: { label: string; detail: string; price: number; onRemove: () => void }[];
 }
 
 function ShoppingCart({
@@ -307,7 +307,13 @@ function ShoppingCart({
                                                 <p className="font-semibold text-sm truncate">{m.label}</p>
                                                 <p className="text-[10px] font-bold text-brand-black/60">{m.detail}</p>
                                             </div>
-                                            <span className={cn("font-semibold text-lg shrink-0", freeUse && "text-emerald-600")}>{freeUse ? 'Free' : `€${m.price.toFixed(2)}`}</span>
+                                            <div className="flex items-center gap-3 shrink-0">
+                                                <span className={cn("font-semibold text-lg", freeUse && "text-emerald-600")}>{freeUse ? 'Free' : `€${m.price.toFixed(2)}`}</span>
+                                                <button onClick={m.onRemove} aria-label={`Remove ${m.label}`} title="Remove from the cart"
+                                                    className="h-11 px-3 flex items-center justify-center gap-1.5 bg-white text-red-600 text-xs font-semibold border border-lijn hover:bg-red-50 active:scale-95 transition-all">
+                                                    <Trash2 size={16} aria-hidden /> <span className="hidden sm:inline">Remove</span>
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
