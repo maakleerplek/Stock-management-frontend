@@ -326,7 +326,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   return (
     <section className="flex flex-col min-h-full">
       <div className="px-4 sm:px-6 pt-3 pb-3 border-b border-lijn">
-        <HowItWorks busy={busy} onCreate={name => run(() => laserApi.createProject(name))} />
+        <HowItWorks />
       </div>
       <div className={cn('px-4 sm:px-6 py-2 border-b bg-brand-beige-dark', laserOn ? 'border-b-[3px] border-laser' : 'border-lijn')}>
         <div className="flex items-center justify-between gap-3">
@@ -395,11 +395,15 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
         )}
         </div>
 
-        {projects.length > 0 && <h2 className="pt-3 text-base font-semibold text-brand-black">Projects</h2>}
+        <div className="pt-3">
+          <h2 className="text-base font-semibold text-brand-black">Projects</h2>
+          <p className="text-sm text-grafiet">Cutting for longer? Keep your cuts together in a project folder and pay them in one go.</p>
+        </div>
         {projects.map(p => (
           <ProjectBlock key={p.id} project={p} cuts={cuts.filter(s => s.project_id === p.id)} busy={busy} run={run} onCheckout={onCheckout}
             dragProps={dragProps} dropActive={drag?.over === p.id} />
         ))}
+        <NewProject busy={busy} onCreate={name => run(() => laserApi.createProject(name))} />
 
         <p className="text-sm text-grafiet">
           Laser time costs {`€${rate.per_minute.toFixed(2)}`}/min; machine use is at least {`€${rate.minimum.toFixed(2)}`} per payment.
@@ -558,28 +562,29 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
 }
 
 /** Wood for the laser is sold at the checkout: a small reminder with a photo. Visitors only. */
-/** Three steps for someone who has never seen the page, and the way into a project for a long session. */
-function HowItWorks({ busy, onCreate }: { busy: boolean; onCreate: (name: string) => void }) {
-  const [naming, setNaming] = useState(false);
+/** Three steps for someone who has never seen the page. */
+function HowItWorks() {
   const step = (n: number, text: string) => (
     <li className="flex items-center gap-1.5">
       <span className="w-5 h-5 shrink-0 bg-brand-black text-white text-xs font-semibold flex items-center justify-center">{n}</span>{text}
     </li>
   );
   return (
-    <div className="space-y-2">
-      <ol className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold">
-        {step(1, 'Find your cut')}{step(2, 'Tap it')}{step(3, 'Pay at checkout')}
-      </ol>
-      {naming
-        ? <ProjectNameForm label="Start" busy={busy} onCancel={() => setNaming(false)} onSave={name => { onCreate(name); setNaming(false); }} />
-        : (
-          <button className="w-full brutalist-button min-h-10 px-3 py-1.5 bg-white text-sm flex items-center gap-2 text-left" onClick={() => setNaming(true)}>
-            <FolderPlus size={16} className="shrink-0" aria-hidden />
-            <span><b>Cutting for longer?</b> Put your cuts into a project</span>
-          </button>
-        )}
-    </div>
+    <ol className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold">
+      {step(1, 'Find your cut')}{step(2, 'Tap it')}{step(3, 'Pay at checkout')}
+    </ol>
+  );
+}
+
+/** Under the projects: an empty folder to start a new one, then its name. */
+function NewProject({ busy, onCreate }: { busy: boolean; onCreate: (name: string) => void }) {
+  const [naming, setNaming] = useState(false);
+  if (naming) return <ProjectNameForm label="Start" busy={busy} onCancel={() => setNaming(false)} onSave={name => { onCreate(name); setNaming(false); }} />;
+  return (
+    <button className="w-full min-h-14 px-3 py-2 border-2 border-dashed border-grafiet bg-white hover:border-brand-black hover:brightness-95 active:scale-[0.99] transition-[filter,scale] text-sm font-semibold flex items-center justify-center gap-2"
+      onClick={() => setNaming(true)}>
+      <FolderPlus size={18} className="shrink-0" aria-hidden /> New project
+    </button>
   );
 }
 
