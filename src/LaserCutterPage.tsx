@@ -566,7 +566,7 @@ function HowItWorks({ busy, onCreate }: { busy: boolean; onCreate: (name: string
   return (
     <div className="space-y-2">
       <ol className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold">
-        {step(1, 'Find your cut')}{step(2, 'Tap it to select')}{step(3, 'Pay at the checkout')}
+        {step(1, 'Find your cut')}{step(2, 'Tap it')}{step(3, 'Pay at checkout')}
       </ol>
       {naming
         ? <ProjectNameForm label="Start" busy={busy} onCancel={() => setNaming(false)} onSave={name => { onCreate(name); setNaming(false); }} />
