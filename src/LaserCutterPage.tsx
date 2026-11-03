@@ -543,16 +543,12 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
           ticked ? 'border-laser bg-laser-licht/30' : preview ? 'border-laser border-dashed bg-laser-licht/20' : fresh ? 'border-laser' : 'border-lijn hover:border-brand-black')}>
         <input type="checkbox" checked={ticked} onChange={() => { onToggle(shift.current); shift.current = false; }} className="sr-only peer" aria-label={`${cut.name}, ${shortDuration(cut.total_time)}`} />
         {picture}
+        <span aria-hidden className={cn('absolute top-2 left-2 w-7 h-7 border-2 border-brand-black flex items-center justify-center peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2',
+          ticked ? 'bg-brand-black text-white' : preview ? 'bg-laser-licht' : 'bg-white')}>
+          {(ticked || preview) && <Check size={18} className={cn(!ticked && 'opacity-50')} />}
+        </span>
         {fresh && <span className={cn('absolute top-2 right-2', NEW_TAG)}>NEW</span>}
         {info}
-        {/* Full-width bar instead of a small checkbox: says what a tap does, also on touch (no hover there). */}
-        <span aria-hidden className={cn('mt-auto h-10 flex items-center justify-center gap-2 border-t-2 text-sm font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:-outline-offset-4',
-          ticked ? 'bg-brand-black text-white border-brand-black' : preview ? 'bg-laser-licht border-lijn' : 'border-lijn')}>
-          <span className="w-5 h-5 border-2 border-current flex items-center justify-center">
-            {(ticked || preview) && <Check size={14} className={cn(!ticked && 'opacity-50')} />}
-          </span>
-          {ticked ? 'Mine' : 'This is mine'}
-        </span>
       </label>
     </li>
   );
