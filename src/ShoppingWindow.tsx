@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ShoppingCart, { type CartItem } from './ShoppingCart';
 import Extras, { EXTRAS_STORAGE_KEY } from './Extras';
-import { laserApi, pendingPaidIds, type LaserSession } from './lib/laserApi';
+import { laserApi, pendingPaidIds, cutPreviewUrl, type LaserSession } from './lib/laserApi';
 import { type ItemData, type ScanEvent, isLabMaterial } from './sendCodeHandler';
 import { checkoutApi, typedToCart, useBill, extraLabel, type CheckoutCart, type TypedJob, type Bill } from './lib/checkoutApi';
 import { useToast } from './ToastContext';
@@ -104,6 +104,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
             label: extraLabel(e),
             detail: `${e.quantity} ${e.unit}${minimumTopUp > 0 ? ' · incl. minimum per payment' : ''}`,
             price: e.quantity * e.booked_price,
+            // LightBurn's pictures of the cuts: what the visitor is paying for.
+            previews: (e.cuts ?? []).filter(id => laserInCheckout.find(s => s.id === id)?.has_preview).map(cutPreviewUrl),
             onRemove: e.cuts
                 ? () => e.cuts!.forEach(id => laserApi.setCheckout(id, false).catch(err => addToast(err instanceof Error ? err.message : String(err), 'error')))
                 : () => setTypedJobs(jobs => jobs.filter((_, i) => i !== job)),

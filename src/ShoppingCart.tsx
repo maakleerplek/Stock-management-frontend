@@ -12,6 +12,9 @@ export interface CartItem extends ItemData {
     cartQuantity: number;
 }
 
+/** Cut pictures on a laser line; more cuts show as +N. */
+const PREVIEWS_SHOWN = 6;
+
 interface ShoppingCartProps {
     cartItems: CartItem[];
     onUpdateQuantity: (itemId: number, newQuantity: number) => void;
@@ -32,7 +35,7 @@ interface ShoppingCartProps {
     /** The finished checkout was volunteer / workshop use: nothing to pay, no QR code. */
     checkedOutFree?: boolean;
     /** Machine time in this checkout (typed in or laser cuts), shown as cart lines. */
-    machineLines?: { label: string; detail: string; price: number; onRemove: () => void }[];
+    machineLines?: { label: string; detail: string; price: number; onRemove: () => void; previews?: string[] }[];
 }
 
 function ShoppingCart({
@@ -306,6 +309,16 @@ function ShoppingCart({
                                             <div className="min-w-0">
                                                 <p className="font-semibold text-sm truncate">{m.label}</p>
                                                 <p className="text-[10px] font-bold text-brand-black/60">{m.detail}</p>
+                                                {!!m.previews?.length && (
+                                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                                        {m.previews.slice(0, PREVIEWS_SHOWN).map(src => (
+                                                            <img key={src} src={src} alt="" loading="lazy" className="w-16 h-12 object-contain p-0.5 border border-lijn bg-white" />
+                                                        ))}
+                                                        {m.previews.length > PREVIEWS_SHOWN && (
+                                                            <span className="w-16 h-12 border border-lijn bg-white flex items-center justify-center text-sm font-semibold text-grafiet">+{m.previews.length - PREVIEWS_SHOWN}</span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-3 shrink-0">
                                                 <span className={cn("font-semibold text-lg", freeUse && "text-emerald-600")}>{freeUse ? 'Free' : `€${m.price.toFixed(2)}`}</span>
