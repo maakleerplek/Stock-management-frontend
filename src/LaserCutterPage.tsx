@@ -539,13 +539,14 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
       <label onClickCapture={e => { if (!(e.target instanceof HTMLInputElement)) shift.current = e.shiftKey; }}
         onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}
         // Hover darkens the whole card and a press sinks it: the card itself is the button, not only the checkbox.
-        className={cn('relative flex flex-col h-full border-2 cursor-pointer bg-white transition-[filter,scale] duration-100 hover:brightness-95 active:brightness-90 active:scale-[0.98]',
+        className={cn('group relative flex flex-col h-full border-2 cursor-pointer bg-white transition-[filter,scale] duration-100 hover:brightness-95 active:brightness-90 active:scale-[0.98]',
           ticked ? 'border-laser bg-laser-licht/30' : preview ? 'border-laser border-dashed bg-laser-licht/20' : fresh ? 'border-laser' : 'border-lijn hover:border-brand-black')}>
         <input type="checkbox" checked={ticked} onChange={() => { onToggle(shift.current); shift.current = false; }} className="sr-only peer" aria-label={`${cut.name}, ${shortDuration(cut.total_time)}`} />
         {picture}
         <span aria-hidden className={cn('absolute top-2 left-2 w-7 h-7 border-2 border-brand-black flex items-center justify-center peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2',
           ticked ? 'bg-brand-black text-white' : preview ? 'bg-laser-licht' : 'bg-white')}>
-          {(ticked || preview) && <Check size={18} className={cn(!ticked && 'opacity-50')} />}
+          {/* On hover a faint tick shows what a tap does. */}
+          <Check size={18} className={cn(ticked ? '' : preview ? 'opacity-50' : 'opacity-0 group-hover:opacity-40')} />
         </span>
         {fresh && <span className={cn('absolute top-2 right-2', NEW_TAG)}>NEW</span>}
         {info}
