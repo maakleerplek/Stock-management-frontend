@@ -361,7 +361,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
           {projects.length > 0 && loose.length > 0 && <p className="text-xs text-grafiet">Tip: hold a cut and drag it onto a project.</p>}
           {loose.length > 0 && (
             <div className="flex items-center gap-3">
-              <p className="text-sm text-grafiet flex-1">Tick the cuts that are yours.</p>
+              <p className="text-sm text-grafiet flex-1">Tap the cuts that are yours, then press Pay.</p>
               <button className={LINK} onClick={() => setTicked(new Set(loose.filter(c => !c.checkout_at).map(c => c.id)))}>
                 Select all
               </button>
@@ -538,8 +538,9 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
       {/* The label passes its click on to the checkbox without Shift: only the click on the card itself counts. */}
       <label onClickCapture={e => { if (!(e.target instanceof HTMLInputElement)) shift.current = e.shiftKey; }}
         onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}
-        className={cn('relative flex flex-col h-full border-2 cursor-pointer bg-white',
-          ticked ? 'border-laser bg-laser-licht/30' : preview ? 'border-laser border-dashed bg-laser-licht/20' : fresh ? 'border-laser' : 'border-lijn hover:border-grafiet')}>
+        // Hover darkens the whole card and a press sinks it: the card itself is the button, not only the checkbox.
+        className={cn('relative flex flex-col h-full border-2 cursor-pointer bg-white transition-[filter,scale] duration-100 hover:brightness-95 active:brightness-90 active:scale-[0.98]',
+          ticked ? 'border-laser bg-laser-licht/30' : preview ? 'border-laser border-dashed bg-laser-licht/20' : fresh ? 'border-laser' : 'border-lijn hover:border-brand-black')}>
         <input type="checkbox" checked={ticked} onChange={() => { onToggle(shift.current); shift.current = false; }} className="sr-only peer" aria-label={`${cut.name}, ${shortDuration(cut.total_time)}`} />
         {picture}
         <span aria-hidden className={cn('absolute top-2 left-2 w-7 h-7 border-2 border-brand-black flex items-center justify-center peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2',
@@ -565,7 +566,7 @@ function HowItWorks({ busy, onCreate }: { busy: boolean; onCreate: (name: string
   return (
     <div className="space-y-2">
       <ol className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold">
-        {step(1, 'Find your cut')}{step(2, 'Tick it')}{step(3, 'Pay')}
+        {step(1, 'Find your cut')}{step(2, 'Tap it to select')}{step(3, 'Pay at the checkout')}
       </ol>
       {naming
         ? <ProjectNameForm label="Start" busy={busy} onCancel={() => setNaming(false)} onSave={name => { onCreate(name); setNaming(false); }} />
