@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Tag, Folder, FolderPlus, FolderX, Pencil, ChevronUp, FolderInput, Undo2, ArrowRight } from 'lucide-react';
+import { X, Trash2, ShoppingCart, AlertTriangle, Scissors, PenTool, Wifi, WifiOff, Gauge, Flame, FlameKindling, Repeat, Check, Tag, Folder, FolderPlus, FolderX, Pencil, ChevronUp, FolderInput, Undo2, ChevronRight } from 'lucide-react';
 import ImageDisplay from './ImageDisplay';
 import { useStock } from './StockContext';
 import { useVolunteer } from './VolunteerContext';
@@ -599,8 +599,9 @@ function ProjectNameForm({ initial = '', label, busy, onSave, onCancel }: {
       <input autoFocus value={name} onChange={e => setName(e.target.value)} maxLength={80}
         placeholder="Your name + what you make, e.g. Jan – lamp" aria-label="Project name"
         className="flex-1 min-w-0 h-10 px-2 border-2 border-brand-black bg-white text-sm" />
-      <button type="submit" disabled={!ok || busy} className="brutalist-button h-10 px-3 bg-brand-black text-white text-sm font-semibold disabled:opacity-40">{label}</button>
-      <button type="button" onClick={onCancel} aria-label="Cancel" title="Cancel" className="brutalist-button h-10 w-10 p-0! shrink-0 bg-white flex items-center justify-center"><X size={22} strokeWidth={2.5} aria-hidden /></button>
+      {/* Green tick = save, red × = cancel: colour and icon say it without words. */}
+      <button type="submit" disabled={!ok || busy} aria-label={label} title={label} className="brutalist-button h-10 w-10 p-0! shrink-0 bg-emerald-400 flex items-center justify-center disabled:opacity-40"><Check size={22} strokeWidth={3} aria-hidden /></button>
+      <button type="button" onClick={onCancel} aria-label="Cancel" title="Cancel" className="brutalist-button h-10 w-10 p-0! shrink-0 bg-white text-red-600 hover:bg-red-50 flex items-center justify-center"><X size={22} strokeWidth={3} aria-hidden /></button>
     </form>
   );
 }
@@ -696,7 +697,9 @@ function WoodReminder({ onShop }: { onShop: () => void }) {
   const pic = wood.find(i => i.image) ?? wood[0];
   const from = Math.min(...wood.map(i => i.price));
   return (
-    <div className="flex items-center gap-3 border border-amber-300 bg-amber-50 p-3">
+    // The whole block goes to the checkout's wood (a › like any link to another page); no cart icon, it is not a purchase yet.
+    <button onClick={onShop} title="See the wood at the checkout"
+      className="w-full text-left flex items-center gap-3 border border-amber-300 bg-amber-50 p-3 hover:brightness-95 active:scale-[0.99] transition-[filter,scale]">
       <div className="w-14 h-14 shrink-0 border border-lijn overflow-hidden bg-white">
         <ImageDisplay imagePath={pic.image} alt="" width={56} height={56} />
       </div>
@@ -704,11 +707,8 @@ function WoodReminder({ onShop }: { onShop: () => void }) {
         <p className="text-sm font-semibold">Need wood for your job?</p>
         <p className="text-xs text-grafiet">MDF and poplar sheets for the laser, from €{from.toFixed(2)}.</p>
       </div>
-      <button onClick={onShop} aria-label="See the wood at the checkout" title="See the wood at the checkout"
-        className="brutalist-button h-11 px-3 bg-white shrink-0 flex items-center gap-1 hover:brightness-95">
-        <ArrowRight size={18} aria-hidden /><ShoppingCart size={20} className="text-emerald-600" aria-hidden />
-      </button>
-    </div>
+      <ChevronRight size={28} className="shrink-0 text-amber-700" aria-hidden />
+    </button>
   );
 }
 
