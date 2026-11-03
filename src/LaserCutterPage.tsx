@@ -535,7 +535,8 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
   }
   return (
     <li {...dragAttrs} className={cn('select-none', drag?.dragging && 'opacity-30')}>
-      <label onClickCapture={e => { shift.current = e.shiftKey; }}
+      {/* The label passes its click on to the checkbox without Shift: only the click on the card itself counts. */}
+      <label onClickCapture={e => { if (!(e.target instanceof HTMLInputElement)) shift.current = e.shiftKey; }}
         onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}
         className={cn('relative flex flex-col h-full border-2 cursor-pointer bg-white',
           ticked ? 'border-laser bg-laser-licht/30' : preview ? 'border-laser border-dashed bg-laser-licht/20' : fresh ? 'border-laser' : 'border-lijn hover:border-grafiet')}>
