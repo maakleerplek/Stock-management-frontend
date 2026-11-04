@@ -176,7 +176,7 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
 /** Near or on the drop tray, the closest box counts: less precise moving needed. */
 function nearestTrayBox(x: number, y: number): HTMLElement | null {
   const tray = document.querySelector('[data-tray]');
-  if (!tray || x < tray.getBoundingClientRect().left - 60) return null;
+  if (!tray || x < tray.getBoundingClientRect().left - 80) return null;
   let best: HTMLElement | null = null, bestDist = Infinity;
   for (const el of tray.querySelectorAll<HTMLElement>('[data-drop]')) {
     const r = el.getBoundingClientRect();
@@ -191,23 +191,18 @@ function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] 
   const from = drag.cut.project_id && projects.some(p => p.id === drag.cut.project_id) ? drag.cut.project_id : null;
   const box = (id: DropTarget, label: string, icon: React.ReactNode) => (
     <li key={id} data-drop={id} title={label}
-      className={cn('w-full aspect-square px-1 border-2 border-dashed flex flex-col items-center justify-center gap-1 text-[10px] leading-tight font-semibold text-center transition-[colors,scale]',
-        drag.over === id ? 'border-solid border-brand-black bg-laser-licht scale-110' : 'border-grafiet bg-white')}>
+      className={cn('w-24 aspect-square px-1.5 border-2 border-dashed flex flex-col items-center justify-center gap-1.5 text-xs leading-tight font-semibold text-center transition-[colors,scale]',
+        drag.over === id ? 'border-solid border-laser bg-laser-licht scale-110' : 'border-grafiet bg-white')}>
       {icon}<span className="w-full line-clamp-2 break-words">{label}</span>
     </li>
   );
   return (
-    <div data-tray className="fixed right-0 inset-y-0 z-50 w-20 border-l-2 border-brand-black bg-brand-beige px-1.5 py-2 overflow-y-auto flex flex-col justify-center shadow-[-4px_0_12px_rgba(0,0,0,0.15)]">
-      {/* The card under the finger hides the box, so say where it will go. */}
-      <p className="text-sm mb-2 break-words">
-        {drag.over
-          ? <>Let go: into <b>{drag.over === 'new' ? 'New cuts' : drag.over === 'newproject' ? 'a new project' : projects.find(p => p.id === drag.over)?.name}</b></>
-          : <span className="text-grafiet">Drop <b>{drag.cut.name}</b> on a project</span>}
-      </p>
-      <ul className="flex flex-col gap-2">
-        {projects.filter(p => p.id !== from).map(p => box(p.id, p.name, <FolderInput size={22} className="shrink-0" aria-hidden />))}
-        {from && box('new', 'New cuts', <Undo2 size={22} className="shrink-0" aria-hidden />)}
-        {box('newproject', 'New project', <FolderPlus size={22} className="shrink-0" aria-hidden />)}
+    // A dock on the right edge, only as tall as its boxes: drag the cut to the right onto a folder.
+    <div data-tray className="fixed right-0 top-1/2 -translate-y-1/2 z-50 max-h-[85dvh] overflow-y-auto rounded-l-2xl bg-brand-black p-2.5 shadow-[-4px_0_16px_rgba(0,0,0,0.3)]">
+      <ul className="flex flex-col gap-2.5">
+        {projects.filter(p => p.id !== from).map(p => box(p.id, p.name, <FolderInput size={26} className="shrink-0" aria-hidden />))}
+        {from && box('new', 'New cuts', <Undo2 size={26} className="shrink-0" aria-hidden />)}
+        {box('newproject', 'New project', <FolderPlus size={26} className="shrink-0" aria-hidden />)}
       </ul>
     </div>
   );
