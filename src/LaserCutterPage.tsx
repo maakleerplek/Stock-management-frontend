@@ -102,7 +102,8 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
     return () => document.removeEventListener('touchmove', stop);
   }, []);
 
-  const start = (cut: LaserSession, e: React.PointerEvent, count = 1) => {
+  const start = (cut: LaserSession, e: React.PointerEvent, group: string[] = [cut.id]) => {
+    const count = group.length;
     if (e.button !== 0) return;
     const x0 = e.clientX, y0 = e.clientY;
     const touch = e.pointerType !== 'mouse';
@@ -110,8 +111,13 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
     let active = false;
     // The card itself follows the finger: a copy at full size, held where it was grabbed.
     let ghost: HTMLElement | null = null;
+    // The other ticked cards: copies that fly in behind the one in hand, like a fanned stack.
+    const stack: HTMLElement[] = [];
     let grabX = 0, grabY = 0;
-    const place = (x: number, y: number) => { if (ghost) ghost.style.translate = `${x - grabX}px ${y - grabY}px`; };
+    const place = (x: number, y: number) => {
+      if (ghost) ghost.style.translate = `${x - grabX}px ${y - grabY}px`;
+      stack.forEach((el, i) => { el.style.translate = `${x - grabX + (i + 1) * 6}px ${y - grabY + (i + 1) * 4}px`; });
+    };
     const begin = (x: number, y: number) => {
       active = true;
       navigator.vibrate?.(15);
@@ -136,6 +142,27 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
         });
         ghost.appendChild(badge);
       }
+      // At most 3 behind it: enough to read as a stack.
+      group.filter(id => id !== cut.id).slice(0, 3).forEach((id, i) => {
+        const el = document.querySelector<HTMLElement>(`[data-cut="${id}"]`);
+        if (!el) return;
+        const er = el.getBoundingClientRect();
+        const copy = el.cloneNode(true) as HTMLElement;
+        Object.assign(copy.style, {
+          position: 'fixed', left: '0', top: '0', width: `${r.width}px`, height: `${r.height}px`, margin: '0',
+          zIndex: String(59 - i), pointerEvents: 'none', listStyle: 'none', opacity: '1',
+          transformOrigin: `${grabX}px ${grabY}px`, translate: `${er.left}px ${er.top}px`, scale: '1', rotate: '0deg',
+          boxShadow: '0 8px 20px rgba(0,0,0,0.25)',
+          // Slow on the way in, then a short lag that makes it trail the hand.
+          transition: 'translate 260ms cubic-bezier(0.2, 0, 0, 1), scale 260ms cubic-bezier(0.2, 0, 0, 1), rotate 260ms cubic-bezier(0.2, 0, 0, 1)',
+        });
+        document.body.appendChild(copy);
+        stack.push(copy);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          Object.assign(copy.style, { scale: '0.8', rotate: `${(i % 2 ? -1 : 1) * (3 + i * 2)}deg` });
+          window.setTimeout(() => { copy.style.transition = 'translate 90ms ease-out'; }, 270);
+        }));
+      });
       document.body.appendChild(ghost);
       place(x, y);
       const g = ghost;
@@ -169,6 +196,7 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
     };
     const cleanup = () => {
       ghost?.remove();
+      stack.forEach(el => el.remove());
       window.clearTimeout(timer);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
@@ -323,7 +351,7 @@ function TimePanel({ onCheckout, onShop, live, tab, setTab }: LaserCutterPagePro
     });
   });
   const dragProps = (s: LaserSession) => s.checkout_at ? undefined : {
-    onPointerDown: (e: React.PointerEvent) => startDrag(s, e, dragGroup(s).length),
+    onPointerDown: (e: React.PointerEvent) => startDrag(s, e, dragGroup(s).map(c => c.id)),
     dragging: !!drag && (drag.cut.id === s.id || (ticked.has(drag.cut.id) && ticked.has(s.id))),
   };
 
@@ -498,6 +526,7 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
 }) {
   const rate = useLaserRate();
   const dragAttrs = drag && {
+    'data-cut': cut.id,   // found again when a ticked group is dragged along
     onPointerDown: drag.onPointerDown,
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),   // a long press must not open the menu
     style: { WebkitTouchCallout: 'none' } as React.CSSProperties,
@@ -856,13 +885,12 @@ function SettingsPanel({ libraryVersion }: { libraryVersion: number }) {
 
   return (
     <section className="p-4 sm:p-6 space-y-5">
-      <div className="border-b border-lijn pb-3">
+      <div className="border-b border-lijn pb-3 flex items-center gap-3 flex-wrap">
         <h2 className="text-lg font-semibold text-brand-black">Laser settings</h2>
+        <span className="inline-flex items-center gap-1.5 border border-amber-500 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
+          <AlertTriangle size={13} className="shrink-0" aria-hidden />Test on a scrap first
+        </span>
       </div>
-      <p className="flex gap-2 border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-brand-black">
-        <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-700" aria-hidden />
-        <span><b>Always test first</b> on a small scrap of your material, for cutting and for engraving. Didn't work? Tell us under <b>Tried it? How did it go?</b> so the advice gets better.</span>
-      </p>
 
       {loadError && <p className="text-sm text-rood">Material list unavailable: {loadError}</p>}
       {materials && !materials.length && <p className="text-sm text-grafiet">No materials in InvenTree yet (category Lasermaterialen).</p>}
