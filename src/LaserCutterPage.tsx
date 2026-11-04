@@ -197,8 +197,8 @@ function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] 
     </li>
   );
   return (
-    // A dock on the right edge, only as tall as its boxes: drag the cut to the right onto a folder.
-    <div data-tray className="fixed right-0 top-1/2 -translate-y-1/2 z-50 max-h-[85dvh] overflow-y-auto rounded-l-2xl bg-brand-black p-2.5 shadow-[-4px_0_16px_rgba(0,0,0,0.3)]">
+    // A dock on the right edge, only as tall as its boxes: drag the cut to the right onto a folder. Above the dragged card (z 60).
+    <div data-tray className="fixed right-0 top-1/2 -translate-y-1/2 z-[70] max-h-[85dvh] overflow-y-auto rounded-l-2xl bg-brand-black p-2.5 shadow-[-4px_0_16px_rgba(0,0,0,0.3)]">
       <ul className="flex flex-col gap-2.5">
         {projects.filter(p => p.id !== from).map(p => box(p.id, p.name, <FolderInput size={26} className="shrink-0" aria-hidden />))}
         {from && box('new', 'New cuts', <Undo2 size={26} className="shrink-0" aria-hidden />)}
