@@ -306,9 +306,46 @@ export default function LaserLibrary({ onSaved }: { onSaved?: () => void }) {
           )}
         </>
       )}
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-brand-black">Fits (kerf offset)</h3>
+        <p className="text-xs text-grafiet">
+          Draw at nominal size and set the offset in LightBurn (Cut Settings → Kerf Offset, per side).
+          k = measured kerf: cut a 20 × 20 mm square, k = 20 − measured size. Check with a test comb before a big job.
+        </p>
+        <div className="overflow-x-auto border border-lijn bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-brand-beige-dark text-left text-xs">
+              <tr>
+                <th className="px-3 py-2">Fit</th>
+                <th className="px-3 py-2">Offset per side</th>
+                <th className="px-3 py-2 text-right">MDF (k ≈ 0.3)</th>
+                <th className="px-3 py-2">Feels like / use for</th>
+              </tr>
+            </thead>
+            <tbody>
+              {FITS.map(f => (
+                <tr key={f.fit} className="border-t border-lijn">
+                  <td className="px-3 py-1.5 font-semibold">{f.fit}</td>
+                  <td className="px-3 py-1.5 font-mono">{f.offset}</td>
+                  <td className="px-3 py-1.5 font-mono text-right">{f.mdf}</td>
+                  <td className="px-3 py-1.5 text-xs text-grafiet">{f.use}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
   );
 }
+
+// Each step changes the gap by 0.1 mm in total (0.05 per side). MDF column: typical for our Metaquip 100 W, not measured.
+const FITS = [
+  { fit: 'Loose', offset: 'k/2 − 0.05', mdf: '0.10 mm', use: 'Slides in by hand. Parts you take apart, hinges, sliding lids.' },
+  { fit: 'Transition', offset: 'k/2', mdf: '0.15 mm', use: 'Goes in with a light tap. Glued joints (leaves room for the glue).' },
+  { fit: 'Press', offset: 'k/2 + 0.05', mdf: '0.20 mm', use: 'Needs a mallet, holds without glue. Wood/MDF only: acrylic cracks, use transition there.' },
+];
 
 const cell = 'w-full min-w-0 bg-transparent border border-transparent hover:border-lijn focus:border-brand-black focus:bg-white px-1.5 py-1 outline-none';
 
