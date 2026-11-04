@@ -62,10 +62,10 @@ export default function LaserCutterPage({ onCheckout, onShop, live }: LaserCutte
   );
 }
 
-// Cut cards: at least 130 px, as many per row as fit (two on a phone, three in the laser PC bar);
+// Cut cards: at least 160 px, as many per row as fit (two on a phone and in the laser PC bar);
 // the leftover width is shared out so the row still lines up with the page edge.
 const TICKED_KEY = 'laserTickedCuts';
-const CUT_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2';
+const CUT_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2';
 
 /** What paying these cuts together costs: rounded up once, at least the machine minimum. */
 const payPrice = (list: LaserSession[], rate: LaserRate) =>
@@ -486,9 +486,9 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
     style: { WebkitTouchCallout: 'none' } as React.CSSProperties,
   };
   const picture = (
-    <span className="block aspect-[16/9] w-full bg-white border-b border-lijn overflow-hidden" aria-hidden>
+    <span className="block aspect-[4/3] w-full bg-white border-b border-lijn overflow-hidden" aria-hidden>
       {cut.has_preview
-        ? <img src={cutPreviewUrl(cut.id)} alt="" draggable={false} className="w-full h-full object-cover" loading="lazy" />
+        ? <img src={cutPreviewUrl(cut.id)} alt="" draggable={false} className="w-full h-full object-contain p-1" loading="lazy" />
         : <span className="w-full h-full flex items-center justify-center"><Scissors size={36} className="text-lijn" /></span>}
     </span>
   );
