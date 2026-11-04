@@ -13,10 +13,6 @@ import { profitTrend } from '../lib/profitTrend';
 import type { DateRange } from './AnalyticsPage';
 
 const eur = (n: number) => `${n < 0 ? '−' : ''}€${Math.abs(n).toFixed(2)}`;
-const fmtMinutes = (m: number) => {
-  const r = Math.round(m);
-  return r < 60 ? `${r} min` : `${Math.floor(r / 60)} h ${String(r % 60).padStart(2, '0')}`;
-};
 
 /** Revenue, costs and profit of everything in the period, in one table. */
 /** Deleted laser time that is usage (workshop / HTL, volunteer), for the box under the table; the rest counts as paid. */
@@ -156,47 +152,6 @@ export default function TotalsTab({ trackingEntries, serviceLines, discarded, la
             </tbody>
           </table>
         </div>
-
-        {(totals.laserUnpaid.count > 0 || totals.laserUnverified.count > 0 || laserDeletedRows(totals).length > 0) && (
-          <div className="mt-4 border border-lijn">
-            <div className="px-3 py-1.5 bg-brand-beige-dark text-[10px] font-semibold text-brand-black/60">
-              Laser time not on a paid sale (not in the total, details on the Laser tab)
-            </div>
-            <table className="w-full text-xs">
-              <tbody>
-                <tr className="border-b border-lijn-zacht bg-amber-50">
-                  <td className="py-2 px-3 font-semibold">Open sessions, not paid yet</td>
-                  <td className="py-2 text-right tabular-nums">{fmtMinutes(totals.laserUnpaid.minutes)}</td>
-                  <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(totals.laserUnpaid.value)}</td>
-                </tr>
-                {laserDeletedRows(totals).map(([k, b]) => (
-                  <tr key={k} className="border-b border-lijn-zacht">
-                    <td className="py-2 px-3 font-semibold">Deleted · {DISCARD_KIND_LABELS[k]}</td>
-                    <td className="py-2 text-right tabular-nums">{fmtMinutes(b.minutes)}</td>
-                    <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(b.value)}</td>
-                  </tr>
-                ))}
-                <tr className="border-b border-lijn-zacht bg-rose-50">
-                  <td className="py-2 px-3 font-semibold">Not verified</td>
-                  <td className="py-2 text-right tabular-nums">{fmtMinutes(totals.laserUnverified.minutes)}</td>
-                  <td className="py-2 px-3 text-right tabular-nums font-mono">{eur(totals.laserUnverified.value)}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-semibold">Profit if the open sessions get paid</td>
-                  <td />
-                  <td className={cn('py-2 px-3 text-right tabular-nums font-mono font-semibold', totals.profitWithUnpaidLaser < 0 && 'text-red-600')}>
-                    {eur(totals.profitWithUnpaidLaser)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <p className="px-3 py-1.5 text-[10px] text-brand-black/60">
-              Deleted sessions count as paid outside the checkout (in the total above), except workshop / HTL and volunteer use.
-              Not verified: time reset without a session, the counter now, or a session whose sales order was cancelled.
-            </p>
-          </div>
-        )}
-
 
         {totals.notes.length > 0 && (
           <ul className="mt-4 space-y-1 text-[10px] text-brand-black/50">
