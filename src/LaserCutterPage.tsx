@@ -102,7 +102,7 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
     return () => document.removeEventListener('touchmove', stop);
   }, []);
 
-  const start = (cut: LaserSession, e: React.PointerEvent) => {
+  const start = (cut: LaserSession, e: React.PointerEvent, count = 1) => {
     if (e.button !== 0) return;
     const x0 = e.clientX, y0 = e.clientY;
     const touch = e.pointerType !== 'mouse';
@@ -126,6 +126,16 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
         transformOrigin: `${grabX}px ${grabY}px`, scale: '1', boxShadow: '0 0 0 rgba(0,0,0,0)',
         transition: 'scale 180ms cubic-bezier(0.2, 0, 0, 1), box-shadow 180ms ease-out',
       });
+      if (count > 1) {
+        // Several ticked cuts go along: a count on the card in hand.
+        const badge = document.createElement('span');
+        badge.textContent = String(count);
+        Object.assign(badge.style, {
+          position: 'absolute', top: '-10px', right: '-10px', minWidth: '28px', height: '28px', padding: '0 6px',
+          background: '#171717', color: '#fff', font: '600 14px/28px system-ui, sans-serif', textAlign: 'center', zIndex: '1',
+        });
+        ghost.appendChild(badge);
+      }
       document.body.appendChild(ghost);
       place(x, y);
       const g = ghost;
@@ -293,22 +303,28 @@ function TimePanel({ onCheckout, onShop, live, tab, setTab }: LaserCutterPagePro
     });
   };
 
+  // Dragging a ticked cut takes all ticked cuts along; an unticked one goes alone.
+  const dragGroup = (cut: LaserSession) => ticked.has(cut.id) && picked.length > 1 ? picked : [cut];
   const { drag, start: startDrag } = useCutDrag((cut, target) => {
+    const group = dragGroup(cut);
     if (target === 'newproject') {
       // Needs a name first: back with the new cuts, ticked, and the menu open at "New project…".
       void run(async () => {
         if (cut.project_id) await laserApi.setProject(cut.id, null);
-        setTicked(new Set([cut.id]));
+        setTicked(new Set(group.map(c => c.id)));
         setNameFirst(true);
         setMoving(true);
       });
       return;
     }
-    void run(() => laserApi.setProject(cut.id, target === 'new' ? null : target));
+    void run(async () => {
+      for (const c of group) await laserApi.setProject(c.id, target === 'new' ? null : target);
+      if (group.length > 1) setTicked(new Set());
+    });
   });
   const dragProps = (s: LaserSession) => s.checkout_at ? undefined : {
-    onPointerDown: (e: React.PointerEvent) => startDrag(s, e),
-    dragging: drag?.cut.id === s.id,
+    onPointerDown: (e: React.PointerEvent) => startDrag(s, e, dragGroup(s).length),
+    dragging: !!drag && (drag.cut.id === s.id || (ticked.has(drag.cut.id) && ticked.has(s.id))),
   };
 
   const row = (s: LaserSession) => (
