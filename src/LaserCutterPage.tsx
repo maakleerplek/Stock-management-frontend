@@ -62,11 +62,10 @@ export default function LaserCutterPage({ onCheckout, onShop, live }: LaserCutte
   );
 }
 
-// Cut cards: about 180 px on every screen (140 px on a phone, two per row), as many per row as fit;
-// the leftover width is shared out so the row still lines up with the page edge. The minimum sits
-// well under the size, so New cuts and the narrower project blocks end up with nearly the same cards.
+// Cut cards: at least 130 px, as many per row as fit (two on a phone, three in the laser PC bar);
+// the leftover width is shared out so the row still lines up with the page edge.
 const TICKED_KEY = 'laserTickedCuts';
-const CUT_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] min-[480px]:grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2';
+const CUT_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2';
 
 /** What paying these cuts together costs: rounded up once, at least the machine minimum. */
 const payPrice = (list: LaserSession[], rate: LaserRate) =>
@@ -227,6 +226,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const [deleting, setDeleting] = useState(false);
   const [moving, setMoving] = useState(false);   // the "Add to project" menu is open
   const [nameFirst, setNameFirst] = useState(false);   // ...straight at "New project…"
+  const [tab, setTab] = useState<'cuts' | 'projects'>('cuts');
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -330,19 +330,21 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
       </div>
       <div className={cn('px-4 sm:px-6 py-2 border-b bg-brand-beige-dark', laserOn ? 'border-b-[3px] border-laser' : 'border-lijn')}>
         <div className="flex items-center justify-between gap-3">
-          <div className="shrink-0">
+          <div className="shrink-0 min-w-0">
             <div className="flex items-center gap-2 font-semibold text-brand-black">
               <span className={cn('inline-block w-2.5 h-2.5 border', laserOn ? 'bg-laser border-laser' : 'bg-lijn border-grafiet')} />
               {laserOn ? 'Cutting' : 'Laser idle'}
+              {/* All fine = just the icon; a problem gets words. */}
+              <span className={cn('text-xs inline-flex items-center gap-1.5', sensorOk ? 'text-emerald-700' : 'text-amber-800')} title={sensorOk ? 'Timer connected' : undefined}>
+                {sensorOk ? <Wifi size={13} aria-label="Timer connected" /> : <WifiOff size={13} aria-hidden />}
+                {!sensorOk && (!connected ? 'Laser service offline' : time?.simulate ? 'Test mode (no sensor)' : 'Timer not connected')}
+              </span>
             </div>
-            <span className={cn('mt-1 text-xs font-semibold inline-flex items-center gap-1.5', sensorOk ? 'text-emerald-700' : 'text-amber-800')}>
-              {sensorOk ? <Wifi size={13} aria-hidden /> : <WifiOff size={13} aria-hidden />}
-              {!connected ? 'Laser service offline' : time?.esp_connected ? 'Timer connected' : time?.simulate ? 'Test mode (no sensor)' : 'Timer not connected'}
-            </span>
           </div>
           {openCut > 0 && <div className="text-2xl font-semibold tabular-nums text-brand-black leading-none">{shortDuration(openCut)}</div>}
-          {/* Decoration only: kept small so the cuts stay on screen. */}
-          <div className="flex-1 min-w-[152px] max-w-[304px]"><LaserAnimation active={laserOn} /></div>
+          {/* Decoration only: the full cutter where there is room, just the head on a narrow screen. */}
+          <div className="hidden sm:block flex-1 min-w-[152px] max-w-[304px]"><LaserAnimation active={laserOn} /></div>
+          <LaserHead active={laserOn} />
         </div>
         {time?.simulate && (
           <div className="flex gap-2 text-xs pb-1">
@@ -354,37 +356,33 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
         )}
       </div>
 
+      {/* Two sections, one at a time: a tab bar says clearly which one you are in. */}
+      <div role="tablist" className="flex border-b border-lijn bg-white">
+        {([['cuts', 'New cuts', loose.length], ['projects', 'Projects', projects.length]] as const).map(([id, label, n]) => (
+          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+            className={cn('flex-1 h-11 text-sm font-semibold border-b-[3px] -mb-px flex items-center justify-center gap-1.5',
+              tab === id ? 'border-brand-black text-brand-black' : 'border-transparent text-grafiet hover:text-brand-black')}>
+            {id === 'cuts' ? <Scissors size={15} aria-hidden /> : <Folder size={15} aria-hidden />}{label}
+            {n > 0 && <span className={cn('px-1.5 text-xs tabular-nums', tab === id ? 'bg-brand-black text-white' : 'bg-lijn text-brand-black')}>{n}</span>}
+          </button>
+        ))}
+      </div>
+
       <div className="flex-1 p-4 sm:p-6 space-y-3">
+        {tab === 'cuts' && (
         <div data-drop="new" className={cn('space-y-3', drag?.over === 'new' && 'outline-2 outline-dashed outline-brand-black outline-offset-4 bg-laser-licht/40')}>
-        <div>
-          <h2 className="text-base font-semibold text-brand-black">New cuts</h2>
-          {projects.length > 0 && loose.length > 0 && <p className="text-xs text-grafiet">Tip: hold a cut and drag it onto a project.</p>}
-          {loose.length > 0 && (
-            <div className="flex items-center gap-3">
-              <p className="text-sm text-grafiet flex-1">Tap the cuts that are yours, then press Pay.</p>
-              <button className={LINK} onClick={() => setTicked(new Set(loose.filter(c => !c.checkout_at).map(c => c.id)))}>
-                Select all
-              </button>
-              <button className={LINK} disabled={!picked.length} onClick={() => setTicked(new Set())}>
-                Clear
-              </button>
-            </div>
-          )}
-        </div>
-        {openCut > 0 && (
-          <div className="flex items-center gap-3 px-3 py-2.5 border border-lijn bg-brand-beige-dark">
-            <span className="w-6 h-6 shrink-0 border-2 border-dashed border-grafiet" aria-hidden />
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-sm truncate">{laserOn ? 'Cutting now' : 'Laser stopped'}{time?.job ? ` · ${time.job}` : ''}</div>
-              <div className="text-xs text-grafiet">{laserOn ? `Shows up as a cut ${time?.cut_gap ?? 5} s after the laser stops` : 'Becomes a cut in a moment'}</div>
-            </div>
-            <div className="font-semibold tabular-nums">{shortDuration(openCut)}</div>
+        {loose.length > 0 && (
+          <div className="flex items-center justify-end gap-3">
+            <button className={LINK} onClick={() => setTicked(new Set(loose.filter(c => !c.checkout_at).map(c => c.id)))}>
+              Select all
+            </button>
+            <button className={LINK} disabled={!picked.length} onClick={() => setTicked(new Set())}>
+              Clear
+            </button>
           </div>
         )}
-        {loose.length === 0 && openCut <= 0 && (
-          <p className="border border-dashed border-lijn p-4 text-center text-sm text-grafiet">
-            No new cuts. When the laser stops, your cut shows up here.
-          </p>
+        {loose.length === 0 && (
+          <p className="border border-dashed border-lijn p-4 text-center text-sm text-grafiet">No new cuts</p>
         )}
         {recent.length > 0 && <ul className={CUT_GRID}>{recent.map(row)}</ul>}
         {older.length > 0 && (
@@ -394,16 +392,16 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
           </details>
         )}
         </div>
+        )}
 
-        <div className="pt-3">
-          <h2 className="text-base font-semibold text-brand-black">Projects</h2>
-          <p className="text-sm text-grafiet">Cutting for longer? Keep your cuts together in a project folder and pay them in one go.</p>
-        </div>
-        {projects.map(p => (
-          <ProjectBlock key={p.id} project={p} cuts={cuts.filter(s => s.project_id === p.id)} busy={busy} run={run} onCheckout={onCheckout}
-            dragProps={dragProps} dropActive={drag?.over === p.id} />
-        ))}
-        <NewProject busy={busy} onCreate={name => run(() => laserApi.createProject(name))} />
+        {tab === 'projects' && (<>
+          <NewProject busy={busy} onCreate={name => run(() => laserApi.createProject(name))} />
+          {projects.length === 0 && <p className="border border-dashed border-lijn p-4 text-center text-sm text-grafiet">No projects</p>}
+          {projects.map(p => (
+            <ProjectBlock key={p.id} project={p} cuts={cuts.filter(s => s.project_id === p.id)} busy={busy} run={run} onCheckout={onCheckout}
+              dragProps={dragProps} dropActive={drag?.over === p.id} />
+          ))}
+        </>)}
 
         <p className="text-sm text-grafiet">
           Laser time costs {`€${rate.per_minute.toFixed(2)}`}/min; machine use is at least {`€${rate.minimum.toFixed(2)}`} per payment.
@@ -491,23 +489,23 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
     style: { WebkitTouchCallout: 'none' } as React.CSSProperties,
   };
   const picture = (
-    <span className="block aspect-[4/3] w-full bg-brand-beige-dark border-b border-lijn overflow-hidden" aria-hidden>
+    <span className="block aspect-[16/9] w-full bg-white border-b border-lijn overflow-hidden" aria-hidden>
       {cut.has_preview
-        ? <img src={cutPreviewUrl(cut.id)} alt="" draggable={false} className="w-full h-full object-contain p-2" loading="lazy" />
+        ? <img src={cutPreviewUrl(cut.id)} alt="" draggable={false} className="w-full h-full object-cover" loading="lazy" />
         : <span className="w-full h-full flex items-center justify-center"><Scissors size={36} className="text-lijn" /></span>}
     </span>
   );
   const info = (
-    <span className="block p-2.5 space-y-0.5">
-      <span className="block font-semibold text-sm leading-tight line-clamp-2 break-words">{cut.name}</span>
+    <span className="block p-2 space-y-1">
       <span className="flex items-baseline justify-between gap-2">
-        <span className="text-xs text-grafiet truncate">{cut.checkout_at ? 'In the checkout' : cutStart(cut.name, cut.created)}</span>
-        <span className="text-lg font-semibold tabular-nums">{shortDuration(cut.total_time)}</span>
+        <span className="font-semibold text-sm leading-tight truncate">{cut.name}</span>
+        <span className="text-base font-semibold tabular-nums leading-tight">{shortDuration(cut.total_time)}</span>
       </span>
-      {/* Unrounded: the till rounds up once for all ticked cuts together. */}
-      <span className="flex justify-end">
-        <span className="inline-flex items-center gap-1 border border-emerald-600 bg-emerald-50 text-emerald-700 px-1.5 py-0.5 text-xs font-semibold tabular-nums">
-          <Tag size={12} aria-hidden />€{laserSessionPrice(cut.total_time / 60, rate).toFixed(2)}
+      <span className="flex items-center justify-between gap-2">
+        <span className="text-xs text-grafiet truncate">{cut.checkout_at ? 'In the checkout' : cutStart(cut.name, cut.created)}</span>
+        {/* Unrounded: the till rounds up once for all ticked cuts together. */}
+        <span className="shrink-0 inline-flex items-center gap-1 border border-emerald-600 bg-emerald-50 text-emerald-700 px-1 text-xs font-semibold tabular-nums">
+          <Tag size={11} aria-hidden />€{laserSessionPrice(cut.total_time / 60, rate).toFixed(2)}
         </span>
       </span>
     </span>
@@ -546,7 +544,7 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
         onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}
         // Hover darkens the whole card and a press sinks it: the card itself is the button, not only the checkbox.
         className={cn('group relative flex flex-col h-full border-2 cursor-pointer bg-white transition-[filter,scale] duration-100 hover:brightness-95 active:brightness-90 active:scale-[0.98]',
-          ticked ? 'border-laser bg-laser-licht/30' : preview ? 'border-laser border-dashed bg-laser-licht/20' : fresh ? 'border-laser' : 'border-lijn hover:border-brand-black')}>
+          ticked ? 'border-laser bg-laser-licht/30' : preview ? 'border-laser border-dashed bg-laser-licht/20' : fresh ? 'border-brand-black' : 'border-lijn hover:border-brand-black')}>
         <input type="checkbox" checked={ticked} readOnly className="sr-only peer" aria-label={`${cut.name}, ${shortDuration(cut.total_time)}`} />
         {picture}
         <span aria-hidden className={cn('absolute top-2 left-2 w-7 h-7 border-2 border-brand-black flex items-center justify-center peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2',
@@ -576,15 +574,28 @@ function HowItWorks() {
   );
 }
 
-/** Under the projects: an empty folder to start a new one, then its name. */
+/** Above the projects: a button to start a new one, then its name. */
 function NewProject({ busy, onCreate }: { busy: boolean; onCreate: (name: string) => void }) {
   const [naming, setNaming] = useState(false);
   if (naming) return <ProjectNameForm label="Start" busy={busy} onCancel={() => setNaming(false)} onSave={name => { onCreate(name); setNaming(false); }} />;
   return (
-    <button className="w-full min-h-14 px-3 py-2 border-2 border-dashed border-grafiet bg-white hover:border-brand-black hover:brightness-95 active:scale-[0.99] transition-[filter,scale] text-sm font-semibold flex items-center justify-center gap-2"
-      onClick={() => setNaming(true)}>
-      <FolderPlus size={18} className="shrink-0" aria-hidden /> New project
-    </button>
+    <div className="flex justify-end">
+      <button className="brutalist-button h-10 px-3 bg-white text-sm font-semibold flex items-center gap-2" onClick={() => setNaming(true)}>
+        <FolderPlus size={16} className="shrink-0" aria-hidden /> New project
+      </button>
+    </div>
+  );
+}
+
+/** Narrow screens: just the laser head, its beam pulsing while it cuts. */
+function LaserHead({ active }: { active: boolean }) {
+  return (
+    <span aria-hidden className="sm:hidden ml-auto shrink-0 flex flex-col items-center">
+      <span className="w-3 h-4 bg-brand-black" />
+      <span className="w-1.5 h-1.5 bg-brand-black" />
+      <span className={cn('w-0.5 h-3', active ? 'bg-laser animate-pulse' : 'bg-transparent')} />
+      <span className="w-9 h-1 bg-brand-black" />
+    </span>
   );
 }
 
@@ -639,27 +650,33 @@ function ProjectBlock({ project, cuts, busy, run, onCheckout, dragProps, dropAct
 }) {
   const rate = useLaserRate();
   const [renaming, setRenaming] = useState(false);
+  const [open, setOpen] = useState(false);   // a closed project is one row; tap it for its cuts
   const seconds = cuts.reduce((t, s) => t + s.total_time, 0);
   const price = payPrice(cuts, rate);
   const atMinimum = laserSessionPrice(Math.ceil(seconds / 60), rate) < rate.minimum;
   return (
     <section data-drop={project.id} className={cn('border-2 border-brand-black', dropActive ? 'bg-laser-licht' : 'bg-white')} aria-label={`Project ${project.name}`}>
-      <div className="flex items-start gap-2 px-3 py-2 border-b border-lijn bg-brand-beige-dark">
-        <Folder size={18} className="shrink-0 mt-0.5" aria-hidden />
+      <div className={cn('flex items-center gap-2 px-3 py-2 bg-brand-beige-dark', open && 'border-b border-lijn')}>
         {renaming
           ? <div className="flex-1"><ProjectNameForm initial={project.name} label="Save" busy={busy} onCancel={() => setRenaming(false)}
               onSave={name => { void run(() => laserApi.renameProject(project.id, name)); setRenaming(false); }} /></div>
           : (<>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-sm break-words">{project.name}</div>
-              <div className="text-xs text-grafiet">{cutCount(cuts.length)} · {shortDuration(seconds)}</div>
-            </div>
-            <button className="w-8 h-8 shrink-0 flex items-center justify-center" aria-label="Rename project" title="Rename" onClick={() => setRenaming(true)}>
-              <Pencil size={15} aria-hidden />
+            <button className="flex-1 min-w-0 flex items-center gap-2 text-left" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+              <Folder size={18} className="shrink-0" aria-hidden />
+              <span className="flex-1 min-w-0">
+                <span className="block font-semibold text-sm truncate">{project.name}</span>
+                <span className="block text-xs text-grafiet">{cutCount(cuts.length)} · {shortDuration(seconds)} · €{price.toFixed(2)}</span>
+              </span>
+              <ChevronRight size={18} className={cn('shrink-0 transition-transform', open && 'rotate-90')} aria-hidden />
             </button>
+            {open && (
+              <button className="w-8 h-8 shrink-0 flex items-center justify-center" aria-label="Rename project" title="Rename" onClick={() => setRenaming(true)}>
+                <Pencil size={15} aria-hidden />
+              </button>
+            )}
           </>)}
       </div>
-      <div className="p-2 space-y-2">
+      {open && <div className="p-2 space-y-2">
         {cuts.length > 0
           ? (
             <ul className={CUT_GRID}>
@@ -670,8 +687,7 @@ function ProjectBlock({ project, cuts, busy, run, onCheckout, dragProps, dropAct
               ))}
             </ul>
           )
-          : <p className="border border-dashed border-lijn p-3 text-center text-sm text-grafiet">No cuts yet. Tick your cuts under New cuts and press <b>Add to project</b>.</p>}
-        {cuts.length > 0 && <p className="text-xs text-grafiet">More cuts? Tick them under New cuts → <b>Add to project</b>. Not yours? Press × to put it back.</p>}
+          : <p className="border border-dashed border-lijn p-3 text-center text-sm text-grafiet">No cuts yet</p>}
         <div className="flex gap-2">
           <button className="flex-1 brutalist-button h-12 bg-emerald-400 text-brand-black font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
             disabled={busy || !cuts.some(s => !s.checkout_at)} onClick={() => onCheckout(cuts.filter(s => !s.checkout_at).map(s => s.id))}>
@@ -684,7 +700,7 @@ function ProjectBlock({ project, cuts, busy, run, onCheckout, dragProps, dropAct
             <FolderX size={22} aria-hidden />
           </button>
         </div>
-      </div>
+      </div>}
     </section>
   );
 }

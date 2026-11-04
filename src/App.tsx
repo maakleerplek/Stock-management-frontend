@@ -464,12 +464,13 @@ function AppContent() {
 
   return (
     <div className="h-dvh flex flex-col bg-brand-beige">
-      <Header
+      {/* The laser PC bar is narrow: no header on its laser tab (login/logout stays on the other tabs). */}
+      {!('LASER_SERVER' in window && currentPage === 'laser') && <Header
         currentView={currentPage === 'checkout' ? 'checkout' : (currentPage === 'volunteer' ? 'volunteer' : 'inventory')}
         onViewChange={(v) => handleViewChange(v as AppView)}
         onVolunteerClick={handleVolunteerClick}
         onAddClick={() => setAddSheetOpen(true)}
-      />
+      />}
 
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {isVolunteerMode ? (
