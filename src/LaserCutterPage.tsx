@@ -51,12 +51,16 @@ const CONFIDENCE: Record<LaserSetting['confidence'], string> = {
 export default function LaserCutterPage({ onCheckout, onShop, live }: LaserCutterPageProps) {
   // Goes up after every library save, so the settings panel loads the new materials and thicknesses.
   const [libraryVersion, setLibraryVersion] = useState(0);
+  const [tab, setTab] = useState<LaserTab>('cuts');
   return (
     <div className="flex-1 overflow-auto bg-brand-beige">
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-lijn min-h-full">
-        <TimePanel onCheckout={onCheckout} onShop={onShop} live={live} />
-        <SettingsPanel libraryVersion={libraryVersion} />
-        <LaserLibrary onSaved={() => setLibraryVersion(v => v + 1)} />
+        <TimePanel onCheckout={onCheckout} onShop={onShop} live={live} tab={tab} setTab={setTab} />
+        {/* Narrow: behind the Settings tab. Wide: always there, next to and under the cuts. */}
+        <div className={tab === 'settings' ? 'contents' : 'hidden lg:contents'}>
+          <SettingsPanel libraryVersion={libraryVersion} />
+          <LaserLibrary onSaved={() => setLibraryVersion(v => v + 1)} />
+        </div>
       </div>
     </div>
   );
@@ -185,15 +189,15 @@ function nearestTrayBox(x: number, y: number): HTMLElement | null {
 /** Slides in on the right while a cut is dragged: one box per place it can go, so you drag to the right. */
 function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] }) {
   const from = drag.cut.project_id && projects.some(p => p.id === drag.cut.project_id) ? drag.cut.project_id : null;
-  const box = (id: DropTarget, label: React.ReactNode, icon: React.ReactNode) => (
-    <li key={id} data-drop={id}
-      className={cn('min-h-24 px-3 py-3 border-2 border-dashed flex flex-col items-center justify-center gap-1.5 text-sm font-semibold text-center transition-colors',
-        drag.over === id ? 'border-solid border-brand-black bg-laser-licht scale-[1.02]' : 'border-grafiet bg-white')}>
-      {icon}<span className="line-clamp-2 break-words">{label}</span>
+  const box = (id: DropTarget, label: string, icon: React.ReactNode) => (
+    <li key={id} data-drop={id} title={label}
+      className={cn('w-full aspect-square px-1 border-2 border-dashed flex flex-col items-center justify-center gap-1 text-[10px] leading-tight font-semibold text-center transition-[colors,scale]',
+        drag.over === id ? 'border-solid border-brand-black bg-laser-licht scale-110' : 'border-grafiet bg-white')}>
+      {icon}<span className="w-full line-clamp-2 break-words">{label}</span>
     </li>
   );
   return (
-    <div data-tray className="fixed right-0 inset-y-0 z-50 w-[42%] max-w-[260px] border-l-2 border-brand-black bg-brand-beige px-3 py-3 overflow-y-auto shadow-[-4px_0_12px_rgba(0,0,0,0.15)]">
+    <div data-tray className="fixed right-0 inset-y-0 z-50 w-20 border-l-2 border-brand-black bg-brand-beige px-1.5 py-2 overflow-y-auto flex flex-col justify-center shadow-[-4px_0_12px_rgba(0,0,0,0.15)]">
       {/* The card under the finger hides the box, so say where it will go. */}
       <p className="text-sm mb-2 break-words">
         {drag.over
@@ -201,15 +205,17 @@ function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] 
           : <span className="text-grafiet">Drop <b>{drag.cut.name}</b> on a project</span>}
       </p>
       <ul className="flex flex-col gap-2">
-        {projects.filter(p => p.id !== from).map(p => box(p.id, p.name, <FolderInput size={26} className="shrink-0" aria-hidden />))}
-        {from && box('new', 'Back to New cuts', <Undo2 size={26} className="shrink-0" aria-hidden />)}
-        {box('newproject', 'New project…', <FolderPlus size={26} className="shrink-0" aria-hidden />)}
+        {projects.filter(p => p.id !== from).map(p => box(p.id, p.name, <FolderInput size={22} className="shrink-0" aria-hidden />))}
+        {from && box('new', 'New cuts', <Undo2 size={22} className="shrink-0" aria-hidden />)}
+        {box('newproject', 'New project', <FolderPlus size={22} className="shrink-0" aria-hidden />)}
       </ul>
     </div>
   );
 }
 
-function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
+type LaserTab = 'cuts' | 'projects' | 'settings';
+
+function TimePanel({ onCheckout, onShop, live, tab, setTab }: LaserCutterPageProps & { tab: LaserTab; setTab: (t: LaserTab) => void }) {
   const rate = useLaserRate();
   const { connected, time, sessions, projects } = live;
   const { addToast } = useToast();
@@ -226,7 +232,6 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   const [deleting, setDeleting] = useState(false);
   const [moving, setMoving] = useState(false);   // the "Add to project" menu is open
   const [nameFirst, setNameFirst] = useState(false);   // ...straight at "New project…"
-  const [tab, setTab] = useState<'cuts' | 'projects'>('cuts');
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -324,7 +329,8 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
   });
 
   return (
-    <section className="flex flex-col min-h-full">
+    // On the Settings tab (narrow) only the top of this panel shows; the settings come right under it.
+    <section className={cn('flex flex-col', tab === 'settings' ? 'lg:min-h-full' : 'min-h-full')}>
       <div className="px-4 sm:px-6 pt-3 pb-3 border-b border-lijn">
         <HowItWorks />
       </div>
@@ -358,18 +364,18 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
 
       {/* Two sections, one at a time: a tab bar says clearly which one you are in. */}
       <div role="tablist" className="flex border-b border-lijn bg-white">
-        {([['cuts', 'New cuts', loose.length], ['projects', 'Projects', projects.length]] as const).map(([id, label, n]) => (
+        {([['cuts', 'New cuts', loose.length], ['projects', 'Projects', projects.length], ['settings', 'Settings', 0]] as const).map(([id, label, n]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
-            className={cn('flex-1 h-11 text-sm font-semibold border-b-[3px] -mb-px flex items-center justify-center gap-1.5',
+            className={cn('flex-1 h-11 text-sm font-semibold border-b-[3px] -mb-px flex items-center justify-center gap-1.5', id === 'settings' && 'lg:hidden',
               tab === id ? 'border-brand-black text-brand-black' : 'border-transparent text-grafiet hover:text-brand-black')}>
-            {id === 'cuts' ? <Scissors size={15} aria-hidden /> : <Folder size={15} aria-hidden />}{label}
+            {id === 'cuts' ? <Scissors size={15} aria-hidden /> : id === 'projects' ? <Folder size={15} aria-hidden /> : <Gauge size={15} aria-hidden />}{label}
             {n > 0 && <span className={cn('px-1.5 text-xs tabular-nums', tab === id ? 'bg-brand-black text-white' : 'bg-lijn text-brand-black')}>{n}</span>}
           </button>
         ))}
       </div>
 
-      <div className="flex-1 p-4 sm:p-6 space-y-3">
-        {tab === 'cuts' && (
+      <div className={cn('flex-1 p-4 sm:p-6 space-y-3', tab === 'settings' && 'hidden lg:block')}>
+        {(tab === 'cuts' || tab === 'settings') && (
         <div data-drop="new" className={cn('space-y-3', drag?.over === 'new' && 'outline-2 outline-dashed outline-brand-black outline-offset-4 bg-laser-licht/40')}>
         {loose.length > 0 && (
           <div className="flex items-center justify-end gap-3">
