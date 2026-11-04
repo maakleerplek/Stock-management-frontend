@@ -172,7 +172,7 @@ function useCutDrag(onDrop: (cut: LaserSession, target: DropTarget) => void) {
 /** Near or on the drop tray, the closest box counts: less precise moving needed. */
 function nearestTrayBox(x: number, y: number): HTMLElement | null {
   const tray = document.querySelector('[data-tray]');
-  if (!tray || y < tray.getBoundingClientRect().top - 100) return null;
+  if (!tray || x < tray.getBoundingClientRect().left - 60) return null;
   let best: HTMLElement | null = null, bestDist = Infinity;
   for (const el of tray.querySelectorAll<HTMLElement>('[data-drop]')) {
     const r = el.getBoundingClientRect();
@@ -182,7 +182,7 @@ function nearestTrayBox(x: number, y: number): HTMLElement | null {
   return best;
 }
 
-/** Shows up at the bottom while a cut is dragged: one box per place it can go. */
+/** Slides in on the right while a cut is dragged: one box per place it can go, so you drag to the right. */
 function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] }) {
   const from = drag.cut.project_id && projects.some(p => p.id === drag.cut.project_id) ? drag.cut.project_id : null;
   const box = (id: DropTarget, label: React.ReactNode, icon: React.ReactNode) => (
@@ -193,14 +193,14 @@ function DropTray({ drag, projects }: { drag: CutDrag; projects: LaserProject[] 
     </li>
   );
   return (
-    <div data-tray className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-brand-black bg-brand-beige px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.15)]">
+    <div data-tray className="fixed right-0 inset-y-0 z-50 w-[42%] max-w-[260px] border-l-2 border-brand-black bg-brand-beige px-3 py-3 overflow-y-auto shadow-[-4px_0_12px_rgba(0,0,0,0.15)]">
       {/* The card under the finger hides the box, so say where it will go. */}
-      <p className="text-sm mb-2 truncate">
+      <p className="text-sm mb-2 break-words">
         {drag.over
           ? <>Let go: into <b>{drag.over === 'new' ? 'New cuts' : drag.over === 'newproject' ? 'a new project' : projects.find(p => p.id === drag.over)?.name}</b></>
           : <span className="text-grafiet">Drop <b>{drag.cut.name}</b> on a project</span>}
       </p>
-      <ul className="grid grid-cols-2 gap-2">
+      <ul className="flex flex-col gap-2">
         {projects.filter(p => p.id !== from).map(p => box(p.id, p.name, <FolderInput size={26} className="shrink-0" aria-hidden />))}
         {from && box('new', 'Back to New cuts', <Undo2 size={26} className="shrink-0" aria-hidden />)}
         {box('newproject', 'New project…', <FolderPlus size={26} className="shrink-0" aria-hidden />)}
@@ -344,7 +344,7 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
           {openCut > 0 && <div className="text-2xl font-semibold tabular-nums text-brand-black leading-none">{shortDuration(openCut)}</div>}
           {/* Decoration only: the full cutter where there is room, just the head on a narrow screen. */}
           <div className="hidden sm:block flex-1 min-w-[152px] max-w-[304px]"><LaserAnimation active={laserOn} /></div>
-          <LaserHead active={laserOn} />
+          <div className="sm:hidden flex-1 min-w-0 flex justify-center"><div className="w-full max-w-[240px]"><LaserAnimation active={laserOn} compact /></div></div>
         </div>
         {time?.simulate && (
           <div className="flex gap-2 text-xs pb-1">
@@ -403,9 +403,6 @@ function TimePanel({ onCheckout, onShop, live }: LaserCutterPageProps) {
           ))}
         </>)}
 
-        <p className="text-sm text-grafiet">
-          Laser time costs {`€${rate.per_minute.toFixed(2)}`}/min; machine use is at least {`€${rate.minimum.toFixed(2)}`} per payment.
-        </p>
         <WoodReminder onShop={onShop} />
       </div>
 
@@ -579,23 +576,11 @@ function NewProject({ busy, onCreate }: { busy: boolean; onCreate: (name: string
   const [naming, setNaming] = useState(false);
   if (naming) return <ProjectNameForm label="Start" busy={busy} onCancel={() => setNaming(false)} onSave={name => { onCreate(name); setNaming(false); }} />;
   return (
-    <div className="flex justify-end">
+    <div className="flex">
       <button className="brutalist-button h-10 px-3 bg-white text-sm font-semibold flex items-center gap-2" onClick={() => setNaming(true)}>
         <FolderPlus size={16} className="shrink-0" aria-hidden /> New project
       </button>
     </div>
-  );
-}
-
-/** Narrow screens: just the laser head, its beam pulsing while it cuts. */
-function LaserHead({ active }: { active: boolean }) {
-  return (
-    <span aria-hidden className="sm:hidden ml-auto shrink-0 flex flex-col items-center">
-      <span className="w-3 h-4 bg-brand-black" />
-      <span className="w-1.5 h-1.5 bg-brand-black" />
-      <span className={cn('w-0.5 h-3', active ? 'bg-laser animate-pulse' : 'bg-transparent')} />
-      <span className="w-9 h-1 bg-brand-black" />
-    </span>
   );
 }
 

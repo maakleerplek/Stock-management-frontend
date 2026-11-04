@@ -91,8 +91,23 @@ const FONT: Record<string, string> = {
 };
 const SCRAMBLE = 'ABCDEFGHKLMNPRSTUVWXYZ0123456789*?%';
 
-function drawText(g: CanvasRenderingContext2D, text: string, revealed: number, tick: number) {
-  const x0 = Math.round((W - text.length * 4 + 1) / 2);
+// Compact (narrow screens): a smaller canvas, so it scales up more and the text stays readable.
+// The head stands still above a short plate; the message wraps onto two lines.
+const CW = 120;
+const CH = 45;
+const C_PLATE = { x: 36, y: 26, w: 48, h: 3 };
+const C_TEXT_Y = 33;
+const C_LINE = 29;                        // characters per line: 29 * 4 px fits in CW
+
+/** Two lines at most, broken at a space. */
+const wrap = (t: string, max: number) => {
+  if (t.length <= max) return [t];
+  const cut = t.lastIndexOf(' ', max);
+  return cut > 0 ? [t.slice(0, cut), t.slice(cut + 1)] : [t];
+};
+
+function drawText(g: CanvasRenderingContext2D, text: string, revealed: number, tick: number, width = W, y = TEXT_Y) {
+  const x0 = Math.round((width - text.length * 4 + 1) / 2);
   for (let i = 0; i < text.length; i++) {
     let ch = text[i];
     const settled = i < revealed;
@@ -103,12 +118,12 @@ function drawText(g: CanvasRenderingContext2D, text: string, revealed: number, t
     const bits = FONT[ch] ?? FONT['?'];
     g.fillStyle = INK;
     for (let b = 0; b < 15; b++) {
-      if (bits[b] === '1') g.fillRect(x0 + i * 4 + (b % 3), TEXT_Y + Math.floor(b / 3), 1, 1);
+      if (bits[b] === '1') g.fillRect(x0 + i * 4 + (b % 3), y + Math.floor(b / 3), 1, 1);
     }
   }
 }
 
-export default function LaserAnimation({ active, className }: { active: boolean; className?: string }) {
+export default function LaserAnimation({ active, className, compact = false }: { active: boolean; className?: string; compact?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
@@ -204,6 +219,38 @@ export default function LaserAnimation({ active, className }: { active: boolean;
         wasOn = on;
       }
 
+      if (compact) {
+        g.clearRect(0, 0, CW, CH);
+        const hx = CW / 2;
+        g.fillStyle = INK;
+        g.fillRect(C_PLATE.x, C_PLATE.y, C_PLATE.w, C_PLATE.h);
+        g.fillRect(hx - 4, HEAD_Y, 9, 14);
+        g.fillRect(hx - 2, HEAD_Y + 14, 5, 3);
+        g.fillRect(hx - 1, HEAD_Y + 17, 3, 2);
+        if (on) {
+          // Cutting in place: the beam flickers and sparks fly up off the plate.
+          g.fillStyle = BEAM[tick % 2];
+          g.fillRect(hx, NOZZLE_TIP, 1, C_PLATE.y - NOZZLE_TIP);
+          g.fillStyle = SPARK[tick % 3];
+          g.fillRect(hx - 1, C_PLATE.y - 1, 3, 1);
+          if (!reduceMotion) spray(hx, C_PLATE.y - 1, false);
+        }
+        for (let i = sparks.length - 1; i >= 0; i--) {
+          const p = sparks[i];
+          p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.vx *= 0.94;
+          if (++p.age > p.life || p.y > C_TEXT_Y - 2) { sparks.splice(i, 1); continue; }
+          g.fillStyle = SPARK[Math.min(SPARK.length - 1, Math.floor(p.age / 3))];
+          g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
+        }
+        const revealed = reduceMotion ? message.length : Math.floor((tick - messageAt) / 2);
+        const lines = wrap(message, C_LINE);
+        lines.forEach((line, i) => {
+          const before = i ? lines[0].length + 1 : 0;   // the second line types on after the first
+          drawText(g, line, revealed - before, tick, CW, C_TEXT_Y + i * 7);
+        });
+        return;
+      }
+
       g.clearRect(0, 0, W, H);
 
       // Plate. Kerfs are gaps; dropping pieces fall right to left and vanish
@@ -255,15 +302,15 @@ export default function LaserAnimation({ active, className }: { active: boolean;
     frame();
     const id = window.setInterval(frame, TICK_MS);
     return () => window.clearInterval(id);
-  }, []);
+  }, [compact]);
 
   return (
     <canvas
       ref={canvasRef}
-      width={W}
-      height={H}
+      width={compact ? CW : W}
+      height={compact ? CH : H}
       className={className}
-      style={{ imageRendering: 'pixelated', width: '100%', aspectRatio: `${W} / ${H}` }}
+      style={{ imageRendering: 'pixelated', width: '100%', aspectRatio: compact ? `${CW} / ${CH}` : `${W} / ${H}` }}
       aria-label="Animation of a laser cutter at work"
       role="img"
     />
