@@ -11,6 +11,9 @@ on:
     branches:
       - '**'
 
+permissions:
+  contents: read
+
 jobs:
   build-check:
     name: Build Check
