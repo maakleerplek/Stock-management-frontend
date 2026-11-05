@@ -101,6 +101,7 @@ export default function Extras({ onAdd: add, openLaserSessions, onAddLaserSessio
                         <Chips label="Colour (optional)" options={ofType.map(f => ({ key: String(f.id), text: f.colour, sub: `${eur(priceOf(f.id))}/g` }))}
                             value={printPart != null ? String(printPart) : null} onChange={k => setPrintPart(k ? Number(k) : null)} />
                     )}
+                    <p className="text-xs font-semibold">Own filament, or a spool bought here: €0.03/g</p>
                 </Machine>
             </div>
         </div>
