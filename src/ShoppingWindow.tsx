@@ -24,7 +24,7 @@ const CART_STORAGE_KEY = 'stockManagerCartItems.v2';
 let handledScanId: number | null = null;
 
 /** Seconds a button stays locked after `open` turns true: time to read first (as on the kiosk). */
-function useLock(open: boolean, seconds = 3): number {
+function useLock(open: boolean, seconds = 2): number {
     const [left, setLeft] = useState(0);
     useEffect(() => {
         if (!open) return;
