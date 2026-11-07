@@ -340,11 +340,12 @@ export default function LaserLibrary({ onSaved }: { onSaved?: () => void }) {
   );
 }
 
-// Each step changes the gap by 0.1 mm in total (0.05 per side). MDF column: typical for our Metaquip 100 W, not measured.
+// Each step changes the gap by 0.1 mm in total (0.05 per side). MDF column: measured on our Metaquip 100 W
+// (Nov 2026): 0.15 mm per side is already a press fit, so the old values (k/2 - 0.05 ... k/2 + 0.05) were one step too tight.
 const FITS = [
-  { fit: 'Loose', offset: 'k/2 − 0.05', mdf: '0.10 mm', use: 'Slides in by hand. Parts you take apart, hinges, sliding lids.' },
-  { fit: 'Transition', offset: 'k/2', mdf: '0.15 mm', use: 'Goes in with a light tap. Glued joints (leaves room for the glue).' },
-  { fit: 'Press', offset: 'k/2 + 0.05', mdf: '0.20 mm', use: 'Needs a mallet, holds without glue. Wood/MDF only: acrylic cracks, use transition there.' },
+  { fit: 'Loose', offset: 'k/2 − 0.10', mdf: '0.05 mm', use: 'Slides in by hand. Parts you take apart, hinges, sliding lids.' },
+  { fit: 'Transition', offset: 'k/2 − 0.05', mdf: '0.10 mm', use: 'Goes in with a light tap. Glued joints (leaves room for the glue).' },
+  { fit: 'Press', offset: 'k/2', mdf: '0.15 mm', use: 'Needs a mallet, holds without glue. Wood/MDF only: acrylic cracks, use transition there.' },
 ];
 
 const cell = 'w-full min-w-0 bg-transparent border border-transparent hover:border-lijn focus:border-brand-black focus:bg-white px-1.5 py-1 outline-none';
