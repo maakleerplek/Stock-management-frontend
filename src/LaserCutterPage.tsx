@@ -506,7 +506,10 @@ function TimePanel({ onCheckout, onShop, live, tab, setTab }: LaserCutterPagePro
 /** The line under a cut's name: the day (a cut's name holds its start time), or day and time for an old named session. */
 function cutStart(name: string, iso: string) {
   const d = new Date(iso);
-  const day = d.toDateString() === new Date().toDateString() ? 'Today' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  // Short, so it never gets cut off next to the price: "Today", "Fri" this week, "6/11" before.
+  const day = d.toDateString() === new Date().toDateString() ? 'Today'
+    : Date.now() - d.getTime() < 6 * 86400e3 ? d.toLocaleDateString('en-GB', { weekday: 'short' })
+    : `${d.getDate()}/${d.getMonth() + 1}`;
   return /^Cut \d\d:\d\d$/.test(name) ? day : `${day} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
@@ -544,8 +547,8 @@ function CutRow({ cut, ticked, fresh = false, busy, onToggle, onTakeOut, onUngro
         <span className="font-semibold text-sm leading-tight truncate">{cut.name}</span>
         <span className="text-base font-semibold tabular-nums leading-tight">{shortDuration(cut.total_time)}</span>
       </span>
-      <span className="flex items-center justify-between gap-2">
-        <span className="text-xs text-grafiet truncate">{cut.checkout_at ? 'In the checkout' : cutStart(cut.name, cut.created)}</span>
+      <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <span className="text-xs text-grafiet whitespace-nowrap">{cut.checkout_at ? 'In the checkout' : cutStart(cut.name, cut.created)}</span>
         {/* Unrounded: the till rounds up once for all ticked cuts together. */}
         <span className="shrink-0 inline-flex items-center gap-1 border border-emerald-600 bg-emerald-50 text-emerald-700 px-1 text-xs font-semibold tabular-nums">
           <Tag size={11} aria-hidden />€{laserSessionPrice(cut.total_time / 60, rate).toFixed(2)}
