@@ -30,6 +30,8 @@ export default function Extras({ onAdd: add, openLaserSessions, onAddLaserSessio
     // 3D print: the type, then its colour (part id); both optional. Price per gram from InvenTree, else the default.
     const [printType, setPrintType] = useState<string | null>(null);
     const [printPart, setPrintPart] = useState<number | null>(null);
+    // Their own spool (brought along or bought here): the own rate, whatever the filament.
+    const [ownFilament, setOwnFilament] = useState(false);
     const { items } = useStock();
     const filaments = useMemo(() => {
         const byPart = new Map<number, string>();
@@ -43,7 +45,7 @@ export default function Extras({ onAdd: add, openLaserSessions, onAddLaserSessio
     // Only a type: its cheapest filament prices it. Only grams: the default price.
     const ofType = filaments.filter(f => f.type === printType);
     const priceFilament = printFilament ?? [...ofType].sort((a, b) => priceOf(a.id) - priceOf(b.id))[0];
-    const perGram = priceFilament ? priceOf(priceFilament.id) : defaultPerGram;
+    const perGram = ownFilament ? rates?.print.own_per_gram ?? 0 : priceFilament ? priceOf(priceFilament.id) : defaultPerGram;
     const laserRate = rates?.laser.per_minute ?? 0, cncRate = rates?.cnc.per_minute ?? 0;
 
     return (
@@ -92,7 +94,7 @@ export default function Extras({ onAdd: add, openLaserSessions, onAddLaserSessio
                     onAdd={() => {
                         // Booked as the line's description, for the analytics per filament: the filament,
                         // only its type, or nothing.
-                        add({ kind: 'print', grams, part: priceFilament?.id, material: printFilament?.name ?? printType ?? '' });
+                        add({ kind: 'print', grams, part: priceFilament?.id, material: printFilament?.name ?? printType ?? '', own: ownFilament });
                         setGrams(0);
                     }}>
                     <Chips label="Filament (optional)" options={types.map(t => ({ key: t, text: t }))} value={printType}
@@ -101,7 +103,8 @@ export default function Extras({ onAdd: add, openLaserSessions, onAddLaserSessio
                         <Chips label="Colour (optional)" options={ofType.map(f => ({ key: String(f.id), text: f.colour, sub: `${eur(priceOf(f.id))}/g` }))}
                             value={printPart != null ? String(printPart) : null} onChange={k => setPrintPart(k ? Number(k) : null)} />
                     )}
-                    <p className="text-xs font-semibold">Own filament, or a spool bought here: €0.03/g</p>
+                    <Chips label="Whose filament" options={[{ key: 'own', text: 'My own spool', sub: rates ? `brought or bought here · ${eur(rates.print.own_per_gram)}/g` : undefined }]}
+                        value={ownFilament ? 'own' : null} onChange={k => setOwnFilament(k === 'own')} />
                 </Machine>
             </div>
         </div>

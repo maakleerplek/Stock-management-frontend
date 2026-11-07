@@ -4,7 +4,8 @@ The stock app and the touch kiosk both send their cart here instead of
 pricing and booking it themselves, so the rules live in one place:
 
 - a part costs its sale price (the price break with the smallest quantity);
-- a 3D print costs grams x the filament's "3D-print prijs per gram";
+- a 3D print costs grams x the filament's "3D-print prijs per gram"; with the
+  visitor's own filament (brought along or a spool bought here) PRINT_OWN_PER_GRAM;
 - laser and CNC cost minutes x the sale price of their part in the category
   "machinegebruik"; all cuts in a cart are one Lasertime line, rounded up once;
 - machine use (prints, laser, CNC) together costs at least the highest
@@ -16,7 +17,7 @@ pricing and booking it themselves, so the rules live in one place:
 
 A cart (JSON):
     items     [{part, quantity, lab}]            products; lab = material for the lab (volunteer only)
-    prints    [{part, material, grams}]          part = the filament, for its price per gram
+    prints    [{part, material, grams, own}]     part = the filament, for its price per gram; own = their own spool
     machines  [{tool: laser|cnc, minutes}]       time typed in at the till
     cuts      [session id]                       laser cuts from the laser timer
     volunteer bool                               volunteer / workshop use: everything free
@@ -40,6 +41,7 @@ FALLBACK = {
     'cnc': float(os.environ.get('CNC_PRICE_PER_MIN', '0.50')),
     'print': float(os.environ.get('PRINT_PRICE_PER_GRAM', '0.10')),
 }
+PRINT_OWN_PER_GRAM = float(os.environ.get('PRINT_OWN_PER_GRAM', '0.03'))
 PRINT_MINIMUM = float(os.environ.get('PRINT_MINIMUM', '5'))
 # tool -> (part name in MACHINE_CATEGORY, sales-order reference, label on the TV)
 TOOLS = {'laser': ('Lasercutter', 'Lasertime', 'Lasercut'), 'cnc': ('CNC', 'CNC time', 'CNC')}
@@ -125,7 +127,7 @@ def rates(prices: Prices) -> dict:
     """Machine prices for the screens: per minute / per gram and the minimum per payment."""
     return {**{tool: {'per_minute': rate, 'minimum': minimum} for tool, (rate, minimum) in prices.machines.items()},
             'print': {'per_gram': {str(k): v for k, v in prices.per_gram.items()}, 'default_per_gram': FALLBACK['print'],
-                      'minimum': PRINT_MINIMUM}}
+                      'own_per_gram': PRINT_OWN_PER_GRAM, 'minimum': PRINT_MINIMUM}}
 
 
 # ------------------------------------------------------------------ quote
@@ -162,9 +164,12 @@ def quote(cart: dict, prices: Prices, cuts: list[dict]) -> dict:
     extras = []   # machine lines, each with its minimum
     for p in cart.get('prints') or []:
         grams = _int(p.get('grams'), 'grams')
-        part = p.get('part')
-        extras.append({'kind': 'print', 'reference': '3D printing', 'description': str(p.get('material') or '')[:120],
-                       'quantity': grams, 'unit': 'g', 'unit_price': prices.per_gram.get(part, FALLBACK['print']),
+        part, own = p.get('part'), bool(p.get('own'))
+        material = str(p.get('material') or '')
+        extras.append({'kind': 'print', 'reference': '3D printing',
+                       'description': (f'Own filament {material}'.strip() if own else material)[:120],
+                       'quantity': grams, 'unit': 'g',
+                       'unit_price': PRINT_OWN_PER_GRAM if own else prices.per_gram.get(part, FALLBACK['print']),
                        'minimum': PRINT_MINIMUM})
     if cuts:
         seconds = sum(c['total_time'] for c in cuts)

@@ -7,13 +7,13 @@ import { useEffect, useState } from 'react';
 
 /** Machine time typed in at the till: a 3D print, or laser / CNC minutes. */
 export type TypedJob =
-  | { kind: 'print'; grams: number; part?: number; material: string }
+  | { kind: 'print'; grams: number; part?: number; material: string; own?: boolean }
   | { kind: 'laser' | 'cnc'; minutes: number };
 
 export interface CheckoutCart {
   /** lab: material for the lab / a workshop (a volunteer cart books it as internal use, not as a drink). */
   items: { part: number; quantity: number; lab?: boolean }[];
-  prints: { part?: number; material: string; grams: number }[];
+  prints: { part?: number; material: string; grams: number; own?: boolean }[];
   machines: { tool: 'laser' | 'cnc'; minutes: number }[];
   cuts: string[];
   volunteer?: boolean;
@@ -37,7 +37,7 @@ export interface Sale { reference: string; unshipped: { part: number; quantity: 
 export interface Rates {
   laser: { per_minute: number; minimum: number };
   cnc: { per_minute: number; minimum: number };
-  print: { per_gram: Record<string, number>; default_per_gram: number; minimum: number };
+  print: { per_gram: Record<string, number>; default_per_gram: number; own_per_gram: number; minimum: number };
 }
 
 async function call<T>(path: string, body?: unknown): Promise<T> {
@@ -62,7 +62,7 @@ export const checkoutApi = {
 };
 
 export const typedToCart = (jobs: TypedJob[]): Pick<CheckoutCart, 'prints' | 'machines'> => ({
-  prints: jobs.flatMap(j => (j.kind === 'print' ? [{ part: j.part, material: j.material, grams: j.grams }] : [])),
+  prints: jobs.flatMap(j => (j.kind === 'print' ? [{ part: j.part, material: j.material, grams: j.grams, own: j.own }] : [])),
   machines: jobs.flatMap(j => (j.kind !== 'print' ? [{ tool: j.kind, minutes: j.minutes }] : [])),
 });
 

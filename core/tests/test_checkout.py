@@ -94,6 +94,13 @@ def test_print_price_per_gram_from_the_filament(env):
     assert bill['extras'][0]['unit_price'] == 0.08 and bill['total'] == 8.0
 
 
+def test_print_with_own_filament_costs_the_own_rate_and_the_minimum(env):
+    c, _ = env
+    bill = c.post('/api/checkout/quote', json={'prints': [{'part': PLA, 'material': 'PLA', 'grams': 100, 'own': True}]}).json
+    assert bill['extras'][0]['unit_price'] == 0.03 and bill['extras'][0]['description'] == 'Own filament PLA'
+    assert bill['total'] == 5.0   # 100 g x 0.03 = 3.00, raised to the minimum
+
+
 def test_volunteer_machine_use_is_free(env):
     c, _ = env
     bill = c.post('/api/checkout/quote', json={'volunteer': True, 'machines': [{'tool': 'laser', 'minutes': 4}]}).json
