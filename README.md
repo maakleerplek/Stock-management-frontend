@@ -1,179 +1,57 @@
 # htl-stock
 
-The stock and checkout web app of the High Tech Lab, on top of InvenTree. Visitors scan items and pay; volunteers manage stock, purchase orders and analytics. The repo also holds the laser service (`core/`), the ESP32 firmware that reports laser time (`esp/`) and the Laser Timer bar for the laser PC (`laser-timer-widget/`).
+The stock and checkout web app of the High Tech Lab, on top of InvenTree. Visitors scan items, add machine time and pay with a QR code. Volunteers manage stock, purchase orders and analytics.
 
-Related repos: [htl-kiosk](https://github.com/maakleerplek/htl-kiosk) (the touch till Pi) and [htl-tv](https://github.com/maakleerplek/htl-tv) (the TV screen).
+Related: [htl-kiosk](https://github.com/maakleerplek/htl-kiosk) (the touch till) and [htl-tv](https://github.com/maakleerplek/htl-tv) (the TV screen). Guides for volunteers: [SharePoint info page](https://maakleerplek.sharepoint.com/sites/HighTechLab/SitePages/Stock-management-info-page.aspx).
 
-> ℹ️ **For more general information, guides, and internal documentation, visit the [HighTechLab SharePoint Stock Management Info Page](https://maakleerplek.sharepoint.com/sites/HighTechLab/SitePages/Stock-management-info-page.aspx).**
+| Checkout | Laser tab |
+| :---: | :---: |
+| ![Checkout](docs/checkout.png) | ![Laser tab](docs/laser.png) |
 
 ## Where it runs
 
-The live app for the High Tech Lab runs on `htl-server`, a Rocky Linux VM on the maakleerplek server.
-
 | Address | Use |
 |---|---|
-| **https://stock.int.maakleerplek.be/** | Main address, with a valid certificate. Resolves inside the maakleerplek network only. |
-| https://10.72.1.246:8086/ | The server directly (self-signed certificate). Used by the lab kiosk. |
+| https://stock.int.maakleerplek.be/ | Main address, valid certificate, maakleerplek network only |
+| https://10.72.1.246:8086/ | htl-server directly (self-signed), used by the kiosk |
 
-`htl-tempserver` (10.72.3.68) is a test server with an old copy of the data. Don't use it for real sales.
+`htl-tempserver` (10.72.3.68) is a test server with old data.
 
-## Screenshots
+## What it does
 
-| Checkout / Visitor Mode | Volunteer / Admin Dashboard |
-| :---: | :---: |
-| ![Checkout Mode](https://github.com/maakleerplek/htl-stock/releases/download/v1.0.0/kiosk_scanner_view.png) | ![Admin Dashboard](https://github.com/maakleerplek/htl-stock/releases/download/v1.0.0/admin_dashboard_view.png) |
+- **Checkout:** scan with a USB scanner or the camera, add laser/CNC minutes or 3D-print grams, pay with an EPC (Wero) or Payconiq QR. Every sale is an InvenTree sales order on "Walk-in customer".
+- **Laser:** an ESP32 on the laser sends ON/OFF over UDP to `core/`. After 5 s off the time becomes a cut; visitors tick their cuts and pay. The tab also gives speed and power per material, from InvenTree parts in the category *Lasermaterialen*.
+- **Volunteers** (Authentik sign-in): stock changes, new parts, purchase orders, data repair, analytics.
 
-## What You Can Do (User Guide)
-
-### 🛒 Visitor & Checkout Mode (Kiosk)
-Designed as a self-service terminal for makerspace members and visitors:
-- **Lookup & Scan Items**: Instantly fetch item details by scanning barcodes using a web-camera or a connected physical USB barcode scanner. (Manual barcode input is supported as a fallback).
-- **Manage Shopping Cart**: Add parts to the cart, review items, and adjust quantities with automatic cost calculations.
-- **Calculate Extra Services**: Log and calculate charges for machine usage during checkout:
-  - **Laser Cutting**: Charge by duration (minutes).
-  - **CNC Milling**: Charge by machine runtime (minutes).
-  - **3D Printing**: Charge by filament weight consumed (grams).
-- **EPC QR & Payconiq Payment**: Instantly generate EPC QR / Wero and Payconiq checkout QR codes for fast, scan-to-pay bank transfers.
-
-### ⚡ Lasercutter tab
-- **Laser time**: an ESP32 on the laser sends ON/OFF over UDP (port 5005) to the laser service. The tab shows the running time live. Once the laser has been off for 5 s (`CUT_GAP_S`), the time so far becomes a **cut** ("Cut 14:32"). Visitors tick their cuts and press **Pay**: the cuts go into the checkout as one *Lasertime* line, rounded up to whole minutes once. The trash can deletes ticked cuts with a reason (paid elsewhere, workshop, volunteer, other). A cut stays open until one of the two. `core/scripts/replay_cuts.py` replays a service log to check how the cuts fall. On the laser PC `laser-timer-widget/lightburn-watch.ps1` (installed with `install-lightburn-watch.ps1`, starts at login) sends the file LightBurn has open and the thumbnail LightBurn keeps in it; a cut gets that name and picture.
-- **Laser settings**: pick a material and thickness, then cut and/or engrave. You get speed, power and passes, never above 90 % power. The engraving strength slider (default 50 %) scales power up and speed down. "How did it go?" reports feed the advice.
-- **Material list in InvenTree**: one virtual part per material + thickness in the category *Lasermaterialen*, with parameters `Laser materiaal`, `Dikte`, `Laser snij-speed`, `Laser snij-power`, `Laser snij-passes`, `Laser graveer-speed`, `Laser graveer-power`. That makes it part of the InvenTree backup. `core/scripts/seed_inventree.py` creates the category, templates and test values. The open cuts (sessions) and the laser time thrown away (with why) are in `machineusage.db` on the `laser-data` volume (`laser.db` before 2026-10, moved on start); it is in the nightly offsite backup.
-- The service is `core/` (Flask + Socket.IO, port of maakleerplek/LC-logger `server-esp` and LaserLog's recommendation). nginx proxies `/laser/` to it. Set `LASER_SIMULATE=1` to test without the ESP32: the tab then shows a button that switches the laser on and off. The ESP32 firmware is `esp/monitorOTA/monitorOTA.ino`; `scripts/esp-ota.sh` flashes it over Wi-Fi.
-
-### 🛡️ Volunteer & Administrator Mode
-Access back-office tools (protected by volunteer authentication) to manage the makerspace inventory:
-- **Register New Inventory**: Add parts, define categories, and map storage locations or suppliers.
-- **Adjust Stock Levels**: Make direct stock changes (Add, Remove, or Set exact values) inline from the stock list with visual color-coded feedback (green for additions, red for removals, blue for sets).
-- **Procure via Purchase Orders**: Automatically group low-stock items into supplier draft orders, review with visual part previews, and issue or cancel purchase orders to keep stock filled.
-- **Bulk Data Repair**: Run audit checks to locate and patch missing barcodes, SKU mapping, or supplier part associations in bulk.
-- **Real-time Analytics**: Track overall inventory health, out-of-stock items, and low-stock items from the dashboard.
-
-## Purchase Order Workflow
-
-Purchase orders are managed in InvenTree and are **internal tracking only** — placing a PO does not notify the supplier.
-
-| Status | Meaning |
-|---|---|
-| **Pending** | Planned but not yet ordered |
-| **Issued** | Order placed with supplier |
-| **Received** | Delivery arrived — stock auto-updated |
-
-When an item runs empty: create a PO in InvenTree → place the order with the supplier → Issue the PO → Receive when delivered.
-
-## Tech Stack
-
-- Frontend: React 19 + TypeScript, Vite 7, Tailwind CSS v4, `motion`, Lucide icons, Vitest
-- `core/`: Python, Flask + Socket.IO, SQLite (laser sessions) and the till endpoint `/api/till/`
-- Deployment: Docker Compose (nginx with the built app, oauth2-proxy, core)
-
-## Getting Started
-
-### Development
+## Develop
 
 ```bash
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
-
-# Tests and lint
+npm run dev      # Vite, proxies InvenTree with the token from .env
 npm test
 npm run lint
 ```
 
-### Production Build
+`LASER_SIMULATE=1` adds a button that switches the laser on and off, so the laser tab works without the ESP32.
 
-```bash
-# Build for production
-npm run build
+## Deploy
 
-# Preview production build
-npm run preview
-```
+`master` is production. On htl-server cron runs `scripts/autodeploy.sh` every 5 minutes: once CI on a new commit is green it runs `docker compose up -d --build`, and rolls back if a container is not healthy. Log: `.git/autodeploy.log`.
 
-### Docker Deployment
+`.env` (copy `.env.example`) holds `INVENTREE_TOKEN`, `OIDC_CLIENT_SECRET` and `OAUTH2_COOKIE_SECRET`. Only the proxy uses them; the browser never sees them. Which calls need a volunteer is in `src/lib/apiAccess.ts` and `nginx.conf.template`.
 
-```bash
-# Build and run with Docker Compose
-docker compose up -d --build
-```
-
-### Auto-deploy (htl-server)
-
-`master` is production. Every 5 minutes cron runs `scripts/autodeploy.sh`: once CI
-on a new master commit is green it pulls and runs `docker compose up -d --build`,
-and rolls back to the previous commit if a container does not come up healthy.
-Log: `.git/autodeploy.log`. Install once:
-`(crontab -l; echo "*/5 * * * * $PWD/scripts/autodeploy.sh") | crontab -`
-
-## Environment Variables
-
-Copy `.env.example` to `.env`. The secrets only live on the server; the
-proxy (nginx in Docker, Vite in development) uses them and the browser never
-receives them:
-
-```env
-INVENTREE_TOKEN=...        # added by the proxy to every InvenTree API call
-OIDC_CLIENT_SECRET=...     # Authentik client secret, used by oauth2-proxy
-OAUTH2_COOKIE_SECRET=...   # encrypts the volunteer session cookie
-```
-
-Volunteers sign in with their maakleerplek account through Authentik
-(`auth.maakleerplek.be`); being signed in is what makes someone a volunteer.
-oauth2-proxy runs the sign-in next to the app, and nginx asks it on every
-volunteer-only call. Signing out ends the Authentik session too, so a shared
-till is safe to hand over. The sign-in works on every address registered as a
-redirect URI in Authentik: `stock.int.maakleerplek.be` on site and
-`https://<tailscale IP>:8086` over the VPN.
-
-Without a volunteer sign-in the app can read the catalogue and run a checkout,
-nothing else. The rules are in `src/lib/apiAccess.ts` and
-`nginx.conf.template`. Use an InvenTree user with only the roles the app
-needs for the token, not a superuser.
-
-Checkout books every sale as an InvenTree sales order on the customer
-"Walk-in customer". A volunteer login creates that customer the first time.
-
-## Design System
-
-The look follows [maakleerplek.be](https://maakleerplek.be/nl). See
-[STYLING_GUIDE.md](./STYLING_GUIDE.md) for colours, type and components.
-
-## Project Structure
+## Layout
 
 ```
-core/                  # Laser service + till (Flask), see core/scripts for seeding and replay
-esp/monitorOTA/        # ESP32 firmware: laser ON/OFF over UDP
-laser-timer-widget/    # Tauri bar for the laser PC (wraps #laser) + LightBurn watcher
-nginx/, nginx.conf.template  # Proxy: InvenTree token, volunteer-only rules
-scripts/               # autodeploy.sh, esp-ota.sh
-tests/                 # Vitest tests (incl. contract cases shared with htl-kiosk)
-src/
-  App.tsx              # Main app component with routing
-  ShoppingCart.tsx     # Cart with stock change preview
-  ShoppingWindow.tsx   # Cart wrapper; checkout as a sales order
-  ItemList.tsx         # Stock list with inline editing
-  BarcodeScanner.tsx   # Camera scanner component
-  DataRepairModal.tsx  # Bulk barcode and supplier data repair tool
-  components/
-    Header.tsx         # App header with mode toggle
-    AdminToolsBar.tsx  # Quick action buttons
-    Footer.tsx         # App footer
-  analytics/           # Analytics tabs (items, laser, CNC, print, totals)
-  features/laser/      # Laser page parts
-  api/
-    inventreeClient.ts # API client for InvenTree
-  lib/
-    apiAccess.ts       # Which calls need a volunteer (mirrored in nginx)
-    stockHistory.ts    # Stock levels and sales from the tracking log
-  index.css            # Global styles and Tailwind config
+src/                  React 19 + TypeScript, Vite, Tailwind v4
+core/                 Laser service + till endpoint (Flask, Socket.IO, SQLite)
+esp/monitorOTA/       ESP32 firmware; scripts/esp-ota.sh flashes it over Wi-Fi
+laser-timer-widget/   Timer bar + LightBurn watcher for the laser PC
+nginx/                Proxy: InvenTree token, volunteer-only rules
+tests/                Vitest, incl. pricing cases shared with htl-kiosk
 ```
 
-## Roadmap & TODOs
-
-See the [TODO.md](./TODO.md) file for upcoming features, and development goals.
+Design: [STYLING_GUIDE.md](./STYLING_GUIDE.md). Open work: [TODO.md](./TODO.md).
 
 ## License
 
