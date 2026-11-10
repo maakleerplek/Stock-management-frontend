@@ -59,7 +59,6 @@
       "cart": { "machines": [{ "tool": "laser", "minutes": 3 }] },
       "expected": { "total": 1.5, "top_up": 0, "extras": [{ "kind": "laser", "quantity": 3, "unit_price": 0.5, "booked_price": 0.5 }] } },
     { "name": "total_rounded_to_cents", "cart": { "items": [{ "part": 4, "quantity": 3 }] },
-      "expected": { "total": 1.0, "top_up": 0, "items": [{ "part": 4, "unit_price": 0.333 }] },
-      "known_mismatch": "rust: Cart::total returns the raw 0.999, python rounds total and top_up to 2 decimals" }
+      "expected": { "total": 1.0, "top_up": 0, "items": [{ "part": 4, "unit_price": 0.333 }] } }
   ]
 }
