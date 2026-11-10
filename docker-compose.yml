@@ -1,3 +1,6 @@
+# Pinned: volumes are named after the project; the repo/folder was renamed from Stock-management-frontend.
+name: stock-management-frontend
+
 # Docker keeps container logs forever by default; cap them (10 MB x 3 per service).
 x-logging: &logging
   driver: json-file

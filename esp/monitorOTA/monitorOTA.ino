@@ -6,7 +6,7 @@
 
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASSWORD;
-// The laser service of the stock frontend (core/ in Stock-management-frontend)
+// The laser service of the stock frontend (core/ in htl-stock)
 // receives the packets directly, no PC in between. Every packet goes to all of
 // these, so the tempserver and htl-server can both listen during the move.
 const char* serverIPs[] = { "10.72.3.68", "10.72.1.246" };  // tempserver, htl-server

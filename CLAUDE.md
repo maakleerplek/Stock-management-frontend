@@ -1,4 +1,4 @@
-# Stock-management-frontend — map for Claude
+# htl-stock — map for Claude
 
 The HTL stock web app (React + Vite + TS) on top of InvenTree, plus `core/` (Flask): the laser service and the till. Live on htl-server (`stock.int.maakleerplek.be`, kiosk uses `10.72.1.246:8086`). htl-tempserver = test copy, never real sales. Users/flows: README.md. Big-picture plan: MOONSHOT.md. Style rules: STYLING_GUIDE.md.
 

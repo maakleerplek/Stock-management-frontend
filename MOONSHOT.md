@@ -1,17 +1,17 @@
 # Moonshot: one "till core" for the whole MLP stack
 
 ## Context
-Moonshot prompt (unlimited devs, 12 months) on the stock frontend, the Interface-stock kiosk and the MLP server setup: is there a part that needs a complete overhaul instead of more small fixes?
+Moonshot prompt (unlimited devs, 12 months) on the stock frontend, the htl-kiosk kiosk and the MLP server setup: is there a part that needs a complete overhaul instead of more small fixes?
 
 ## What the stack looks like now (read from the repos)
 Five clients each talk to InvenTree directly. Each one has its own copy of the shop rules.
 
 | Piece | Language | Talks to InvenTree | Own business logic |
 |---|---|---|---|
-| Stock app (`Stock-management-frontend/src`) | React/TS, ~1200-line `api/inventreeClient.ts` | yes, from the browser via nginx token proxy | cart, prices, machine minimum, laser merge, checkout |
-| Kiosk (`Interface-stock/kiosk/src`) | Rust + Slint | yes, from the Pi (`inventree.rs`, 935 lines) | **the same** cart/minimum/laser merge again (`cart.rs`, `state.rs`) |
-| Laser service (`Stock-management-frontend/laser/app.py`) | Python + SQLite `machineusage.db` | reads materials | cuts, sessions, projects, paid flag |
-| TV data-fetcher (`Tv-Presentation/data-fetcher`) | Node | polls stock | `changelog-reporter.js` guesses changes, dedups against the other apps (2 min window) |
+| Stock app (`htl-stock/src`) | React/TS, ~1200-line `api/inventreeClient.ts` | yes, from the browser via nginx token proxy | cart, prices, machine minimum, laser merge, checkout |
+| Kiosk (`htl-kiosk/kiosk/src`) | Rust + Slint | yes, from the Pi (`inventree.rs`, 935 lines) | **the same** cart/minimum/laser merge again (`cart.rs`, `state.rs`) |
+| Laser service (`htl-stock/laser/app.py`) | Python + SQLite `machineusage.db` | reads materials | cuts, sessions, projects, paid flag |
+| TV data-fetcher (`htl-tv/data-fetcher`) | Node | polls stock | `changelog-reporter.js` guesses changes, dedups against the other apps (2 min window) |
 | Analytics (`src/analytics/*`) | in the browser | pulls **all** stock tracking + all SO lines (`getAllStockTracking`, `getAllServiceLines`) | totals, profit, volunteer use |
 
 The ugly part everyone accepts as "just how it is":
@@ -49,4 +49,4 @@ Optional later, only if it hurts: `/events` instead of polling, offline queue on
 - Cut the connection halfway through booking: the order is retried, not duplicated (same idempotency key).
 - On htl-tempserver: one sale from the stock app + one from the kiosk preview (`kiosk/preview.sh`); check the SO in InvenTree and the cut marked paid.
 
-Not checked: Tv-Presentation frontend internals, ESP firmware, nginx config details, InvenTree version/plugins (a server-side InvenTree plugin is an alternative place for this).
+Not checked: htl-tv frontend internals, ESP firmware, nginx config details, InvenTree version/plugins (a server-side InvenTree plugin is an alternative place for this).

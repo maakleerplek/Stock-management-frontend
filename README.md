@@ -1,6 +1,8 @@
-# Stock Management Frontend
+# htl-stock
 
-A brutalist-styled inventory management frontend for InvenTree backend, featuring barcode scanning, volunteer stock management, and checkout functionality.
+The stock and checkout web app of the High Tech Lab, on top of InvenTree. Visitors scan items and pay; volunteers manage stock, purchase orders and analytics. The repo also holds the laser service (`core/`), the ESP32 firmware that reports laser time (`esp/`) and the Laser Timer bar for the laser PC (`laser-timer-widget/`).
+
+Related repos: [htl-kiosk](https://github.com/maakleerplek/htl-kiosk) (the touch till Pi) and [htl-tv](https://github.com/maakleerplek/htl-tv) (the TV screen).
 
 > ℹ️ **For more general information, guides, and internal documentation, visit the [HighTechLab SharePoint Stock Management Info Page](https://maakleerplek.sharepoint.com/sites/HighTechLab/SitePages/Stock-management-info-page.aspx).**
 
@@ -19,7 +21,7 @@ The live app for the High Tech Lab runs on `htl-server`, a Rocky Linux VM on the
 
 | Checkout / Visitor Mode | Volunteer / Admin Dashboard |
 | :---: | :---: |
-| ![Checkout Mode](https://github.com/maakleerplek/Stock-management-frontend/releases/download/v1.0.0/kiosk_scanner_view.png) | ![Admin Dashboard](https://github.com/maakleerplek/Stock-management-frontend/releases/download/v1.0.0/admin_dashboard_view.png) |
+| ![Checkout Mode](https://github.com/maakleerplek/htl-stock/releases/download/v1.0.0/kiosk_scanner_view.png) | ![Admin Dashboard](https://github.com/maakleerplek/htl-stock/releases/download/v1.0.0/admin_dashboard_view.png) |
 
 ## What You Can Do (User Guide)
 
@@ -37,7 +39,7 @@ Designed as a self-service terminal for makerspace members and visitors:
 - **Laser time**: an ESP32 on the laser sends ON/OFF over UDP (port 5005) to the laser service. The tab shows the running time live. Once the laser has been off for 5 s (`CUT_GAP_S`), the time so far becomes a **cut** ("Cut 14:32"). Visitors tick their cuts and press **Pay**: the cuts go into the checkout as one *Lasertime* line, rounded up to whole minutes once. The trash can deletes ticked cuts with a reason (paid elsewhere, workshop, volunteer, other). A cut stays open until one of the two. `core/scripts/replay_cuts.py` replays a service log to check how the cuts fall. On the laser PC `laser-timer-widget/lightburn-watch.ps1` (installed with `install-lightburn-watch.ps1`, starts at login) sends the file LightBurn has open and the thumbnail LightBurn keeps in it; a cut gets that name and picture.
 - **Laser settings**: pick a material and thickness, then cut and/or engrave. You get speed, power and passes, never above 90 % power. The engraving strength slider (default 50 %) scales power up and speed down. "How did it go?" reports feed the advice.
 - **Material list in InvenTree**: one virtual part per material + thickness in the category *Lasermaterialen*, with parameters `Laser materiaal`, `Dikte`, `Laser snij-speed`, `Laser snij-power`, `Laser snij-passes`, `Laser graveer-speed`, `Laser graveer-power`. That makes it part of the InvenTree backup. `core/scripts/seed_inventree.py` creates the category, templates and test values. The open cuts (sessions) and the laser time thrown away (with why) are in `machineusage.db` on the `laser-data` volume (`laser.db` before 2026-10, moved on start); it is in the nightly offsite backup.
-- The service is `core/` (Flask + Socket.IO, port of maakleerplek/LC-logger `server-esp` and LaserLog's recommendation). nginx proxies `/laser/` to it. Set `LASER_SIMULATE=1` to test without the ESP32: the tab then shows a button that switches the laser on and off. For the ESP32, set `serverIP` in `esp/monitor.ino` of LC-logger to the server's address.
+- The service is `core/` (Flask + Socket.IO, port of maakleerplek/LC-logger `server-esp` and LaserLog's recommendation). nginx proxies `/laser/` to it. Set `LASER_SIMULATE=1` to test without the ESP32: the tab then shows a button that switches the laser on and off. The ESP32 firmware is `esp/monitorOTA/monitorOTA.ino`; `scripts/esp-ota.sh` flashes it over Wi-Fi.
 
 ### 🛡️ Volunteer & Administrator Mode
 Access back-office tools (protected by volunteer authentication) to manage the makerspace inventory:
@@ -61,12 +63,9 @@ When an item runs empty: create a PO in InvenTree → place the order with the s
 
 ## Tech Stack
 
-- **React 18** with TypeScript
-- **Tailwind CSS v4** for styling (brutalist design system)
-- **Framer Motion** for animations
-- **Lucide React** for icons
-- **Vite** for development and building
-- **Docker** for deployment with nginx
+- Frontend: React 19 + TypeScript, Vite 7, Tailwind CSS v4, `motion`, Lucide icons, Vitest
+- `core/`: Python, Flask + Socket.IO, SQLite (laser sessions) and the till endpoint `/api/till/`
+- Deployment: Docker Compose (nginx with the built app, oauth2-proxy, core)
 
 ## Getting Started
 
@@ -78,6 +77,10 @@ npm install
 
 # Start development server
 npm run dev
+
+# Tests and lint
+npm test
+npm run lint
 ```
 
 ### Production Build
@@ -94,7 +97,7 @@ npm run preview
 
 ```bash
 # Build and run with Docker Compose
-docker-compose up --build
+docker compose up -d --build
 ```
 
 ### Auto-deploy (htl-server)
@@ -141,6 +144,12 @@ The look follows [maakleerplek.be](https://maakleerplek.be/nl). See
 ## Project Structure
 
 ```
+core/                  # Laser service + till (Flask), see core/scripts for seeding and replay
+esp/monitorOTA/        # ESP32 firmware: laser ON/OFF over UDP
+laser-timer-widget/    # Tauri bar for the laser PC (wraps #laser) + LightBurn watcher
+nginx/, nginx.conf.template  # Proxy: InvenTree token, volunteer-only rules
+scripts/               # autodeploy.sh, esp-ota.sh
+tests/                 # Vitest tests (incl. contract cases shared with htl-kiosk)
 src/
   App.tsx              # Main app component with routing
   ShoppingCart.tsx     # Cart with stock change preview
@@ -152,6 +161,8 @@ src/
     Header.tsx         # App header with mode toggle
     AdminToolsBar.tsx  # Quick action buttons
     Footer.tsx         # App footer
+  analytics/           # Analytics tabs (items, laser, CNC, print, totals)
+  features/laser/      # Laser page parts
   api/
     inventreeClient.ts # API client for InvenTree
   lib/
@@ -163,11 +174,6 @@ src/
 ## Roadmap & TODOs
 
 See the [TODO.md](./TODO.md) file for upcoming features, and development goals.
-
-## Branch Information
-
-- `main`: Production-ready code
-- `remaking-design`: Active development branch for design migration
 
 ## License
 

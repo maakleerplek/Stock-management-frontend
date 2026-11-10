@@ -5,7 +5,7 @@ import { cn, displayName } from '../lib/utils';
 import { pickerCategories, pickerItems } from '../lib/picker';
 import type { ItemData } from '../api/types';
 
-// The kiosk's category colours (Interface-stock kiosk/src/lib.rs category_colors): light / deep.
+// The kiosk's category colours (htl-kiosk kiosk/src/lib.rs category_colors): light / deep.
 function tone(category: string | null): { light: string; deep: string } {
     if (!category) return { light: 'bg-brand-accent', deep: 'bg-grafiet' };
     if (/drink|drank/i.test(category)) return { light: 'bg-blue-200', deep: 'bg-blue-600' };
