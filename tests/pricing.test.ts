@@ -90,7 +90,7 @@ describe('selling price', () => {
 
     it('reads the single-unit sale price break', async () => {
         mockApi({
-            '/part/sale-price/': {
+            '/pricing/sale-price/': {
                 results: [
                     { part: 8, quantity: 1, price: '2.00' },
                     { part: 2, quantity: 1, price: '3.00' },
@@ -104,8 +104,8 @@ describe('selling price', () => {
 
     it('marks the part salable and clears the old break before writing', async () => {
         const calls = mockApi({
-            '/part/sale-price/?part=8': { results: [{ pk: 5, part: 8, quantity: 1 }] },
-            '/part/sale-price/': { results: [] },
+            '/pricing/sale-price/?part=8': { results: [{ pk: 5, part: 8, quantity: 1 }] },
+            '/pricing/sale-price/': { results: [] },
             '/part/8/': {},
         });
         await client().setSalePrice(8, 2.5);
@@ -113,8 +113,8 @@ describe('selling price', () => {
         expect(calls.find(c => c.method === 'PATCH' && c.url.includes('/part/8/'))?.body)
             .toEqual({ salable: true });
         // the existing single-unit break is removed, so editing cannot stack duplicates
-        expect(calls.some(c => c.method === 'DELETE' && c.url.includes('/part/sale-price/5/'))).toBe(true);
-        expect(calls.find(c => c.method === 'POST' && c.url.endsWith('/part/sale-price/'))?.body)
+        expect(calls.some(c => c.method === 'DELETE' && c.url.includes('/pricing/sale-price/5/'))).toBe(true);
+        expect(calls.find(c => c.method === 'POST' && c.url.endsWith('/pricing/sale-price/'))?.body)
             .toMatchObject({ part: 8, quantity: 1, price: '2.5' });
     });
 });
@@ -125,7 +125,7 @@ describe('a part with no sale price', () => {
     it('never falls back to a cost figure for the till price', async () => {
         mockApi({
             // no sale price for this part
-            '/part/sale-price/': { results: [] },
+            '/pricing/sale-price/': { results: [] },
             '/company/price-break/': { results: [{ part: 1, quantity: 1, price: '25.07' }] },
             '/company/part/': { results: [{ pk: 1, part: 8, pack_quantity: '24' }] },
             '/stock/?part=8': {

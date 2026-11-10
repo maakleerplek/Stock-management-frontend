@@ -99,7 +99,7 @@ def load_prices(inv) -> Prices:
         if _prices and time.time() - _prices[0] < PRICE_CACHE_S:
             return _prices[1]
         best: dict[int, tuple[float, float]] = {}   # cheapest-quantity price break, as the kiosk did
-        for b in inv.get('part/sale-price/', limit=5000):
+        for b in inv.get('pricing/sale-price/', limit=5000):
             q, p = float(b['quantity']), float(b['price'])
             if b['part'] not in best or q < best[b['part']][0]:
                 best[b['part']] = (q, p)

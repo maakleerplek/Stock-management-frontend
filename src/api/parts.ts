@@ -231,18 +231,18 @@ export class PartsApi extends OrdersApi {
     async setSalePrice(partPk: number, price: number, currency: string = 'EUR'): Promise<void> {
         await this.request(`/part/${partPk}/`, 'PATCH', { salable: true }, false, false);
         const existing = await this.request<{ results: { pk: number; part: number; quantity: number }[] }>(
-            `/part/sale-price/?part=${partPk}&limit=100`, 'GET', undefined, false, false
+            `/pricing/sale-price/?part=${partPk}&limit=100`, 'GET', undefined, false, false
         );
         // New break first, old ones after: deleting first left the part with no
         // price (sold at €0) whenever the POST failed.
-        const created = await this.request<{ pk: number }>('/part/sale-price/', 'POST',
+        const created = await this.request<{ pk: number }>('/pricing/sale-price/', 'POST',
             { part: partPk, quantity: 1, price: String(price), price_currency: currency }, false, false);
         for (const b of existing.results || []) {
             if (b.quantity === 1 && b.pk !== created?.pk) {
-                await this.request(`/part/sale-price/${b.pk}/`, 'DELETE', undefined, false, false);
+                await this.request(`/pricing/sale-price/${b.pk}/`, 'DELETE', undefined, false, false);
             }
         }
-        this.invalidateCache('/part/sale-price/?limit=500');
+        this.invalidateCache('/pricing/sale-price/?limit=500');
     }
 
     /**
@@ -255,7 +255,7 @@ export class PartsApi extends OrdersApi {
      */
     async getSalePricePerPart(): Promise<Record<number, number>> {
         const resp = await this.requestAll<{ part: number; quantity: number; price: string | number }>(
-            '/part/sale-price/?limit=500'
+            '/pricing/sale-price/?limit=500'
         );
         // Lowest break quantity is the single-unit price.
         const best = new Map<number, { qty: number; price: number }>();

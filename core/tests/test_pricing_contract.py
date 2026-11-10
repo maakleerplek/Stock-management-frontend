@@ -18,7 +18,7 @@ class FakeInv:
 
     def get(self, path, **q):
         drop = self.patch.get('drop_sale_prices', [])
-        if path == 'part/sale-price/':
+        if path == 'pricing/sale-price/':
             return [b for b in WORLD['sale_breaks'] if b['part'] not in drop]
         if path == 'part/':
             return [{'pk': p['pk'], 'name': p['name'], **({'category_detail': {'name': p['category']}} if 'category' in p else {})}

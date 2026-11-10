@@ -75,7 +75,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
         // Supplier and sale prices: cached an hour, so a price just entered
         // in InvenTree would not show up on a refresh.
         inventreeClient.invalidateCache('/company/');
-        inventreeClient.invalidateCache('/part/sale-price/');
+        inventreeClient.invalidateCache('/pricing/sale-price/');
       }
 
       // Fetch in parallel for speed

@@ -20,7 +20,7 @@ class FakeInvenTree:
         self.stock = {COLA: [{'pk': 501, 'quantity': 3}]}
 
     def get(self, path, **q):
-        if path == 'part/sale-price/':
+        if path == 'pricing/sale-price/':
             return [{'part': COLA, 'quantity': 1, 'price': '1.50'}, {'part': COLA, 'quantity': 6, 'price': '1.20'},
                     {'part': LASER, 'quantity': 1, 'price': '0.50'}, {'part': CNC, 'quantity': 1, 'price': '1.00'}]
         if path == 'part/':
