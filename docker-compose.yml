@@ -27,7 +27,7 @@ services:
         VITE_TV_PRESENTATION_URL: ${VITE_TV_PRESENTATION_URL}
     container_name: stock-frontend
     environment:
-      # Runtime environment variable for Caddy to proxy to InvenTree backend
+      # Runtime environment variable for nginx to proxy to InvenTree backend
       - INVENTREE_BACKEND_URL=${INVENTREE_BACKEND_URL}
       # Secrets stay on the server: nginx adds the token to API calls.
       # The VITE_ name still works for older .env files.

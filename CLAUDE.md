@@ -21,3 +21,10 @@ App shell/routing: `src/App.tsx`, `main.tsx`. Shared UI: `src/components/` (Shee
 - Core: `cd core && pytest` (`core/tests/`). gunicorn runs **one worker** (laser state lives in memory, `wsgi.py`).
 - `docker-compose.yml`: services `frontend` (nginx) + `core`; volume `laser-data`.
 - Deploy: push to master → `scripts/autodeploy.sh` on htl-server (every 5 min, waits for green CI, rolls back on failure). No PRs, no local dev server; UI changes go via tempserver first.
+
+## Architecture rules (keep the code readable)
+- One feature = one folder (`src/features/<name>/`). New code never goes loose in `src/`.
+- Max ~400 lines per file. Over that, split before adding more.
+- All InvenTree calls go through `src/api/inventreeClient.ts`. No raw `fetch` to InvenTree elsewhere.
+- Pricing and checkout rules live only in `core/checkout.py`. Do not re-implement them in TS or in the kiosk.
+- Change behaviour and move code in separate commits; tests green before and after a move.
