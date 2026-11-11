@@ -259,25 +259,57 @@ export class StockApi extends HttpBase {
     }
 
     /**
-     * Get recent stock tracking entries
+     * Recent stock history. InvenTree 1.7 dropped /stock/track/; the same events
+     * now come from /audit/, mapped here to the old entry shape.
      */
     async getStockTracking(limit: number = 10): Promise<InvenTreeTrackingListResponse> {
-        return this.request<InvenTreeTrackingListResponse>(
-            `/stock/track/?limit=${limit}&ordering=-date`
+        const page = await this.request<AuditListResponse>(
+            `/audit/?model_type=stockitem&limit=${limit}&ordering=-timestamp`
         );
+        return { count: page.count, results: page.results.map(auditToTracking) };
     }
 
     /**
-     * The complete tracking log, newest first. Pages through the API so the
+     * The complete history, newest first. Pages through the API so the
      * history charts are not cut off at the first page.
      */
     async getAllStockTracking(pageSize: number = 500): Promise<InvenTreeTrackingEntry[]> {
         const all: InvenTreeTrackingEntry[] = [];
         for (let offset = 0; ; offset += pageSize) {
-            const path = `/stock/track/?limit=${pageSize}&offset=${offset}&ordering=-date`;
-            const page = await this.request<InvenTreeTrackingListResponse>(path, 'GET', undefined, false, false);
-            all.push(...page.results);
+            const path = `/audit/?model_type=stockitem&limit=${pageSize}&offset=${offset}&ordering=-timestamp`;
+            const page = await this.request<AuditListResponse>(path, 'GET', undefined, false, false);
+            all.push(...page.results.map(auditToTracking));
             if (page.results.length < pageSize || all.length >= page.count) return all;
         }
     }
+}
+
+interface AuditEntry {
+    pk: number;
+    timestamp: string;
+    actor: number | null;
+    event_type: number;
+    event_label: string;
+    notes: string | null;
+    deltas: InvenTreeTrackingEntry['deltas'] | null;
+    object_pk: string;
+    parent_object_pk: string | null;
+}
+interface AuditListResponse {
+    count: number;
+    results: AuditEntry[];
+}
+
+function auditToTracking(e: AuditEntry): InvenTreeTrackingEntry {
+    return {
+        pk: e.pk,
+        item: Number(e.object_pk),
+        part: Number(e.parent_object_pk),
+        date: e.timestamp.replace(' ', 'T'), // "2026-11-10 17:00" is not ISO
+        deltas: e.deltas ?? {},
+        label: e.event_label,
+        notes: e.notes ?? '',
+        tracking_type: e.event_type,
+        user: e.actor ?? 0,
+    };
 }

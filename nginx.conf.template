@@ -124,7 +124,7 @@ server {
 
     # Catalogue: anyone may read, volunteers may write. Writes are sent on to
     # the checked location below; rewrite...last is one of the safe uses of if.
-    location ~ ^/api/(part|stock|company|order|barcode|pricing)/ {
+    location ~ ^/api/(part|stock|company|order|barcode|pricing|audit)/ {
         if ($request_method !~ ^(GET|HEAD)$) {
             rewrite ^ /__volunteer$uri last;
         }
