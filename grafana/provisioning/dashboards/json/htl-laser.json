@@ -120,7 +120,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/(revenue|profit|value|cost|price|net)/i"
+              "options": "/(revenue|profit|value|cost|price|net|amount)/i"
             },
             "properties": [
               {
@@ -167,6 +167,184 @@
         "colorMode": "none",
         "graphMode": "none"
       }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Laser time per period",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-analytics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-analytics"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://analytics:8080/laser-trend",
+          "url_options": {
+            "method": "GET",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              }
+            ]
+          },
+          "root_selector": "",
+          "columns": [],
+          "computed_columns": []
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2,
+            "gradientMode": "none",
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "showPoints": "auto",
+            "pointSize": 4,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "decimals": 0,
+          "unit": "m",
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Paid"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Volunteer / workshop"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Open"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Not verified"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Minutes on the laser per day (up to 31 days), week or month, by kind of use.",
+      "transformations": [
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "period",
+                "destinationType": "time",
+                "dateFormat": "YYYY-MM-DD"
+              }
+            ],
+            "fields": {}
+          }
+        }
+      ]
     },
     {
       "id": 2,
@@ -238,7 +416,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 7,
+        "y": 16,
         "w": 24,
         "h": 12
       },
@@ -250,7 +428,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/(revenue|profit|value|cost|price|net)/i"
+              "options": "/(revenue|profit|value|cost|price|net|amount)/i"
             },
             "properties": [
               {
@@ -344,7 +522,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 19,
+        "y": 28,
         "w": 24,
         "h": 8
       },
@@ -356,7 +534,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/(revenue|profit|value|cost|price|net)/i"
+              "options": "/(revenue|profit|value|cost|price|net|amount)/i"
             },
             "properties": [
               {

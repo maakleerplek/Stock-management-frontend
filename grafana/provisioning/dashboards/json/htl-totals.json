@@ -80,7 +80,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/(revenue|profit|value|cost|price|net)/i"
+              "options": "/(revenue|profit|value|cost|price|net|amount)/i"
             },
             "properties": [
               {
@@ -181,7 +181,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/(revenue|profit|value|cost|price|net)/i"
+              "options": "/(revenue|profit|value|cost|price|net|amount)/i"
             },
             "properties": [
               {
@@ -222,7 +222,7 @@
     },
     {
       "id": 3,
-      "type": "barchart",
+      "type": "timeseries",
       "title": "Profit per period",
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
@@ -249,108 +249,36 @@
             ]
           },
           "root_selector": "",
-          "columns": [
-            {
-              "selector": "period",
-              "text": "Period",
-              "type": "string"
-            },
-            {
-              "selector": "Drinks",
-              "text": "Drinks",
-              "type": "number"
-            },
-            {
-              "selector": "Wood",
-              "text": "Wood",
-              "type": "number"
-            },
-            {
-              "selector": "Filament",
-              "text": "Filament",
-              "type": "number"
-            },
-            {
-              "selector": "Other items",
-              "text": "Other items",
-              "type": "number"
-            },
-            {
-              "selector": "Laser",
-              "text": "Laser",
-              "type": "number"
-            },
-            {
-              "selector": "Machines (3D print, CNC)",
-              "text": "Machines (3D print, CNC)",
-              "type": "number"
-            },
-            {
-              "selector": "Volunteer items",
-              "text": "Volunteer items",
-              "type": "number"
-            },
-            {
-              "selector": "Lab use",
-              "text": "Lab use",
-              "type": "number"
-            }
-          ]
+          "columns": [],
+          "computed_columns": []
         }
       ],
       "gridPos": {
         "x": 0,
         "y": 18,
         "w": 24,
-        "h": 10
+        "h": 12
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyEUR",
           "noValue": "",
           "custom": {
             "fillOpacity": 85,
             "lineWidth": 0,
-            "gradientMode": "none"
-          }
+            "gradientMode": "none",
+            "drawStyle": "bars",
+            "barAlignment": 1,
+            "barWidthFactor": 0.8,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "showPoints": "never"
+          },
+          "decimals": 2,
+          "unit": "currencyEUR"
         },
         "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/(revenue|profit|value|cost|price|net)/i"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "currencyEUR"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/minutes/i"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "m"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/grams/i"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "massg"
-              }
-            ]
-          },
           {
             "matcher": {
               "id": "byName",
@@ -470,24 +398,85 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "net"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Net profit"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "always"
+              },
+              {
+                "id": "custom.pointSize",
+                "value": 6
+              },
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "mode": "none",
+                  "group": "A"
+                }
+              },
+              {
+                "id": "custom.barAlignment",
+                "value": 1
+              }
+            ]
           }
         ]
       },
       "options": {
-        "xField": "period",
-        "orientation": "vertical",
-        "stacking": "normal",
         "legend": {
-          "showLegend": true
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum"
+          ]
         },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
-        },
-        "showValue": "never",
-        "barWidth": 0.7,
-        "fullHighlight": true
-      }
+        }
+      },
+      "description": "Stacked bars: profit per source, costs below zero. Black line: net profit. Legend shows the total per source.",
+      "transformations": [
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "period",
+                "destinationType": "time",
+                "dateFormat": "YYYY-MM-DD"
+              }
+            ],
+            "fields": {}
+          }
+        }
+      ]
     }
   ]
 }

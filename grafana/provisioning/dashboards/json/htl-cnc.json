@@ -85,7 +85,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/(revenue|profit|value|cost|price|net)/i"
+              "options": "/(revenue|profit|value|cost|price|net|amount)/i"
             },
             "properties": [
               {
@@ -205,7 +205,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/(revenue|profit|value|cost|price|net)/i"
+              "options": "/(revenue|profit|value|cost|price|net|amount)/i"
             },
             "properties": [
               {

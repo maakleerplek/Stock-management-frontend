@@ -5,19 +5,21 @@
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 import type { Rates } from '../src/lib/checkoutApi';
 import { itemAnalytics, type PartPrice, type PartAnalytics } from '../src/lib/itemAnalytics';
-import { bucketRange, salesPerBucket, stockLevels, levelAt, type Bucket, type SaleKind } from '../src/lib/stockHistory';
+import { bucketRange, bucketStart, salesPerBucket, stockLevels, levelAt, type Bucket, type SaleKind } from '../src/lib/stockHistory';
 import { profitTrend, PROFIT_SERIES } from '../src/lib/profitTrend';
 import { buildTotals, type PrintMaterial } from '../src/lib/totals';
 import {
   COUNTED, cncStats, groupSessions, laserLedger, laserSessionList, laserStats, lostLaserStats, printsByMaterial, serviceRevenue,
   sessionUse, volunteerPrints, SESSION_STATUS_LABELS,
-  type DiscardRow, type LaserSessionRow, type ServiceLine,
+  type DiscardRow, type LaserSessionRow, type LaserSessionUse, type ServiceLine,
 } from '../src/lib/services';
 import type { Workshop } from '../src/lib/workshops';
 import { htlWorkshops } from '../src/lib/workshops';
 
 const DAY = 86_400_000;
 const r2 = (n: number) => Math.round(n * 100) / 100;
+/** Local YYYY-MM-DD: buckets start at local midnight, toISOString would give the day before. */
+const day = (t: number) => new Date(t).toLocaleDateString("sv");
 /** "2026-11-12T21:36:24.2096" -> "2026-11-12 21:36". */
 const minute = (iso: string) => iso.slice(0, 16).replace("T", " ");
 
@@ -37,7 +39,7 @@ export type Row = Record<string, string | number | boolean | null>;
 export function daysFrom(from: string | null, now = Date.now()): number | undefined {
   const t = Number(from);
   if (!from || !Number.isFinite(t) || t <= 0) return undefined;
-  const days = Math.max(1, Math.ceil((now - t) / DAY));
+  const days = Math.max(1, Math.ceil((now - t) / DAY - 0.01));
   return days > 3650 ? undefined : days;
 }
 
@@ -87,7 +89,7 @@ export function profitTrendRows(d: AnalyticsData, days?: number, now = new Date(
   return profitTrend({
     entries: d.tracking, parts: d.parts, lines: d.lines, sessions: d.sessions, discarded: d.discarded,
     unassignedSeconds: d.unassignedSeconds, pricePerLaserMinute: p.perMinute, pricePerGram: p.perGram, days, now,
-  }).map(b => ({ period: b.label, ...Object.fromEntries(PROFIT_SERIES.map(s => [s, r2(b.bySeries[s])])), net: r2(b.net) }));
+  }).map(b => ({ period: day(b.from.getTime()), ...Object.fromEntries(PROFIT_SERIES.map(s => [s, r2(b.bySeries[s])])), net: r2(b.net) }));
 }
 
 // ---- Items ----
@@ -149,7 +151,7 @@ export function stockSalesRows(d: AnalyticsData, kind: SaleKind, days: number | 
   const sold = salesPerBucket(d.tracking, buckets, bucket, kind);
   const best = [...sold].map(([id, row]) => ({ id, total: row.reduce((s, n) => s + n, 0) })).sort((a, b) => b.total - a.total).slice(0, top);
   return buckets.map((b, i) => ({
-    period: new Date(b).toISOString().slice(0, 10),
+    period: day(b),
     ...Object.fromEntries(best.map(({ id }) => [d.parts.get(id)?.name ?? `Part #${id}`, sold.get(id)![i]])),
   }));
 }
@@ -162,6 +164,24 @@ export function laserSessionRows(d: AnalyticsData, days?: number): Row[] {
     when: minute(s.date), name: s.name, cuts: s.cuts, minutes: r2(s.minutes), value: r2(s.minutes * perMinute),
     status: SESSION_STATUS_LABELS[s.status], note: s.reason ?? '',
   }));
+}
+
+/** Laser minutes per day / week / month, one line per kind of use plus the total. */
+export function laserTrendRows(d: AnalyticsData, days: number | undefined, bucket: Bucket, now = Date.now()): Row[] {
+  const list = laserSessionList(d.sessions, d.discarded, d.lines, days, new Date(now));
+  const first = Math.min(...list.map(s => Date.parse(s.date)));
+  const buckets = bucketRange(days ? now - days * DAY : Number.isFinite(first) ? first : now, now, bucket);
+  const index = new Map(buckets.map((b, i) => [b, i]));
+  const kind = (s: LaserSessionUse) => s.status === 'open' ? 'Open' : s.status === 'unverified' ? 'Not verified'
+    : s.status === 'volunteer' || s.status === 'workshop' ? 'Volunteer / workshop' : 'Paid';
+  const KINDS = ['Paid', 'Volunteer / workshop', 'Open', 'Not verified', 'Total'] as const;
+  const out = buckets.map(b => ({ period: day(b), ...Object.fromEntries(KINDS.map(k => [k, 0])) } as Record<string, number | string>));
+  for (const s of list) {
+    const i = index.get(bucketStart(Date.parse(s.date), bucket));
+    if (i === undefined) continue;
+    for (const k of [kind(s), 'Total']) out[i][k] = r2((out[i][k] as number) + s.minutes);
+  }
+  return out;
 }
 
 export function laserResetRows(d: AnalyticsData, days?: number): Row[] {

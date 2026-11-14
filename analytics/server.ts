@@ -94,6 +94,7 @@ const ROUTES: Record<string, (d: AnalyticsData, a: Query) => Row[]> = {
   '/stock-history': (d, a) => rows.stockLevelRows(d, Number(a.q.get('part')), a.days),
   '/stock-sales': (d, a) => rows.stockSalesRows(d, a.kind, a.days, a.bucket),
   '/laser': (d, a) => rows.laserSessionRows(d, a.days),
+  '/laser-trend': (d, a) => rows.laserTrendRows(d, a.days, a.bucket),
   '/laser-resets': (d, a) => rows.laserResetRows(d, a.days),
   '/laser-summary': (d, a) => rows.laserSummaryRows(d, a.days),
   '/print': (d, a) => rows.printRows(d, a.days),
