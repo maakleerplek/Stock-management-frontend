@@ -1,0 +1,76 @@
+{
+  "uid": "htl-workshops-cnc",
+  "title": "Workshops: laser sessions",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Laser sessions (core /laser/api/sessions/all)",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 14
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-core"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-core"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://core:5000/laser/api/sessions/all",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "sessions",
+          "columns": [
+            {
+              "selector": "name",
+              "text": "Session",
+              "type": "string"
+            },
+            {
+              "selector": "project_name",
+              "text": "Project",
+              "type": "string"
+            },
+            {
+              "selector": "created",
+              "text": "Created",
+              "type": "string"
+            },
+            {
+              "selector": "total_time",
+              "text": "Seconds",
+              "type": "number"
+            },
+            {
+              "selector": "paid_at",
+              "text": "Paid at",
+              "type": "string"
+            },
+            {
+              "selector": "order_ref",
+              "text": "Order",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

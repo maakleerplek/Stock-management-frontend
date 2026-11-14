@@ -1,0 +1,23 @@
+apiVersion: 1
+datasources:
+  # Core (laser sessions, till): open inside the Docker network, no token.
+  - name: Core
+    uid: htl-core
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    jsonData:
+      auth_method: none
+      allowedHosts:
+        - http://core:5000
+  # InvenTree: the token is added as a header and goes to this host only.
+  - name: InvenTree
+    uid: htl-inventree
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    jsonData:
+      auth_method: none
+      allowedHosts:
+        - $INVENTREE_BACKEND_URL
+      httpHeaderName1: Authorization
+    secureJsonData:
+      httpHeaderValue1: Token $INVENTREE_TOKEN

@@ -142,6 +142,40 @@ services:
     restart: unless-stopped
     logging: *logging
 
+  # Dashboards at /grafana/ (nginx proxies it behind the volunteer sign-in; no
+  # published port). Grafana trusts the X-WEBAUTH-USER header, so it must only
+  # be reachable through nginx. Datasources and dashboards: grafana/provisioning/.
+  grafana:
+    image: grafana/grafana-oss:12.3.1
+    container_name: stock-grafana
+    mem_limit: 256m   # the server has 3 GB
+    environment:
+      GF_PLUGINS_PREINSTALL_SYNC: yesoreyeram-infinity-datasource
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://stock.int.maakleerplek.be/grafana/}
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-}
+      GF_AUTH_PROXY_ENABLED: "true"
+      GF_AUTH_PROXY_HEADER_NAME: X-WEBAUTH-USER
+      GF_AUTH_PROXY_HEADER_PROPERTY: username
+      GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_BASIC_ENABLED: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_AUTO_ASSIGN_ORG_ROLE: Viewer
+      # The page may be opened on the VPN address, not only on the root URL's host.
+      GF_LIVE_ALLOWED_ORIGINS: "*"
+      # For the datasources in grafana/provisioning/ (same values as core).
+      INVENTREE_BACKEND_URL: ${INVENTREE_BACKEND_URL}
+      INVENTREE_TOKEN: ${INVENTREE_TOKEN:-${VITE_INVENTREE_TOKEN}}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    restart: unless-stopped
+    logging: *logging
+
 volumes:
+  grafana-data:
   ssl-certs:
   laser-data:
