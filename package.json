@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:analytics": "vite build -c vite.analytics.config.ts",
     "build:check": "npx tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
