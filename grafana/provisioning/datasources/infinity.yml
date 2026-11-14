@@ -1,5 +1,14 @@
 apiVersion: 1
 datasources:
+  # Analytics server: the app's analytics functions as JSON rows (analytics/server.ts).
+  - name: Analytics
+    uid: htl-analytics
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    jsonData:
+      auth_method: none
+      allowedHosts:
+        - http://analytics:8080
   # Core (laser sessions, till): open inside the Docker network, no token.
   - name: Core
     uid: htl-core

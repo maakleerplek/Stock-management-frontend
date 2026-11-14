@@ -142,6 +142,30 @@ services:
     restart: unless-stopped
     logging: *logging
 
+  # Feeds the Grafana dashboards: runs the app's own analytics functions on InvenTree,
+  # core and TV data and serves flat JSON (analytics/server.ts). Network only, no port.
+  analytics:
+    build:
+      context: .
+      dockerfile: analytics/Dockerfile
+    container_name: stock-analytics
+    mem_limit: 128m
+    environment:
+      - INVENTREE_BACKEND_URL=${INVENTREE_BACKEND_URL}
+      - INVENTREE_TOKEN=${INVENTREE_TOKEN:-${VITE_INVENTREE_TOKEN}}
+      - CORE_URL=http://core:5000
+      - TV_PRESENTATION_URL=${VITE_TV_PRESENTATION_URL:-}
+      - TZ=Europe/Brussels
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      - core
+    restart: unless-stopped
+    logging: *logging
+
   # Dashboards at /grafana/ (nginx proxies it behind the volunteer sign-in; no
   # published port). Grafana trusts the X-WEBAUTH-USER header, so it must only
   # be reachable through nginx. Datasources and dashboards: grafana/provisioning/.
@@ -169,6 +193,8 @@ services:
       # For the datasources in grafana/provisioning/ (same values as core).
       INVENTREE_BACKEND_URL: ${INVENTREE_BACKEND_URL}
       INVENTREE_TOKEN: ${INVENTREE_TOKEN:-${VITE_INVENTREE_TOKEN}}
+    depends_on:
+      - analytics
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
