@@ -89,7 +89,18 @@ export default defineConfig(({ mode }) => {
           // These must reach the server: the sign-in (oauth2-proxy sets its
           // CSRF cookie on /oauth/start and checks it on /oauth/callback),
           // sign-out, and anything proxied to InvenTree.
-          navigateFallbackDenylist: [/^\/oauth\//, /^\/logout$/, /^\/api\//, /^\/media\//],
+          navigateFallbackDenylist: [/^\/oauth\//, /^\/logout$/, /^\/grafana\//, /^\/api\//, /^\/media\//],
+          // Part images. The denylist above only covers page navigations, so
+          // image fetches under /media/ still reach this rule.
+          runtimeCaching: [{
+            urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/media/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'inventree-media',
+              expiration: { maxEntries: 500, maxAgeSeconds: 7 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [200] },
+            },
+          }],
         },
         manifest: {
           name: 'Inventree Assistant',

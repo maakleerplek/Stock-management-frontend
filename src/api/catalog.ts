@@ -8,7 +8,6 @@ import type {
     InvenTreeCompany,
     CreateSupplierPartPayload,
 } from './types';
-import { CACHE_TTL } from '../lib/cache';
 import { StockApi } from './stock';
 
 export class CatalogApi extends StockApi {
@@ -20,9 +19,7 @@ export class CatalogApi extends StockApi {
             '/part/category/',
             'GET',
             undefined,
-            false,
-            true,
-            CACHE_TTL.LONG
+            false
         );
     }
 
@@ -34,12 +31,8 @@ export class CatalogApi extends StockApi {
             '/part/category/',
             'POST',
             payload,
-            false,
             false
         );
-        
-        // Invalidate categories cache
-        this.invalidateCache('/part/category/');
         
         return result;
     }
@@ -52,9 +45,7 @@ export class CatalogApi extends StockApi {
             '/stock/location/',
             'GET',
             undefined,
-            false,
-            true,
-            CACHE_TTL.LONG
+            false
         );
     }
 
@@ -66,12 +57,8 @@ export class CatalogApi extends StockApi {
             '/stock/location/',
             'POST',
             payload,
-            false,
             false
         );
-        
-        // Invalidate locations cache
-        this.invalidateCache('/stock/location/');
         
         return result;
     }
@@ -81,9 +68,7 @@ export class CatalogApi extends StockApi {
             '/company/?is_supplier=true&limit=200',
             'GET',
             undefined,
-            false,
-            true,
-            CACHE_TTL.LONG
+            false
         );
         return result.results;
     }
@@ -94,16 +79,16 @@ export class CatalogApi extends StockApi {
             is_supplier: true,
             is_manufacturer: false,
             is_customer: false,
-        }, false, false);
+        }, false);
     }
 
     async createSupplierPart(payload: CreateSupplierPartPayload): Promise<{ pk: number }> {
-        return this.request<{ pk: number }>('/company/part/', 'POST', payload, false, false);
+        return this.request<{ pk: number }>('/company/part/', 'POST', payload, false);
     }
 
     async getAllSupplierParts(): Promise<{ pk: number; part: number; supplier: number; SKU: string }[]> {
         const result = await this.requestAll<{ pk: number; part: number; supplier: number; SKU: string }>(
-            '/company/part/?limit=500', false
+            '/company/part/?limit=500'
         );
         return result.results;
     }
@@ -113,7 +98,6 @@ export class CatalogApi extends StockApi {
             `/company/part/?supplier=${supplierPk}&limit=200`,
             'GET',
             undefined,
-            false,
             false
         );
         return result.results;
@@ -124,7 +108,6 @@ export class CatalogApi extends StockApi {
             '/stock/location/?limit=100',
             'GET',
             undefined,
-            false,
             false
         );
         return result.results;

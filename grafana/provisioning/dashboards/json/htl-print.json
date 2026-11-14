@@ -1,0 +1,398 @@
+{
+  "uid": "htl-print",
+  "title": "3D printing",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "3D printing",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-analytics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-analytics"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://analytics:8080/print-summary",
+          "url_options": {
+            "method": "GET",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              }
+            ]
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "prints_paid",
+              "text": "Prints paid",
+              "type": "number"
+            },
+            {
+              "selector": "paid_grams",
+              "text": "Paid grams",
+              "type": "number"
+            },
+            {
+              "selector": "paid_value",
+              "text": "Paid value",
+              "type": "number"
+            },
+            {
+              "selector": "volunteer_prints",
+              "text": "Volunteer prints",
+              "type": "number"
+            },
+            {
+              "selector": "volunteer_grams",
+              "text": "Volunteer grams",
+              "type": "number"
+            },
+            {
+              "selector": "volunteer_value",
+              "text": "Volunteer value",
+              "type": "number"
+            },
+            {
+              "selector": "taken_grams",
+              "text": "Taken grams",
+              "type": "number"
+            },
+            {
+              "selector": "taken_cost",
+              "text": "Taken cost",
+              "type": "number"
+            },
+            {
+              "selector": "not_booked_grams",
+              "text": "Not booked grams",
+              "type": "number"
+            },
+            {
+              "selector": "profit",
+              "text": "Profit",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*(revenue|profit|value|cost|price|net).*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*minutes.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*grams.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "massg"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Per filament",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-analytics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-analytics"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://analytics:8080/print-materials",
+          "url_options": {
+            "method": "GET",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              }
+            ]
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "filament",
+              "text": "Filament",
+              "type": "string"
+            },
+            {
+              "selector": "paid_grams",
+              "text": "Paid grams",
+              "type": "number"
+            },
+            {
+              "selector": "paid_value",
+              "text": "Paid value",
+              "type": "number"
+            },
+            {
+              "selector": "volunteer_grams",
+              "text": "Volunteer grams",
+              "type": "number"
+            },
+            {
+              "selector": "taken_grams",
+              "text": "Taken grams",
+              "type": "number"
+            },
+            {
+              "selector": "taken_cost",
+              "text": "Taken cost",
+              "type": "number"
+            },
+            {
+              "selector": "not_booked_grams",
+              "text": "Not booked grams",
+              "type": "number"
+            },
+            {
+              "selector": "profit",
+              "text": "Profit",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*(revenue|profit|value|cost|price|net).*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*minutes.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*grams.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "massg"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Prints",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-analytics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-analytics"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://analytics:8080/print",
+          "url_options": {
+            "method": "GET",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              }
+            ]
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "when",
+              "text": "When",
+              "type": "string"
+            },
+            {
+              "selector": "filament",
+              "text": "Filament",
+              "type": "string"
+            },
+            {
+              "selector": "grams",
+              "text": "Grams",
+              "type": "number"
+            },
+            {
+              "selector": "value",
+              "text": "Value",
+              "type": "number"
+            },
+            {
+              "selector": "status",
+              "text": "Status",
+              "type": "string"
+            },
+            {
+              "selector": "order",
+              "text": "Order",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 12
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*(revenue|profit|value|cost|price|net).*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*minutes.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*grams.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "massg"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}

@@ -8,7 +8,6 @@ import type {
     StockOperationPayload,
     CreateStockItemPayload,
 } from './types';
-import { CACHE_TTL } from '../lib/cache';
 import { HttpBase } from './http';
 
 /** Still ours: not sold, installed, consumed or being built. */
@@ -25,11 +24,7 @@ export class StockApi extends HttpBase {
             items: [{ pk: itemId, quantity }],
             notes,
         };
-        await this.request('/stock/add/', 'POST', payload, false, false);
-        
-        // Invalidate related caches
-        this.invalidateCache(`/stock/${itemId}/?part_detail=true&location_detail=true`);
-        this.invalidateCache('/stock/');
+        await this.request('/stock/add/', 'POST', payload, false);
     }
 
     /**
@@ -40,11 +35,7 @@ export class StockApi extends HttpBase {
             items: [{ pk: itemId, quantity }],
             notes,
         };
-        await this.request('/stock/remove/', 'POST', payload, false, false);
-        
-        // Invalidate related caches
-        this.invalidateCache(`/stock/${itemId}/?part_detail=true&location_detail=true`);
-        this.invalidateCache('/stock/');
+        await this.request('/stock/remove/', 'POST', payload, false);
     }
 
     /**
@@ -75,9 +66,7 @@ export class StockApi extends HttpBase {
             `/stock/${itemId}/?part_detail=true&location_detail=true`,
             'GET',
             undefined,
-            false,
-            true,
-            CACHE_TTL.SHORT
+            false
         );
     }
 
@@ -112,7 +101,7 @@ export class StockApi extends HttpBase {
         for (let offset = 0; ; offset += pageSize) {
             const page = await this.request<InvenTreeStockListResponse>(
                 `/stock/?${params.toString()}&limit=${pageSize}&offset=${offset}`,
-                'GET', undefined, false, true, CACHE_TTL.MEDIUM
+                'GET', undefined, false
             );
             results.push(...page.results);
             if (page.results.length < pageSize || results.length >= page.count) {
@@ -131,7 +120,7 @@ export class StockApi extends HttpBase {
     /** A part's stock items that are still ours, including empty ones, largest first. */
     async getHomeStockItems(partId: number): Promise<InvenTreeStockItem[]> {
         const resp = await this.request<InvenTreeStockListResponse>(
-            `/stock/?part=${partId}&sent_to_customer=false&consumed=false&installed=false&location_detail=true&limit=100`, 'GET', undefined, false, false
+            `/stock/?part=${partId}&sent_to_customer=false&consumed=false&installed=false&location_detail=true&limit=100`, 'GET', undefined, false
         );
         return (resp.results as unknown as InvenTreeStockItem[])
             .filter(isHomeStock)
@@ -143,7 +132,7 @@ export class StockApi extends HttpBase {
         const [home] = await this.getHomeStockItems(partId);
         if (home) return this.addStock(home.pk, quantity, notes);
 
-        const part = await this.request<{ default_location: number | null }>(`/part/${partId}/`, 'GET', undefined, false, false);
+        const part = await this.request<{ default_location: number | null }>(`/part/${partId}/`, 'GET', undefined, false);
         if (!part.default_location) {
             throw new Error('This item has no stock yet and no default location. Set one in InvenTree first.');
         }
@@ -163,8 +152,7 @@ export class StockApi extends HttpBase {
             left -= take;
         }
         if (left > 0) throw new Error(`Only ${quantity - left} in stock, could not remove ${quantity}.`);
-        await this.request('/stock/remove/', 'POST', { items, notes }, false, false);
-        this.invalidateCache('/stock/');
+        await this.request('/stock/remove/', 'POST', { items, notes }, false);
     }
 
     /** Set the part's total stock. */
@@ -183,12 +171,8 @@ export class StockApi extends HttpBase {
             '/stock/',
             'POST',
             payload,
-            false,
             false
         );
-
-        // Invalidate stock list cache
-        this.invalidateCache('/stock/');
 
         // InvenTree returns an array when creating stock items
         return Array.isArray(result) ? result[0] : result;
@@ -216,7 +200,6 @@ export class StockApi extends HttpBase {
                 allow_mismatched_status: true,
                 notes: 'Consolidated after receiving a purchase order',
             },
-            false,
             false
         );
     }
@@ -239,7 +222,6 @@ export class StockApi extends HttpBase {
                 failed.push(String(partPk));
             }
         }
-        this.invalidateCache('/stock/');
         return failed;
     }
 
@@ -251,11 +233,8 @@ export class StockApi extends HttpBase {
             `/stock/${stockItemPk}/`,
             'PATCH',
             { purchase_price: unitPrice.toString(), purchase_price_currency: currency },
-            false,
             false
         );
-        this.invalidateCache(`/stock/${stockItemPk}/?part_detail=true&location_detail=true`);
-        this.invalidateCache('/stock/');
     }
 
     /**
@@ -277,7 +256,7 @@ export class StockApi extends HttpBase {
         const all: InvenTreeTrackingEntry[] = [];
         for (let offset = 0; ; offset += pageSize) {
             const path = `/audit/?model_type=stockitem&limit=${pageSize}&offset=${offset}&ordering=-timestamp`;
-            const page = await this.request<AuditListResponse>(path, 'GET', undefined, false, false);
+            const page = await this.request<AuditListResponse>(path, 'GET', undefined, false);
             all.push(...page.results.map(auditToTracking));
             if (page.results.length < pageSize || all.length >= page.count) return all;
         }

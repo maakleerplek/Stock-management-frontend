@@ -1,18 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Cuboid, Drill, GraduationCap, Package, RefreshCw, Sigma, Zap } from 'lucide-react';
-import inventreeClient from '../api/inventreeClient';
-import type { InvenTreeTrackingEntry } from '../api/types';
-import { laserApi } from '../lib/laserApi';
-import type { ServiceLine, DiscardRow, LaserSessionRow } from '../lib/services';
 import { cn } from '../lib/utils';
 import { SegmentedButtons } from './ui';
-import ItemsTab from './ItemsTab';
-import LaserTab from './LaserTab';
-import TotalsTab from './TotalsTab';
-import PrintTab from './PrintTab';
-import CncTab from './CncTab';
-import WorkshopsTab from './WorkshopsTab';
-import { useStock } from '../StockContext';
+import LaserFeedback from './LaserFeedback';
 
 const DATE_RANGES = [
   { label: '7D', days: 7 },
@@ -21,9 +11,7 @@ const DATE_RANGES = [
   { label: 'ALL', days: null },
 ] as const;
 
-export type DateRange = typeof DATE_RANGES[number];
-
-// A new analysis is one more entry here and one more tab file.
+// Each tab is one provisioned Grafana dashboard (grafana/provisioning/dashboards/json/<uid>.json).
 const TABS = [
   { id: 'totals', label: 'Totals', icon: Sigma, subtitle: 'Revenue, costs and profit' },
   { id: 'items', label: 'Items', icon: Package, subtitle: 'Stock movement & revenue' },
@@ -43,53 +31,16 @@ function tabFromHash(): TabId {
 
 export default function AnalyticsPage() {
   const [tab, setTab] = useState<TabId>(tabFromHash);
-  const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGES[1]);
+  const [dateRange, setDateRange] = useState<typeof DATE_RANGES[number]>(DATE_RANGES[1]);
   const [refreshKey, setRefreshKey] = useState(0);
-  const { refreshInventory } = useStock();
-
-  const [trackingEntries, setTrackingEntries] = useState<InvenTreeTrackingEntry[]>([]);
-  const [trackingLoading, setTrackingLoading] = useState(true);
-  const [trackingError, setTrackingError] = useState<string | null>(null);
-  const [serviceLines, setServiceLines] = useState<ServiceLine[]>([]);
-  const [discarded, setDiscarded] = useState<DiscardRow[]>([]);
-  const [laserSessions, setLaserSessions] = useState<{ sessions: LaserSessionRow[]; unassignedSeconds: number }>({ sessions: [], unassignedSeconds: 0 });
-  const [laserLoading, setLaserLoading] = useState(true);
 
   useEffect(() => {
     window.history.replaceState(null, '', `#analytics/${tab}`);
   }, [tab]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setTrackingLoading(true);
-    setTrackingError(null);
-    inventreeClient.getAllStockTracking()
-      .then(all => { if (!cancelled) setTrackingEntries(all); })
-      .catch(err => { if (!cancelled) setTrackingError(err instanceof Error ? err.message : 'Failed to load tracking data'); })
-      .finally(() => { if (!cancelled) setTrackingLoading(false); });
-    return () => { cancelled = true; };
-  }, [refreshKey]);
-
-  // Laser data comes from sales orders and the laser service, apart from the
-  // tracking log, so a failure here leaves the rest of the page working.
-  useEffect(() => {
-    let cancelled = false;
-    setLaserLoading(true);
-    Promise.all([
-      inventreeClient.getAllServiceLines()
-        .then(lines => { if (!cancelled) setServiceLines(lines); })
-        .catch(err => console.warn('[Analytics] Could not load service lines:', err)),
-      laserApi.discarded()
-        .then(d => { if (!cancelled) setDiscarded(d.rows); })
-        .catch(err => console.warn('[Analytics] Could not load laser time without a session:', err)),
-      laserApi.allSessions()
-        .then(d => { if (!cancelled) setLaserSessions({ sessions: d.sessions, unassignedSeconds: d.unassigned_seconds }); })
-        .catch(err => console.warn('[Analytics] Could not load laser sessions:', err)),
-    ]).finally(() => { if (!cancelled) setLaserLoading(false); });
-    return () => { cancelled = true; };
-  }, [refreshKey]);
-
   const current = TABS.find(t => t.id === tab)!;
+  // ALL = 10 years: the analytics server reads anything over 3650 days as all time.
+  const from = dateRange.days ? `now-${dateRange.days}d` : 'now-10y';
 
   return (
     <div className="flex-1 overflow-auto bg-brand-beige">
@@ -110,9 +61,9 @@ export default function AnalyticsPage() {
                 onChange={label => setDateRange(DATE_RANGES.find(r => r.label === label)!)}
               />
               <button
-                onClick={() => { setRefreshKey(k => k + 1); void refreshInventory(); }}
+                onClick={() => setRefreshKey(k => k + 1)}
                 className="border border-lijn p-1.5 hover:bg-brand-beige-dark transition-colors"
-                title="Refresh"
+                title="Reload"
               >
                 <RefreshCw size={14} />
               </button>
@@ -138,34 +89,14 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {tab === 'totals' && (
-          <TotalsTab
-            trackingEntries={trackingEntries}
-            serviceLines={serviceLines}
-            discarded={discarded}
-            laserSessions={laserSessions}
-            loading={trackingLoading || laserLoading}
-            trackingError={trackingError}
-            dateRange={dateRange}
-          />
-        )}
-        {tab === 'items' && (
-          <ItemsTab
-            trackingEntries={trackingEntries}
-            loading={trackingLoading}
-            error={trackingError}
-            onRetry={() => setRefreshKey(k => k + 1)}
-            dateRange={dateRange}
-          />
-        )}
-        {tab === 'print' && (
-          <PrintTab trackingEntries={trackingEntries} serviceLines={serviceLines} loading={trackingLoading} dateRange={dateRange} />
-        )}
-        {tab === 'workshops' && <WorkshopsTab refreshKey={refreshKey} />}
-        {tab === 'cnc' && <CncTab serviceLines={serviceLines} loading={laserLoading} dateRange={dateRange} />}
-        {tab === 'laser' && (
-          <LaserTab serviceLines={serviceLines} discarded={discarded} laserSessions={laserSessions} loading={laserLoading} dateRange={dateRange} refreshKey={refreshKey} />
-        )}
+        <iframe
+          key={`${tab}-${from}-${refreshKey}`}
+          title={current.label}
+          src={`/grafana/d/htl-${tab}?kiosk&theme=light&from=${from}&to=now`}
+          className="w-full h-[calc(100vh-15rem)] min-h-[600px] border border-lijn bg-white"
+        />
+
+        {tab === 'laser' && <LaserFeedback days={dateRange.days} refreshKey={refreshKey} />}
 
       </div>
     </div>

@@ -1,6 +1,5 @@
-/** Shared InvenTree request helper: URL, cache, timeout, error text, paging. */
+/** Shared InvenTree request helper: URL, timeout, error text, paging. No caching: TanStack Query does that. */
 
-import { ApiCache, CACHE_TTL } from '../lib/cache';
 import { hasVolunteerSession, markSignedOut, VOLUNTEER_AUTH_FAILED } from '../auth/session';
 
 /** Per InvenTree call; uploads included, so not too tight. */
@@ -13,41 +12,29 @@ export interface InvenTreeConfig {
 export class HttpBase {
     protected config: InvenTreeConfig;
 
+    /** Set by the app: runs after every successful write, so queries can refetch. */
+    onMutation?: (endpoint: string, method: string) => void;
+
     constructor(config: InvenTreeConfig) {
         this.config = config;
     }
 
     /**
-     * Generic HTTP request handler for InvenTree API with caching
-     * 
+     * Generic HTTP request handler for InvenTree API
+     *
      * @param endpoint - API endpoint
      * @param method - HTTP method (GET, POST, PATCH, etc.)
      * @param body - Request body
      * @param isFormData - Whether body is FormData
-     * @param useCache - Whether to use cache for GET requests (default: true)
-     * @param cacheTTL - Cache TTL in milliseconds (default: 90000)
      */
     protected async request<T>(
         endpoint: string,
         method: string = 'GET',
         body?: unknown,
-        isFormData: boolean = false,
-        useCache: boolean = true,
-        cacheTTL: number = CACHE_TTL.MEDIUM
+        isFormData: boolean = false
     ): Promise<T> {
         const url = `${this.config.baseUrl}/api/${endpoint.replace(/^\//, '')}`;
 
-        // Generate cache key for GET requests
-        const cacheKey = `${method}_${endpoint}`;
-        
-        // Try cache for GET requests
-        if (method === 'GET' && useCache) {
-            const cached = ApiCache.get<T>(cacheKey);
-            if (cached !== null) {
-                return cached;
-            }
-        }
-        
         // The proxy adds the InvenTree token. Volunteer-only calls are allowed
         // by the sign-in cookie, which the browser sends on its own.
         const headers: Record<string, string> = {};
@@ -91,7 +78,7 @@ export class HttpBase {
                 if (response.status === 401) {
                     if (wasSignedIn) {
                         markSignedOut();
-                        window.dispatchEvent(new Event(VOLUNTEER_AUTH_FAILED));
+                        globalThis.dispatchEvent?.(new Event(VOLUNTEER_AUTH_FAILED));
                     }
                     throw new Error(wasSignedIn
                         ? 'Volunteer sign-in expired - sign in again'
@@ -105,12 +92,8 @@ export class HttpBase {
             const normalizedData = Array.isArray(data) 
                 ? { count: data.length, results: data } as unknown as T
                 : data;
-            
-            // Cache GET responses
-            if (method === 'GET' && useCache) {
-                ApiCache.set(cacheKey, normalizedData, cacheTTL);
-            }
-            
+
+            if (method !== 'GET') this.onMutation?.(endpoint, method);
             return normalizedData;
         } catch (error) {
             if (error instanceof TypeError && (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('NetworkError') || error.message.includes('Failed to fetch'))) {
@@ -128,23 +111,16 @@ export class HttpBase {
     }
     
     /**
-     * Invalidate cached data for an endpoint
-     */
-    /**
      * GET every page of a list endpoint. `endpoint` already carries
      * `limit=500`; one page used to be all the app read, so past 500 rows
      * parts went missing and sale prices fell back to 0.
      */
-    protected async requestAll<R>(
-        endpoint: string,
-        useCache: boolean = true,
-        cacheTTL: number = CACHE_TTL.MEDIUM
-    ): Promise<{ count: number; results: R[] }> {
+    protected async requestAll<R>(endpoint: string): Promise<{ count: number; results: R[] }> {
         const pageSize = 500;
         const results: R[] = [];
         for (let offset = 0; ; offset += pageSize) {
             const page = await this.request<{ count: number; results: R[] }>(
-                `${endpoint}&offset=${offset}`, 'GET', undefined, false, useCache, cacheTTL
+                `${endpoint}&offset=${offset}`
             );
             const rows = page.results || [];
             results.push(...rows);
@@ -154,15 +130,4 @@ export class HttpBase {
         }
     }
 
-    invalidateCache(endpoint: string, method: string = 'GET'): void {
-        // Prefix match: '/stock/' also clears '/stock/?part=8&...'.
-        ApiCache.removePrefix(`${method}_${endpoint}`);
-    }
-    
-    /**
-     * Clear all cached API data
-     */
-    clearCache(): void {
-        ApiCache.clear();
-    }
 }

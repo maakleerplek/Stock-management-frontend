@@ -1,0 +1,393 @@
+{
+  "uid": "htl-laser",
+  "title": "Laser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Laser time",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-analytics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-analytics"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://analytics:8080/laser-summary",
+          "url_options": {
+            "method": "GET",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              }
+            ]
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "sessions",
+              "text": "Sessions",
+              "type": "number"
+            },
+            {
+              "selector": "avg_minutes",
+              "text": "Average minutes per session",
+              "type": "number"
+            },
+            {
+              "selector": "paid_minutes",
+              "text": "Paid minutes",
+              "type": "number"
+            },
+            {
+              "selector": "paid_value",
+              "text": "Paid value",
+              "type": "number"
+            },
+            {
+              "selector": "volunteer_minutes",
+              "text": "Volunteer minutes",
+              "type": "number"
+            },
+            {
+              "selector": "volunteer_value",
+              "text": "Volunteer value",
+              "type": "number"
+            },
+            {
+              "selector": "open_minutes",
+              "text": "Open minutes",
+              "type": "number"
+            },
+            {
+              "selector": "open_value",
+              "text": "Open value",
+              "type": "number"
+            },
+            {
+              "selector": "unverified_minutes",
+              "text": "Unverified minutes",
+              "type": "number"
+            },
+            {
+              "selector": "unverified_value",
+              "text": "Unverified value",
+              "type": "number"
+            },
+            {
+              "selector": "all_minutes",
+              "text": "All minutes",
+              "type": "number"
+            },
+            {
+              "selector": "typed_minutes",
+              "text": "Typed minutes",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*(revenue|profit|value|cost|price|net).*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*minutes.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*grams.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "massg"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Sessions",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-analytics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-analytics"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://analytics:8080/laser",
+          "url_options": {
+            "method": "GET",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              }
+            ]
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "when",
+              "text": "When",
+              "type": "string"
+            },
+            {
+              "selector": "name",
+              "text": "Session",
+              "type": "string"
+            },
+            {
+              "selector": "cuts",
+              "text": "Cuts",
+              "type": "number"
+            },
+            {
+              "selector": "minutes",
+              "text": "Minutes",
+              "type": "number"
+            },
+            {
+              "selector": "value",
+              "text": "Value",
+              "type": "number"
+            },
+            {
+              "selector": "status",
+              "text": "Status",
+              "type": "string"
+            },
+            {
+              "selector": "note",
+              "text": "Note",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 24,
+        "h": 12
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*(revenue|profit|value|cost|price|net).*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*minutes.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*grams.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "massg"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Laser time reset without a session",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-analytics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-analytics"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://analytics:8080/laser-resets",
+          "url_options": {
+            "method": "GET",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              }
+            ]
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "when",
+              "text": "When",
+              "type": "string"
+            },
+            {
+              "selector": "minutes",
+              "text": "Minutes",
+              "type": "number"
+            },
+            {
+              "selector": "value",
+              "text": "Value",
+              "type": "number"
+            },
+            {
+              "selector": "note",
+              "text": "Note",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*(revenue|profit|value|cost|price|net).*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*minutes.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*grams.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "massg"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}

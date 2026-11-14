@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { Book, Database, ExternalLink, Github, MessageSquare, MoreHorizontal } from 'lucide-react';
+import { Book, ExternalLink, Github, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Sheet, { SheetItem } from './Sheet';
-import CacheManager from './CacheManager';
 import { FOOTER_LINKS } from '../constants';
 
 export interface NavTab {
@@ -25,7 +24,6 @@ interface BottomNavProps {
 /** The tab bar at the bottom of the screen on a phone. From md up the top tabs take over. */
 export default function BottomNav({ tabs, moreTabs, current, onSelect, inventreeUrl }: BottomNavProps) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const [cacheOpen, setCacheOpen] = useState(false);
   const hasMore = moreTabs !== undefined;
   const moreActive = !!moreTabs?.some(t => t.id === current);
 
@@ -60,10 +58,8 @@ export default function BottomNav({ tabs, moreTabs, current, onSelect, inventree
           <SheetItem icon={Book} label="Docs" href={FOOTER_LINKS.docs} />
           {FOOTER_LINKS.feedback && <SheetItem icon={MessageSquare} label="Feedback" href={FOOTER_LINKS.feedback} />}
           <SheetItem icon={Github} label="GitHub" href={FOOTER_LINKS.github} />
-          <SheetItem icon={Database} label="Cache" onClick={() => { setMoreOpen(false); setCacheOpen(true); }} />
         </Sheet>
       )}
-      <CacheManager open={cacheOpen} onClose={() => setCacheOpen(false)} />
     </>
   );
 }

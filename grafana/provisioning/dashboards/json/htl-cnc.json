@@ -1,0 +1,244 @@
+{
+  "uid": "htl-cnc",
+  "title": "CNC",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "CNC",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-analytics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-analytics"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://analytics:8080/cnc-summary",
+          "url_options": {
+            "method": "GET",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              }
+            ]
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "jobs_paid",
+              "text": "Jobs paid",
+              "type": "number"
+            },
+            {
+              "selector": "minutes",
+              "text": "Paid minutes",
+              "type": "number"
+            },
+            {
+              "selector": "revenue",
+              "text": "Revenue",
+              "type": "number"
+            },
+            {
+              "selector": "avg_minutes",
+              "text": "Average minutes per job",
+              "type": "number"
+            },
+            {
+              "selector": "volunteer_minutes",
+              "text": "Volunteer minutes",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*(revenue|profit|value|cost|price|net).*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*minutes.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*grams.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "massg"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Jobs",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-analytics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-analytics"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://analytics:8080/cnc",
+          "url_options": {
+            "method": "GET",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              }
+            ]
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "when",
+              "text": "When",
+              "type": "string"
+            },
+            {
+              "selector": "order",
+              "text": "Order",
+              "type": "string"
+            },
+            {
+              "selector": "minutes",
+              "text": "Minutes",
+              "type": "number"
+            },
+            {
+              "selector": "revenue",
+              "text": "Revenue",
+              "type": "number"
+            },
+            {
+              "selector": "status",
+              "text": "Status",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 14
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*(revenue|profit|value|cost|price|net).*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*minutes.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*grams.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "massg"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}

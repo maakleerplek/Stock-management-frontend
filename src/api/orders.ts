@@ -19,7 +19,7 @@ export class OrdersApi extends CatalogApi {
     async getTillCustomer(): Promise<number> {
         if (this.tillCustomerPk) return this.tillCustomerPk;
         const found = await this.request<InvenTreeCompany[] | { results: InvenTreeCompany[] }>(
-            `/company/?is_customer=true&search=${encodeURIComponent(TILL_CUSTOMER)}`, 'GET', undefined, false, false
+            `/company/?is_customer=true&search=${encodeURIComponent(TILL_CUSTOMER)}`, 'GET', undefined, false
         );
         const list = Array.isArray(found) ? found : found.results;
         const existing = list.find(c => c.name === TILL_CUSTOMER);
@@ -32,7 +32,7 @@ export class OrdersApi extends CatalogApi {
                 is_customer: true,
                 is_supplier: false,
                 is_manufacturer: false,
-            }, false, false);
+            }, false);
             return (this.tillCustomerPk = created.pk);
         } catch (err) {
             if (!hasVolunteerSession()) {
@@ -47,26 +47,25 @@ export class OrdersApi extends CatalogApi {
             '/order/po/?limit=100&ordering=-creation_date',
             'GET',
             undefined,
-            false,
             false
         );
         return result.results;
     }
 
     async createPurchaseOrder(payload: { supplier: number; reference?: string; description?: string }): Promise<{ pk: number; reference: string }> {
-        return this.request('/order/po/', 'POST', payload, false, false);
+        return this.request('/order/po/', 'POST', payload, false);
     }
 
     async addPurchaseOrderLine(payload: { order: number; part: number; quantity: number; purchase_price?: string; purchase_price_currency?: string }): Promise<{ pk: number }> {
-        return this.request('/order/po-line/', 'POST', payload, false, false);
+        return this.request('/order/po-line/', 'POST', payload, false);
     }
 
     async issuePurchaseOrder(poPk: number): Promise<void> {
-        await this.request(`/order/po/${poPk}/issue/`, 'POST', {}, false, false);
+        await this.request(`/order/po/${poPk}/issue/`, 'POST', {}, false);
     }
 
     async cancelPurchaseOrder(poPk: number): Promise<void> {
-        await this.request(`/order/po/${poPk}/cancel/`, 'POST', {}, false, false);
+        await this.request(`/order/po/${poPk}/cancel/`, 'POST', {}, false);
     }
 
     /**
@@ -79,7 +78,6 @@ export class OrdersApi extends CatalogApi {
             `/order/po-line/?order=${poPk}&part_detail=true&limit=100`,
             'GET',
             undefined,
-            false,
             false
         );
         return result.results;
@@ -109,7 +107,6 @@ export class OrdersApi extends CatalogApi {
                 })),
                 location: locationPk,
             },
-            false,
             false
         );
     }
@@ -124,7 +121,6 @@ export class OrdersApi extends CatalogApi {
             `/order/po/${poPk}/complete/`,
             'POST',
             { accept_incomplete: acceptIncomplete },
-            false,
             false
         );
     }
@@ -155,7 +151,7 @@ export class OrdersApi extends CatalogApi {
             order_detail?: { reference?: string; status: number; creation_date?: string | null; issue_date?: string | null; shipment_date?: string | null };
         };
         const path = `/order/so-extra-line/?limit=${limit}&offset=${offset}&order_detail=true`;
-        const page = await this.request<{ count: number; results: Row[] }>(path, 'GET', undefined, false, false);
+        const page = await this.request<{ count: number; results: Row[] }>(path, 'GET', undefined, false);
         return {
             count: page.count,
             lines: page.results.map(r => {
