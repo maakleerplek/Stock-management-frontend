@@ -91,6 +91,10 @@
               {
                 "id": "unit",
                 "value": "currencyEUR"
+              },
+              {
+                "id": "decimals",
+                "value": 2
               }
             ]
           },
@@ -211,6 +215,10 @@
               {
                 "id": "unit",
                 "value": "currencyEUR"
+              },
+              {
+                "id": "decimals",
+                "value": 2
               }
             ]
           },

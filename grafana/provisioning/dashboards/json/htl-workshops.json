@@ -96,6 +96,10 @@
               {
                 "id": "unit",
                 "value": "currencyEUR"
+              },
+              {
+                "id": "decimals",
+                "value": 2
               }
             ]
           },
