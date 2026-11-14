@@ -73,12 +73,14 @@
         "h": 11
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": ""
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -90,7 +92,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -102,7 +104,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -159,7 +161,7 @@
             },
             {
               "selector": "value",
-              "text": "Value",
+              "text": "Amount",
               "type": "number"
             }
           ]
@@ -172,12 +174,14 @@
         "h": 7
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": ""
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -189,7 +193,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -201,7 +205,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -302,13 +306,19 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyEUR"
+          "unit": "currencyEUR",
+          "noValue": "",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none"
+          }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -320,7 +330,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -332,12 +342,132 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
                 "id": "unit",
                 "value": "massg"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Drinks"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Wood"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Filament"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Other items"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Laser"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Machines (3D print, CNC)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Volunteer items"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lab use"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-orange"
+                }
               }
             ]
           }
@@ -351,8 +481,12 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
-        }
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "showValue": "never",
+        "barWidth": 0.7,
+        "fullHighlight": true
       }
     }
   ]

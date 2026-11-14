@@ -44,7 +44,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="flex-1 overflow-auto bg-brand-beige">
-      <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 space-y-6">
 
         <div className="border-b border-lijn">
           <div className="pb-4 flex flex-wrap items-start justify-between gap-3">

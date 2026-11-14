@@ -113,12 +113,14 @@
         "h": 7
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": ""
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -130,7 +132,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -142,7 +144,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -218,7 +220,7 @@
             },
             {
               "selector": "value",
-              "text": "Value",
+              "text": "Amount",
               "type": "number"
             },
             {
@@ -241,12 +243,14 @@
         "h": 12
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": ""
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -258,7 +262,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -270,7 +274,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -327,7 +331,7 @@
             },
             {
               "selector": "value",
-              "text": "Value",
+              "text": "Amount",
               "type": "number"
             },
             {
@@ -345,12 +349,14 @@
         "h": 8
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": ""
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -362,7 +368,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -374,7 +380,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {

@@ -18,6 +18,8 @@ import { htlWorkshops } from '../src/lib/workshops';
 
 const DAY = 86_400_000;
 const r2 = (n: number) => Math.round(n * 100) / 100;
+/** "2026-11-12T21:36:24.2096" -> "2026-11-12 21:36". */
+const minute = (iso: string) => iso.slice(0, 16).replace("T", " ");
 
 export interface AnalyticsData {
   tracking: InvenTreeTrackingEntry[];
@@ -157,7 +159,7 @@ export function stockSalesRows(d: AnalyticsData, kind: SaleKind, days: number | 
 export function laserSessionRows(d: AnalyticsData, days?: number): Row[] {
   const perMinute = prices(d).perMinute;
   return groupSessions(laserSessionList(d.sessions, d.discarded, d.lines, days)).map(s => ({
-    when: s.date, name: s.name, cuts: s.cuts, minutes: r2(s.minutes), value: r2(s.minutes * perMinute),
+    when: minute(s.date), name: s.name, cuts: s.cuts, minutes: r2(s.minutes), value: r2(s.minutes * perMinute),
     status: SESSION_STATUS_LABELS[s.status], note: s.reason ?? '',
   }));
 }
@@ -165,7 +167,7 @@ export function laserSessionRows(d: AnalyticsData, days?: number): Row[] {
 export function laserResetRows(d: AnalyticsData, days?: number): Row[] {
   const perMinute = prices(d).perMinute;
   return lostLaserStats(d.discarded, perMinute, days).rows.filter(r => r.source === 'unassigned').map(r => ({
-    when: r.discarded_at, minutes: r2(r.seconds / 60), value: r2((r.seconds / 60) * perMinute), note: r.reason ?? '',
+    when: minute(r.discarded_at), minutes: r2(r.seconds / 60), value: r2((r.seconds / 60) * perMinute), note: r.reason ?? '',
   }));
 }
 

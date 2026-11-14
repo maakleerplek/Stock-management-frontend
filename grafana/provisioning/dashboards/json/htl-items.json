@@ -49,23 +49,29 @@
         "refresh": 1,
         "sort": 5,
         "query": {
-          "type": "json",
-          "source": "url",
-          "url": "http://analytics:8080/parts",
-          "root_selector": "",
-          "format": "table",
-          "columns": [
-            {
-              "selector": "name",
-              "text": "__text",
-              "type": "string"
-            },
-            {
-              "selector": "part_id",
-              "text": "__value",
-              "type": "number"
-            }
-          ]
+          "refId": "variable",
+          "queryType": "infinity",
+          "infinityQuery": {
+            "type": "json",
+            "source": "url",
+            "url": "http://analytics:8080/parts",
+            "root_selector": "",
+            "format": "table",
+            "columns": [
+              {
+                "selector": "name",
+                "text": "__text",
+                "type": "string"
+              },
+              {
+                "selector": "part_id",
+                "text": "__value",
+                "type": "number"
+              }
+            ],
+            "parser": "backend",
+            "refId": "variable"
+          }
         },
         "definition": "http://analytics:8080/parts"
       }
@@ -151,12 +157,14 @@
         "h": 4
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": ""
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -168,7 +176,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -180,7 +188,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -266,12 +274,20 @@
         "h": 8
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none"
+          },
+          "decimals": 0
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -283,7 +299,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -295,7 +311,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -314,8 +330,12 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
-        }
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "showValue": "never",
+        "barWidth": 0.7,
+        "fullHighlight": true
       }
     },
     {
@@ -381,13 +401,20 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyEUR"
+          "unit": "currencyEUR",
+          "noValue": "",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none"
+          },
+          "decimals": 0
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -399,7 +426,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -411,7 +438,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -430,8 +457,12 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
-        }
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "showValue": "never",
+        "barWidth": 0.7,
+        "fullHighlight": true
       }
     },
     {
@@ -497,13 +528,20 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyEUR"
+          "unit": "currencyEUR",
+          "noValue": "",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none"
+          },
+          "decimals": 0
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -515,7 +553,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -527,7 +565,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -546,8 +584,12 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
-        }
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "showValue": "never",
+        "barWidth": 0.7,
+        "fullHighlight": true
       }
     },
     {
@@ -612,12 +654,20 @@
         "h": 8
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none"
+          },
+          "decimals": 0
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -629,7 +679,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -641,7 +691,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -660,8 +710,12 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
-        }
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "showValue": "never",
+        "barWidth": 0.7,
+        "fullHighlight": true
       }
     },
     {
@@ -718,12 +772,20 @@
         "h": 8
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none"
+          },
+          "decimals": 0
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -735,7 +797,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -747,7 +809,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -766,8 +828,12 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
-        }
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "showValue": "never",
+        "barWidth": 0.7,
+        "fullHighlight": true
       }
     },
     {
@@ -825,13 +891,20 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyEUR"
+          "unit": "currencyEUR",
+          "noValue": "",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none"
+          },
+          "decimals": 0
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -843,7 +916,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -855,7 +928,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -874,8 +947,12 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
-        }
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "showValue": "never",
+        "barWidth": 0.7,
+        "fullHighlight": true
       }
     },
     {
@@ -932,12 +1009,14 @@
         "h": 9
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": ""
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -949,7 +1028,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -961,7 +1040,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -976,7 +1055,7 @@
     },
     {
       "id": 9,
-      "type": "barchart",
+      "type": "timeseries",
       "title": "Units out per period (top 5 parts)",
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
@@ -1007,7 +1086,8 @@
             ]
           },
           "root_selector": "",
-          "columns": []
+          "columns": [],
+          "computed_columns": []
         }
       ],
       "gridPos": {
@@ -1017,12 +1097,27 @@
         "h": 9
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "barAlignment": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "showPoints": "never"
+          },
+          "decimals": 0,
+          "min": 0
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -1034,7 +1129,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -1046,7 +1141,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
@@ -1058,16 +1153,31 @@
         ]
       },
       "options": {
-        "xField": "period",
-        "orientation": "vertical",
-        "stacking": "normal",
         "legend": {
-          "showLegend": true
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
-      }
+      },
+      "transformations": [
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "period",
+                "destinationType": "time",
+                "dateFormat": "YYYY-MM-DD"
+              }
+            ],
+            "fields": {}
+          }
+        }
+      ]
     },
     {
       "id": 10,
@@ -1168,12 +1278,14 @@
         "h": 14
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": ""
+        },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*(revenue|profit|value|cost|price|net).*"
+              "options": "/(revenue|profit|value|cost|price|net)/i"
             },
             "properties": [
               {
@@ -1185,7 +1297,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*minutes.*"
+              "options": "/minutes/i"
             },
             "properties": [
               {
@@ -1197,7 +1309,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*grams.*"
+              "options": "/grams/i"
             },
             "properties": [
               {
