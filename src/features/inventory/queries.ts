@@ -50,12 +50,6 @@ export const infoQueries = {
   recentServiceLines: (limit: number) => queryOptions({
     queryKey: [...INVENTREE, 'serviceLines', limit], queryFn: () => api.getRecentServiceLines(limit).catch(() => []),
   }),
-  allTracking: () => queryOptions({
-    queryKey: [...INVENTREE, 'tracking', 'all'], queryFn: () => api.getAllStockTracking(),
-  }),
-  allServiceLines: () => queryOptions({
-    queryKey: [...INVENTREE, 'serviceLines', 'all'], queryFn: () => api.getAllServiceLines(),
-  }),
 };
 
 export const orderQueries = {

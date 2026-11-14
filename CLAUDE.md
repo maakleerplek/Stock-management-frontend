@@ -7,7 +7,7 @@ The HTL stock web app (React + Vite + TS) on top of InvenTree, plus `core/` (Fla
 |---|---|---|
 | Checkout / cart / kiosk scan | `src/ShoppingCart.tsx`, `ShoppingWindow.tsx`, `BarcodeScanner*.tsx`, `components/CheckoutSteps.tsx`, `lib/checkoutApi.ts`, `lib/totals.ts`, `lib/invoice.ts` | `checkout.py` (cart → one InvenTree sales order, `/api/till/`) |
 | Laser page (sessions, projects, library, settings) | `src/LaserCutterPage.tsx`, `components/LaserLibrary.tsx`, `LaserAnimation.tsx`, `lib/laserApi.ts`, `lib/laserSetting.ts` | `app.py` (routes + in-memory state), `db.py` (SQLite sessions), `inventree.py` (cut library), `recommend.py`, `feedback.py`, `lbrn.py` (.lbrn2 → PNG) |
-| Analytics tabs | `src/analytics/*Tab.tsx`, `ProfitChart.tsx`, `lib/profitTrend.ts`, `lib/itemAnalytics.ts`, `lib/stockHistory.ts`, `lib/workshops.ts` | — |
+| Analytics | `src/analytics/AnalyticsPage.tsx` (tab bar + Grafana iframes), `analytics/` (Node server `server.ts`, row shaping `rows.ts`, `Dockerfile`), `grafana/provisioning/dashboards/json/htl-*.json`, `lib/profitTrend.ts`, `lib/itemAnalytics.ts`, `lib/stockHistory.ts`, `lib/workshops.ts` | — |
 | Volunteer/admin | `VolunteerContext.tsx`, `VolunteerModal.tsx`, `VolunteerScanView.tsx`, `components/AdminToolsBar.tsx`, `src/auth/` | — |
 | InvenTree forms / POs | `Add*Form.tsx`, `InvenTreePage.tsx`, `PurchaseOrderPage.tsx`, `components/PurchaseOrderDetail.tsx`, `lib/purchaseOrderPdf.ts` | — |
 | API access | `lib/apiAccess.ts`, `lib/services.ts`, `src/api/` | — |
