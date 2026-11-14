@@ -149,7 +149,7 @@ services:
       context: .
       dockerfile: analytics/Dockerfile
     container_name: stock-analytics
-    mem_limit: 128m
+    mem_limit: 256m
     environment:
       - INVENTREE_BACKEND_URL=${INVENTREE_BACKEND_URL}
       - INVENTREE_TOKEN=${INVENTREE_TOKEN:-${VITE_INVENTREE_TOKEN}}
@@ -179,7 +179,7 @@ services:
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
       GF_SECURITY_ALLOW_EMBEDDING: "true"
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}   # empty would keep admin/admin
       GF_AUTH_PROXY_ENABLED: "true"
       GF_AUTH_PROXY_HEADER_NAME: X-WEBAUTH-USER
       GF_AUTH_PROXY_HEADER_PROPERTY: username
@@ -197,7 +197,7 @@ services:
       - analytics
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro,z   # z: SELinux on the server blocks unlabeled bind mounts
     restart: unless-stopped
     logging: *logging
 

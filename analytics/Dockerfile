@@ -11,4 +11,4 @@ WORKDIR /app
 COPY --from=build /app/dist-analytics/server.js .
 USER node
 EXPOSE 8080
-CMD ["node", "server.js"]
+CMD ["node", "--max-old-space-size=192", "server.js"]

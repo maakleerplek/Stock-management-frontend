@@ -23,6 +23,8 @@ const TTL = 5 * 60_000;
 // The shared API code fetches relative paths, as the browser does through nginx. Do what nginx does here.
 const realFetch = globalThis.fetch;
 globalThis.fetch = (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+  // A hung upstream would otherwise hold every panel for undici's 300 s.
+  init = { ...init, signal: init?.signal ?? AbortSignal.timeout(20_000) };
   if (typeof input !== 'string' || !input.startsWith('/')) return realFetch(input, init);
   if (input.startsWith('/laser/') || input.startsWith('/api/checkout/')) return realFetch(CORE + input, init);
   if (input.startsWith('/tv/')) return realFetch(TV + input.slice('/tv'.length), init);
