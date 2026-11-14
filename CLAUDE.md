@@ -10,7 +10,7 @@ The HTL stock web app (React + Vite + TS) on top of InvenTree, plus `core/` (Fla
 | Analytics tabs | `src/analytics/*Tab.tsx`, `ProfitChart.tsx`, `lib/profitTrend.ts`, `lib/itemAnalytics.ts`, `lib/stockHistory.ts`, `lib/workshops.ts` | — |
 | Volunteer/admin | `VolunteerContext.tsx`, `VolunteerModal.tsx`, `VolunteerScanView.tsx`, `components/AdminToolsBar.tsx`, `src/auth/` | — |
 | InvenTree forms / POs | `Add*Form.tsx`, `InvenTreePage.tsx`, `PurchaseOrderPage.tsx`, `components/PurchaseOrderDetail.tsx`, `lib/purchaseOrderPdf.ts` | — |
-| API access / cache | `lib/apiAccess.ts`, `lib/services.ts`, `lib/cache.ts`, `src/api/` | — |
+| API access | `lib/apiAccess.ts`, `lib/services.ts`, `src/api/` | — |
 | Laser Timer desktop bar (laser PC, Windows) | `laser-timer-widget/` (Tauri, wraps `#laser`) | — |
 | Machine-power monitor | `esp/monitorOTA/monitorOTA.ino` (ESP32, OTA via `scripts/esp-ota.sh`) | — |
 

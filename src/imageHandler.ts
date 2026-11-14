@@ -1,11 +1,9 @@
 /**
  * @file imageHandler.ts
  * 
- * Image loading from InvenTree via Caddy proxy with IndexedDB caching.
+ * Image loading from InvenTree via Caddy proxy (the service worker caches /media/, see vite.config.ts).
  * Uses Object URLs for efficient memory usage.
  */
-
-import { ImageCache, CACHE_TTL } from './lib/cache';
 
 // ============================================================================
 // CONSTANTS
@@ -36,7 +34,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // ============================================================================
 
 /**
- * Load an image from InvenTree via the backend proxy with IndexedDB caching.
+ * Load an image from InvenTree via the backend proxy (cached by the service worker).
  * Returns an Object URL for efficient rendering.
  * 
  * IMPORTANT: Callers must revoke the returned URL when done using URL.revokeObjectURL().
@@ -63,19 +61,6 @@ export async function loadImage(imageRelativePath: string | null): Promise<Image
 
     // Ensure the path starts with / for proper proxying through Caddy
     const proxiedUrl = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
-
-    // Try to get from cache first
-    try {
-        const cachedBlob = await ImageCache.get(proxiedUrl, CACHE_TTL.WEEK);
-        if (cachedBlob) {
-            const objectUrl = URL.createObjectURL(cachedBlob);
-            console.debug(`[Image] Cache hit: ${proxiedUrl}`);
-            return { success: true, url: objectUrl };
-        }
-    } catch (error) {
-        console.warn('[Image] Cache read failed:', error);
-        // Continue to fetch from network
-    }
 
     // Fetch from network with retry logic
     let lastError = '';
@@ -107,14 +92,6 @@ export async function loadImage(imageRelativePath: string | null): Promise<Image
 
             if (!blob || blob.size === 0) {
                 throw new Error('Empty response received');
-            }
-
-            // Cache the blob for future use
-            try {
-                await ImageCache.set(proxiedUrl, blob, contentType);
-            } catch (cacheError) {
-                console.warn('[Image] Failed to cache image:', cacheError);
-                // Continue even if caching fails
             }
 
             // Use Object URL instead of data URL for better memory efficiency
