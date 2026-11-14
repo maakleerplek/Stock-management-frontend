@@ -172,7 +172,7 @@ services:
   grafana:
     image: grafana/grafana-oss:12.3.1
     container_name: stock-grafana
-    mem_limit: 256m   # the server has 3 GB
+    mem_limit: 384m   # idles at ~210 MB; the server has 3 GB
     environment:
       GF_PLUGINS_PREINSTALL_SYNC: yesoreyeram-infinity-datasource
       GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://stock.int.maakleerplek.be/grafana/}
