@@ -59,6 +59,8 @@ async function load(prev?: AnalyticsData): Promise<AnalyticsData> {
   return {
     tracking, lines, discarded, sessions: sessions.sessions, unassignedSeconds: sessions.unassigned_seconds,
     rates, parts: partMap, workshops: screen.workshops ?? [],
+    stock: new Map((parts.results as { pk: number; total_in_stock?: number; minimum_stock?: number }[])
+      .map(p => [p.pk, { inStock: Number(p.total_in_stock ?? 0), minimum: Number(p.minimum_stock ?? 0) }])),
   };
 }
 
@@ -92,9 +94,11 @@ const ROUTES: Record<string, (d: AnalyticsData, a: Query) => Row[]> = {
   '/items-categories': (d, a) => rows.itemCategoryRows(d, a.kind, a.days),
   '/parts': d => rows.partRows(d),
   '/stock-history': (d, a) => rows.stockLevelRows(d, Number(a.q.get('part')), a.days),
+  '/days-left': (d, a) => rows.daysLeftRows(d, a.days),
   '/stock-sales': (d, a) => rows.stockSalesRows(d, a.kind, a.days, a.bucket),
   '/laser': (d, a) => rows.laserSessionRows(d, a.days),
   '/laser-trend': (d, a) => rows.laserTrendRows(d, a.days, a.bucket),
+  '/laser-heatmap': (d, a) => rows.laserHeatmapRows(d, a.days),
   '/laser-resets': (d, a) => rows.laserResetRows(d, a.days),
   '/laser-summary': (d, a) => rows.laserSummaryRows(d, a.days),
   '/print': (d, a) => rows.printRows(d, a.days),

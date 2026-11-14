@@ -213,6 +213,152 @@
       }
     },
     {
+      "id": 11,
+      "type": "table",
+      "title": "Days of stock left",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-analytics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-analytics"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://analytics:8080/days-left",
+          "url_options": {
+            "method": "GET",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              }
+            ]
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "name",
+              "text": "Part",
+              "type": "string"
+            },
+            {
+              "selector": "category",
+              "text": "Category",
+              "type": "string"
+            },
+            {
+              "selector": "in_stock",
+              "text": "In stock",
+              "type": "number"
+            },
+            {
+              "selector": "minimum",
+              "text": "Minimum",
+              "type": "number"
+            },
+            {
+              "selector": "per_week",
+              "text": "Out per week",
+              "type": "number"
+            },
+            {
+              "selector": "days_left",
+              "text": "Days left",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "",
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Out per week"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Days left"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "d"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 7
+                    },
+                    {
+                      "color": "green",
+                      "value": 21
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Days left",
+            "desc": false
+          }
+        ]
+      },
+      "description": "Stock now divided by units out per day in the chosen period (all time: last 90 days). Volunteer drinks count too. Emptiest first."
+    },
+    {
       "id": 2,
       "type": "barchart",
       "title": "Top 10 by units out",
@@ -269,7 +415,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 14,
         "w": 12,
         "h": 8
       },
@@ -395,7 +541,7 @@
       ],
       "gridPos": {
         "x": 12,
-        "y": 4,
+        "y": 14,
         "w": 12,
         "h": 8
       },
@@ -522,7 +668,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 22,
         "w": 12,
         "h": 8
       },
@@ -649,7 +795,7 @@
       ],
       "gridPos": {
         "x": 12,
-        "y": 12,
+        "y": 22,
         "w": 12,
         "h": 8
       },
@@ -767,7 +913,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 30,
         "w": 12,
         "h": 8
       },
@@ -885,7 +1031,7 @@
       ],
       "gridPos": {
         "x": 12,
-        "y": 20,
+        "y": 30,
         "w": 12,
         "h": 8
       },
@@ -1004,7 +1150,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 38,
         "w": 12,
         "h": 9
       },
@@ -1092,7 +1238,7 @@
       ],
       "gridPos": {
         "x": 12,
-        "y": 28,
+        "y": 38,
         "w": 12,
         "h": 9
       },
@@ -1273,7 +1419,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 47,
         "w": 24,
         "h": 14
       },

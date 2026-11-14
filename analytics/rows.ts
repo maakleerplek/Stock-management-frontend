@@ -5,7 +5,7 @@
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 import type { Rates } from '../src/lib/checkoutApi';
 import { itemAnalytics, type PartPrice, type PartAnalytics } from '../src/lib/itemAnalytics';
-import { bucketRange, bucketStart, salesPerBucket, stockLevels, levelAt, type Bucket, type SaleKind } from '../src/lib/stockHistory';
+import { bucketRange, bucketStart, salesPerBucket, unitsOut, stockLevels, levelAt, type Bucket, type SaleKind } from '../src/lib/stockHistory';
 import { profitTrend, PROFIT_SERIES } from '../src/lib/profitTrend';
 import { buildTotals, type PrintMaterial } from '../src/lib/totals';
 import {
@@ -32,6 +32,8 @@ export interface AnalyticsData {
   rates: Rates | null;
   parts: Map<number, PartPrice>;
   workshops: Workshop[];
+  /** Per part: what InvenTree has in stock now and its minimum stock. */
+  stock: Map<number, { inStock: number; minimum: number }>;
 }
 export type Row = Record<string, string | number | boolean | null>;
 
@@ -74,7 +76,7 @@ export function totalsRows(d: AnalyticsData, days?: number): Row[] {
 /** The lines under the table: laser time that is not in the total. */
 export function totalsExtraRows(d: AnalyticsData, days?: number): Row[] {
   const t = totalsOf(d, days);
-  const line = (label: string, minutes: number | null, value: number): Row => ({ label, minutes: minutes === null ? null : Math.round(minutes), value: r2(value) });
+  const line = (label: string, minutes: number | null, value: number): Row => ({ label, minutes: minutes === null ? '' : `${Math.round(minutes)} min`, value: r2(value) });
   return [
     line('Laser time in open sessions (not in total)', t.laserUnpaid.minutes, t.laserUnpaid.value),
     line('Laser time deleted, workshop / HTL (not in total)', t.laserDeleted.workshop.minutes, t.laserDeleted.workshop.value),
@@ -144,6 +146,26 @@ export function stockLevelRows(d: AnalyticsData, part: number, days?: number, no
 }
 
 /** Units out per day / week / month for the `top` best sellers in the period: one column per part. */
+/**
+ * Days until a part runs out at the pace of the period (90 days for "all"): stock now divided
+ * by units out per day, counting volunteer drinks too. Only parts that moved, emptiest first.
+ */
+export function daysLeftRows(d: AnalyticsData, days?: number, now = Date.now()): Row[] {
+  const window = days ?? 90, from = now - window * DAY;
+  const out = new Map<number, number>();
+  for (const e of d.tracking) {
+    const n = unitsOut(e, 'all');
+    if (n && Date.parse(e.date) >= from) out.set(e.part, (out.get(e.part) ?? 0) + n);
+  }
+  return [...out].map(([id, units]) => {
+    const s = d.stock.get(id) ?? { inStock: 0, minimum: 0 }, perDay = units / window;
+    return {
+      name: d.parts.get(id)?.name ?? `Part #${id}`, category: d.parts.get(id)?.category ?? '',
+      in_stock: s.inStock, minimum: s.minimum, per_week: r2(perDay * 7), days_left: Math.floor(s.inStock / perDay),
+    };
+  }).sort((a, b) => a.days_left - b.days_left);
+}
+
 export function stockSalesRows(d: AnalyticsData, kind: SaleKind, days: number | undefined, bucket: Bucket, top = 5, now = Date.now()): Row[] {
   const first = Math.min(...d.tracking.map(e => Date.parse(e.date)));
   const from = days ? now - days * DAY : Number.isFinite(first) ? first : now;
@@ -182,6 +204,31 @@ export function laserTrendRows(d: AnalyticsData, days: number | undefined, bucke
     for (const k of [kind(s), 'Total']) out[i][k] = r2((out[i][k] as number) + s.minutes);
   }
   return out;
+}
+
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/**
+ * Laser minutes per weekday and start hour (local time): one row per weekday, one column per hour.
+ * Deleted sessions count from their delete time minus their duration.
+ * shortcut: a session counts fully in its start hour, spread it over the hours if long sessions blur the picture.
+ */
+export function laserHeatmapRows(d: AnalyticsData, days?: number, now = Date.now()): Row[] {
+  const from = days ? now - days * DAY : 0;
+  const starts = [
+    ...d.sessions.filter(s => s.total_time > 0).map(s => ({ t: Date.parse(s.created), sec: s.total_time })),
+    ...d.discarded.filter(r => r.source === 'session').map(r => ({ t: Date.parse(r.discarded_at) - r.seconds * 1000, sec: r.seconds })),
+  ].filter(s => s.t >= from);
+  const grid = WEEKDAYS.map(() => new Array<number>(24).fill(0));
+  for (const s of starts) {
+    const at = new Date(s.t);
+    grid[(at.getDay() + 6) % 7][at.getHours()] += s.sec / 60;
+  }
+  const used = grid.flatMap(row => row.flatMap((m, h) => (m > 0 ? [h] : [])));
+  const first = used.length ? Math.min(...used) : 9, last = used.length ? Math.max(...used) : 22;
+  return WEEKDAYS.map((day, i) => ({
+    day, ...Object.fromEntries(grid[i].slice(first, last + 1).map((m, h) => [`${String(first + h).padStart(2, '0')}h`, Math.round(m)])),
+  }));
 }
 
 export function laserResetRows(d: AnalyticsData, days?: number): Row[] {

@@ -157,7 +157,7 @@
             {
               "selector": "minutes",
               "text": "Minutes",
-              "type": "number"
+              "type": "string"
             },
             {
               "selector": "value",
@@ -211,6 +211,18 @@
               {
                 "id": "unit",
                 "value": "massg"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Minutes"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "right"
               }
             ]
           }

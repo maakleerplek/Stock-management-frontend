@@ -347,6 +347,111 @@
       ]
     },
     {
+      "id": 5,
+      "type": "table",
+      "title": "When is the laser busy",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "htl-analytics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "htl-analytics"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://analytics:8080/laser-heatmap",
+          "url_options": {
+            "method": "GET",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              }
+            ]
+          },
+          "root_selector": "",
+          "columns": []
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "",
+          "unit": "m",
+          "decimals": 0,
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "type": "color-background",
+              "mode": "gradient"
+            }
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": " ",
+                  "color": "transparent",
+                  "index": 0
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "day"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Day"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "custom.width",
+                "value": 70
+              },
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md"
+      },
+      "description": "Laser minutes per weekday and start hour, in the chosen period. A session counts in the hour it started."
+    },
+    {
       "id": 2,
       "type": "table",
       "title": "Sessions",
@@ -416,7 +521,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 25,
         "w": 24,
         "h": 12
       },
@@ -522,7 +627,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 37,
         "w": 24,
         "h": 8
       },
