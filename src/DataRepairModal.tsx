@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Wrench, CheckCircle, XCircle, Loader2, Tag } from 'lucide-react';
 import inventreeClient from './api/inventreeClient';
+import { useQueryClient } from '@tanstack/react-query';
+import { inventoryQueries, orderQueries } from './features/inventory/queries';
 import type { SelectOption } from './AddPartForm';
 import { cn } from './lib/utils';
 import ModalFrame from './components/ModalFrame';
@@ -32,6 +34,7 @@ interface PartWithoutSupplier {
 type Tab = 'barcodes' | 'suppliers';
 
 export default function DataRepairModal({ open, onClose, suppliers }: DataRepairModalProps) {
+    const queryClient = useQueryClient();
     const [tab, setTab] = useState<Tab>('barcodes');
 
     // Barcode fix state
@@ -54,8 +57,8 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
         setLoadingParts(true);
         try {
             const [partsResp, supplierPartsResp] = await Promise.all([
-                inventreeClient.getAllParts(),
-                inventreeClient.getAllSupplierParts(),
+                queryClient.fetchQuery({ ...inventoryQueries.parts(), staleTime: 0 }),
+                queryClient.fetchQuery({ ...orderQueries.allSupplierParts(), staleTime: 0 }),
             ]);
 
             const partPksWithSupplier = new Set(supplierPartsResp.map(sp => sp.part));
@@ -86,7 +89,7 @@ export default function DataRepairModal({ open, onClose, suppliers }: DataRepair
         setBarcodesDone(false);
 
         try {
-            const partsResp = await inventreeClient.getAllParts();
+            const partsResp = await queryClient.fetchQuery({ ...inventoryQueries.parts(), staleTime: 0 });
             const partsWithIPN = partsResp.results.filter(p => p.IPN && p.IPN.trim());
 
             for (const part of partsWithIPN) {

@@ -26,11 +26,9 @@ import ProductPicker from './components/ProductPicker';
 import { woodCategory } from './lib/picker';
 import CheckoutSteps from './components/CheckoutSteps';
 import { flushPendingPaid, laserApi, useLaserSocket } from './lib/laserApi';
-import {
-  type InvenTreeTrackingEntry,
-  type InvenTreePartListResponse
-} from './api/types';
 import inventreeClient from './api/inventreeClient';
+import { useQuery } from '@tanstack/react-query';
+import { infoQueries } from './features/inventory/queries';
 import { reportCreateEvent } from './sendCodeHandler';
 import {
   getErrorMessage,
@@ -40,7 +38,7 @@ import { Info, AlertCircle, Loader2, LayoutDashboard, ScanBarcode, Package, Pack
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import { describeMovement, isShownMovement } from './lib/stockHistory';
-import { mergeActivity, type Activity } from './lib/services';
+import { mergeActivity } from './lib/services';
 import './index.css';
 
 export type AppView = 'checkout' | 'browse' | 'laser' | 'volunteer' | 'inventory' | 'scan' | 'orders' | 'analytics';
@@ -83,12 +81,7 @@ function AppContent() {
   const [addLocationModalOpen, setAddLocationModalOpen] = useState(false);
   const [addSupplierModalOpen, setAddSupplierModalOpen] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
-  const [categories, setCategories] = useState<SelectOption[]>([]);
-  const [locations, setLocations] = useState<SelectOption[]>([]);
-  const [suppliers, setSuppliers] = useState<SelectOption[]>([]);
-  const [lowStockItems, setLowStockItems] = useState<InvenTreePartListResponse['results']>([]);
   const [lowStockOrderPartIds, setLowStockOrderPartIds] = useState<number[]>([]);
-  const [recentActivity, setRecentActivity] = useState<Activity<InvenTreeTrackingEntry>[]>([]);
   const [checkoutResult, setCheckoutResult] = useState<{ total: number; description: string } | null>(null);
   const [mobileCheckoutTab, setMobileCheckoutTab] = useState<'scan' | 'cart'>('scan');
   // The product grid's category; "Buy wood" on the laser page opens it on the wood.
@@ -105,7 +98,20 @@ function AppContent() {
   }, [laser.connected]);
   const { addToast } = useToast();
   const { isVolunteerMode, sessionChecked } = useVolunteer();
-  const { items: stockItems, loading: stockLoading, lastFetched: stockLastFetched } = useStock();
+  const { items: stockItems, loading: stockLoading, lastFetched: stockLastFetched, categories: categoryRows, locations: locationRows } = useStock();
+  const categories = useMemo<SelectOption[]>(() => categoryRows.map(c => ({ id: c.pk, name: c.name })), [categoryRows]);
+  const locations = useMemo<SelectOption[]>(() => locationRows.map(l => ({ id: l.pk, name: l.name })), [locationRows]);
+  const { data: supplierRows } = useQuery(infoQueries.suppliers());
+  const suppliers = useMemo<SelectOption[]>(() => (supplierRows ?? []).map(s => ({ id: s.pk, name: s.name })), [supplierRows]);
+  // The dashboard lists are for volunteers only.
+  const { data: lowStockResp } = useQuery({ ...infoQueries.lowStock(), enabled: isVolunteerMode });
+  const lowStockItems = useMemo(() => lowStockResp?.results ?? [], [lowStockResp]);
+  const { data: trackingResp } = useQuery({ ...infoQueries.recentTracking(20), enabled: isVolunteerMode });
+  const { data: serviceLines } = useQuery({ ...infoQueries.recentServiceLines(10), enabled: isVolunteerMode });
+  const recentActivity = useMemo(
+    () => mergeActivity((trackingResp?.results ?? []).filter(isShownMovement), serviceLines ?? []),
+    [trackingResp, serviceLines],
+  );
   const partNames = useMemo(() => {
     const names = new Map<number, string>();
     stockItems.forEach(item => { if (item.part_id != null && !names.has(item.part_id)) names.set(item.part_id, item.name); });
@@ -178,43 +184,6 @@ function AppContent() {
     [addToast]
   );
 
-  const fetchCategoriesAndLocations = useCallback(async () => {
-    try {
-      console.log('[App] Fetching initial data...');
-      const [categoriesResp, locationsResp, suppliersResp] = await Promise.all([
-        inventreeClient.getCategories(),
-        inventreeClient.getLocations(),
-        inventreeClient.getSuppliers(),
-      ]);
-
-      setCategories((Array.isArray(categoriesResp) ? categoriesResp : categoriesResp?.results || []).map(c => ({ id: c.pk, name: c.name })));
-      setLocations((Array.isArray(locationsResp) ? locationsResp : locationsResp?.results || []).map(l => ({ id: l.pk, name: l.name })));
-      setSuppliers((suppliersResp || []).map(s => ({ id: s.pk, name: s.name })));
-
-      if (isVolunteerMode) {
-        console.log('[App] Fetching dashboard metrics...');
-        const [lowStockResp, trackingResp, serviceLines] = await Promise.all([
-          inventreeClient.getLowStockParts(),
-          inventreeClient.getStockTracking(20),
-          // Machine payments are extra lines, not stock: without them the list still works.
-          inventreeClient.getRecentServiceLines(10).catch(() => []),
-        ]);
-        setLowStockItems(lowStockResp.results || []);
-        setRecentActivity(mergeActivity((trackingResp.results || []).filter(isShownMovement), serviceLines));
-      }
-
-    } catch (error) {
-      console.error('[App] fetchCategoriesAndLocations failed:', error);
-      setCategories([]);
-      setLocations([]);
-      handleApiError(error, 'fetching initial data');
-    }
-  }, [isVolunteerMode, handleApiError]);
-
-  useEffect(() => {
-    fetchCategoriesAndLocations();
-  }, [fetchCategoriesAndLocations]);
-
   const handleAddCategorySubmit = async (formData: CategoryFormData): Promise<void> => {
     try {
       await inventreeClient.createCategory({
@@ -225,7 +194,6 @@ function AppContent() {
       reportCreateEvent(`Category: ${formData.name}`);
       addToast('Category created successfully!', 'success');
       setAddCategoryModalOpen(false);
-      fetchCategoriesAndLocations();
     } catch (error) {
       handleApiError(error, 'creating category');
       throw error;
@@ -243,7 +211,6 @@ function AppContent() {
       reportCreateEvent(`Location: ${formData.name}`);
       addToast('Location created successfully!', 'success');
       setAddLocationModalOpen(false);
-      fetchCategoriesAndLocations();
     } catch (error) {
       handleApiError(error, 'creating location');
       throw error;
@@ -263,7 +230,6 @@ function AppContent() {
       reportCreateEvent(`Supplier: ${formData.name}`);
       addToast('Supplier created successfully!', 'success');
       setAddSupplierModalOpen(false);
-      fetchCategoriesAndLocations();
     } catch (error) {
       handleApiError(error, 'creating supplier');
       throw error;

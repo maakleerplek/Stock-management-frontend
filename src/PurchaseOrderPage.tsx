@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ShoppingBag, Plus, Loader2, CheckCircle, XCircle, Package, Trash2, Truck, AlertTriangle } from 'lucide-react';
 import inventreeClient from './api/inventreeClient';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { orderQueries } from './features/inventory/queries';
 import type { PurchaseOrderLine, PurchaseOrderSummary } from './api/types';
 import PurchaseOrderDetail from './components/PurchaseOrderDetail';
 import { useStock } from './StockContext';
@@ -104,8 +106,8 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
     const { items: stockItems } = useStock();
     const [drafts, setDrafts] = useState<OrderDraft[]>([makeDraft()]);
     const [showCreateSection, setShowCreateSection] = useState(false);
-    const [existingOrders, setExistingOrders] = useState<ExistingPO[]>([]);
-    const [loadingOrders, setLoadingOrders] = useState(false);
+    const queryClient = useQueryClient();
+    const { data: existingOrders = [], isFetching: loadingOrders } = useQuery(orderQueries.list());
     const [issuingPk, setIssuingPk] = useState<number | null>(null);
     const [cancellingPk, setCancellingPk] = useState<number | null>(null);
     const [submitResults, setSubmitResults] = useState<Record<string, { success?: string; error?: string }>>({});
@@ -116,18 +118,6 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
     const shownOrders = existingOrders.filter(o => ORDER_FILTERS.find(f => f.id === orderFilter)!.match(o.status));
     const prefillApplied = useRef(false);
 
-    const loadOrders = useCallback(async () => {
-        setLoadingOrders(true);
-        try {
-            const orders = await inventreeClient.getPurchaseOrders();
-            setExistingOrders(orders);
-        } finally {
-            setLoadingOrders(false);
-        }
-    }, []);
-
-    useEffect(() => { loadOrders(); }, [loadOrders]);
-
     // Auto-create one draft per supplier when prefillPartIds is provided
     useEffect(() => {
         if (prefillPartIds.length === 0 || prefillApplied.current) return;
@@ -135,7 +125,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
         setShowCreateSection(true);
 
         const setup = async () => {
-            const allSupplierParts = await inventreeClient.getAllSupplierParts();
+            const allSupplierParts = await queryClient.fetchQuery(orderQueries.allSupplierParts());
             const supplierIds = new Set<number>();
             for (const sp of allSupplierParts) {
                 if (prefillPartIds.includes(sp.part)) supplierIds.add(sp.supplier);
@@ -147,7 +137,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             })));
         };
         setup();
-    }, [prefillPartIds]);
+    }, [prefillPartIds, queryClient]);
 
     const loadDraftParts = useCallback(async (draftId: string, supplierId: string) => {
         if (!supplierId) {
@@ -155,7 +145,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             return;
         }
         try {
-            const parts = await inventreeClient.getSupplierPartsForSupplier(parseInt(supplierId));
+            const parts = await queryClient.fetchQuery(orderQueries.supplierParts(parseInt(supplierId)));
             const lines: OrderLine[] = parts.map(sp => {
                 const stockItem = stockItems.find(i => i.part_id === sp.part);
                 return {
@@ -173,7 +163,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
         } catch {
             setDrafts(prev => prev.map(d => d.draftId === draftId ? { ...d, loadingParts: false } : d));
         }
-    }, [stockItems, prefillPartIds]);
+    }, [stockItems, prefillPartIds, queryClient]);
 
     // Trigger part loading for drafts that need it
     useEffect(() => {
@@ -249,7 +239,6 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             }));
             removeDraft(confirmModal.draftId);
             setConfirmModal(null);
-            loadOrders();
         } catch (err) {
             setSubmitResults(prev => ({
                 ...prev,
@@ -282,9 +271,9 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
         setActionError(null);
         try {
             const [lines, locs, supplierParts] = await Promise.all([
-                inventreeClient.getPurchaseOrderLines(po.pk),
-                locations.length ? Promise.resolve(locations) : inventreeClient.getStockLocations(),
-                inventreeClient.getSupplierPartsForSupplier(po.supplier),
+                queryClient.fetchQuery(orderQueries.lines(po.pk)),
+                queryClient.fetchQuery(orderQueries.stockLocations()),
+                queryClient.fetchQuery(orderQueries.supplierParts(po.supplier)),
             ]);
             setLocations(locs);
 
@@ -349,7 +338,6 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
             if (failed.length > 0) {
                 setActionError(`Stock booked in, but ${failed.length} item(s) are now split over two stock entries. Merge them in InvenTree.`);
             }
-            loadOrders();
         } catch (err) {
             setActionError(err instanceof Error ? err.message : 'Receiving failed');
         } finally {
@@ -361,7 +349,7 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
         setOpeningReceive(po.pk);
         setActionError(null);
         try {
-            const lines = await inventreeClient.getPurchaseOrderLines(po.pk);
+            const lines = await queryClient.fetchQuery(orderQueries.lines(po.pk));
             setCompleteModal({
                 poPk: po.pk,
                 reference: po.reference,
@@ -387,7 +375,6 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
         try {
             await inventreeClient.completePurchaseOrder(completeModal.poPk, completeModal.outstanding.length > 0);
             setCompleteModal(null);
-            loadOrders();
         } catch (err) {
             setActionError(err instanceof Error ? err.message : 'Could not close the order');
         } finally {
@@ -397,13 +384,13 @@ export default function PurchaseOrderPage({ suppliers, prefillPartIds = [] }: Pu
 
     const handleIssue = async (poPk: number) => {
         setIssuingPk(poPk);
-        try { await inventreeClient.issuePurchaseOrder(poPk); loadOrders(); }
+        try { await inventreeClient.issuePurchaseOrder(poPk); }
         finally { setIssuingPk(null); }
     };
 
     const handleCancel = async (poPk: number) => {
         setCancellingPk(poPk);
-        try { await inventreeClient.cancelPurchaseOrder(poPk); loadOrders(); }
+        try { await inventreeClient.cancelPurchaseOrder(poPk); }
         finally { setCancellingPk(null); }
     };
 

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { infoQueries } from '../features/inventory/queries';
 import { Cuboid, Drill, GraduationCap, Package, RefreshCw, Sigma, Zap } from 'lucide-react';
-import inventreeClient from '../api/inventreeClient';
-import type { InvenTreeTrackingEntry } from '../api/types';
 import { laserApi } from '../lib/laserApi';
-import type { ServiceLine, DiscardRow, LaserSessionRow } from '../lib/services';
+import type { DiscardRow, LaserSessionRow } from '../lib/services';
 import { cn } from '../lib/utils';
 import { SegmentedButtons } from './ui';
 import ItemsTab from './ItemsTab';
@@ -41,16 +41,22 @@ function tabFromHash(): TabId {
   return TABS.find(t => t.id === sub)?.id ?? 'totals';
 }
 
+// A stable empty list, so the tabs' memos do not rerun on every render before the data is there.
+const NONE: never[] = [];
+
 export default function AnalyticsPage() {
   const [tab, setTab] = useState<TabId>(tabFromHash);
   const [dateRange, setDateRange] = useState<DateRange>(DATE_RANGES[1]);
   const [refreshKey, setRefreshKey] = useState(0);
   const { refreshInventory } = useStock();
 
-  const [trackingEntries, setTrackingEntries] = useState<InvenTreeTrackingEntry[]>([]);
-  const [trackingLoading, setTrackingLoading] = useState(true);
-  const [trackingError, setTrackingError] = useState<string | null>(null);
-  const [serviceLines, setServiceLines] = useState<ServiceLine[]>([]);
+  const trackingQ = useQuery(infoQueries.allTracking());
+  const trackingEntries = trackingQ.data ?? NONE;
+  const trackingLoading = trackingQ.isLoading;
+  const trackingError = trackingQ.error ? (trackingQ.error instanceof Error ? trackingQ.error.message : 'Failed to load tracking data') : null;
+  // Machine payments: a failure here leaves the rest of the page working.
+  const serviceQ = useQuery(infoQueries.allServiceLines());
+  const serviceLines = serviceQ.data ?? NONE;
   const [discarded, setDiscarded] = useState<DiscardRow[]>([]);
   const [laserSessions, setLaserSessions] = useState<{ sessions: LaserSessionRow[]; unassignedSeconds: number }>({ sessions: [], unassignedSeconds: 0 });
   const [laserLoading, setLaserLoading] = useState(true);
@@ -59,26 +65,12 @@ export default function AnalyticsPage() {
     window.history.replaceState(null, '', `#analytics/${tab}`);
   }, [tab]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setTrackingLoading(true);
-    setTrackingError(null);
-    inventreeClient.getAllStockTracking()
-      .then(all => { if (!cancelled) setTrackingEntries(all); })
-      .catch(err => { if (!cancelled) setTrackingError(err instanceof Error ? err.message : 'Failed to load tracking data'); })
-      .finally(() => { if (!cancelled) setTrackingLoading(false); });
-    return () => { cancelled = true; };
-  }, [refreshKey]);
-
-  // Laser data comes from sales orders and the laser service, apart from the
+  // Laser data comes from the laser service, apart from the
   // tracking log, so a failure here leaves the rest of the page working.
   useEffect(() => {
     let cancelled = false;
     setLaserLoading(true);
     Promise.all([
-      inventreeClient.getAllServiceLines()
-        .then(lines => { if (!cancelled) setServiceLines(lines); })
-        .catch(err => console.warn('[Analytics] Could not load service lines:', err)),
       laserApi.discarded()
         .then(d => { if (!cancelled) setDiscarded(d.rows); })
         .catch(err => console.warn('[Analytics] Could not load laser time without a session:', err)),
@@ -110,7 +102,7 @@ export default function AnalyticsPage() {
                 onChange={label => setDateRange(DATE_RANGES.find(r => r.label === label)!)}
               />
               <button
-                onClick={() => { setRefreshKey(k => k + 1); void refreshInventory(); }}
+                onClick={() => { setRefreshKey(k => k + 1); void refreshInventory(); void trackingQ.refetch(); void serviceQ.refetch(); }}
                 className="border border-lijn p-1.5 hover:bg-brand-beige-dark transition-colors"
                 title="Refresh"
               >
@@ -144,7 +136,7 @@ export default function AnalyticsPage() {
             serviceLines={serviceLines}
             discarded={discarded}
             laserSessions={laserSessions}
-            loading={trackingLoading || laserLoading}
+            loading={trackingLoading || laserLoading || serviceQ.isLoading}
             trackingError={trackingError}
             dateRange={dateRange}
           />
@@ -162,9 +154,9 @@ export default function AnalyticsPage() {
           <PrintTab trackingEntries={trackingEntries} serviceLines={serviceLines} loading={trackingLoading} dateRange={dateRange} />
         )}
         {tab === 'workshops' && <WorkshopsTab refreshKey={refreshKey} />}
-        {tab === 'cnc' && <CncTab serviceLines={serviceLines} loading={laserLoading} dateRange={dateRange} />}
+        {tab === 'cnc' && <CncTab serviceLines={serviceLines} loading={laserLoading || serviceQ.isLoading} dateRange={dateRange} />}
         {tab === 'laser' && (
-          <LaserTab serviceLines={serviceLines} discarded={discarded} laserSessions={laserSessions} loading={laserLoading} dateRange={dateRange} refreshKey={refreshKey} />
+          <LaserTab serviceLines={serviceLines} discarded={discarded} laserSessions={laserSessions} loading={laserLoading || serviceQ.isLoading} dateRange={dateRange} refreshKey={refreshKey} />
         )}
 
       </div>

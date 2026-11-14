@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { FileDown, Loader2, ShoppingBag, X } from 'lucide-react';
-import inventreeClient from '../api/inventreeClient';
+import { inventoryQueries, orderQueries } from '../features/inventory/queries';
 import type { PurchaseOrderLine, PurchaseOrderSummary } from '../api/types';
 import { DEFAULTS } from '../constants';
 import { cn } from '@/lib/utils';
@@ -36,41 +37,38 @@ export default function PurchaseOrderDetail({ po, statusClass, onClose }: {
   statusClass: string;
   onClose: () => void;
 }) {
-  const [rows, setRows] = useState<Row[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const currency = po.order_currency || DEFAULTS.CURRENCY;
+  const [linesQ, partsQ, costsQ] = useQueries({
+    queries: [orderQueries.lines(po.pk), orderQueries.supplierParts(po.supplier), inventoryQueries.supplierCosts()],
+  });
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const loadError = linesQ.error ?? partsQ.error;
+  const error = pdfError ?? (loadError ? (loadError instanceof Error ? loadError.message : 'Could not load the order') : null);
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      inventreeClient.getPurchaseOrderLines(po.pk),
-      inventreeClient.getSupplierPartsForSupplier(po.supplier),
-      inventreeClient.getSupplierCostPerPart().catch(() => ({} as Record<number, number>)),
-    ]).then(([lines, supplierParts, unitCost]) => {
-      if (cancelled) return;
-      setRows(lines.map((l: PurchaseOrderLine) => {
-        const pack = parseFloat(supplierParts.find(sp => sp.pk === l.part)?.pack_quantity ?? '1') || 1;
-        const partPk = l.internal_part ?? l.part_detail?.pk ?? null;
-        const perPack = l.purchase_price == null ? NaN : Number(l.purchase_price);
-        const perUnit = partPk != null ? unitCost[partPk] : undefined;
-        const cost = isFinite(perPack) ? perPack * l.quantity
-          : perUnit !== undefined ? perUnit * pack * l.quantity
-          : null;
-        return {
-          pk: l.pk,
-          name: l.internal_part_name || l.part_detail?.name || l.sku || `Line ${l.pk}`,
-          sku: l.sku || null,
-          image: l.part_detail?.thumbnail || l.part_detail?.image || null,
-          packs: l.quantity,
-          received: l.received,
-          units: l.quantity * pack,
-          cost,
-          estimated: !isFinite(perPack) && cost !== null,
-        };
-      }));
-    }).catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : 'Could not load the order'); });
-    return () => { cancelled = true; };
-  }, [po.pk, po.supplier]);
+  const rows = useMemo<Row[] | null>(() => {
+    if (!linesQ.data || !partsQ.data) return null;
+    const unitCost = costsQ.data ?? {};
+    return linesQ.data.map((l: PurchaseOrderLine) => {
+      const pack = parseFloat(partsQ.data.find(sp => sp.pk === l.part)?.pack_quantity ?? '1') || 1;
+      const partPk = l.internal_part ?? l.part_detail?.pk ?? null;
+      const perPack = l.purchase_price == null ? NaN : Number(l.purchase_price);
+      const perUnit = partPk != null ? unitCost[partPk] : undefined;
+      const cost = isFinite(perPack) ? perPack * l.quantity
+        : perUnit !== undefined ? perUnit * pack * l.quantity
+        : null;
+      return {
+        pk: l.pk,
+        name: l.internal_part_name || l.part_detail?.name || l.sku || `Line ${l.pk}`,
+        sku: l.sku || null,
+        image: l.part_detail?.thumbnail || l.part_detail?.image || null,
+        packs: l.quantity,
+        received: l.received,
+        units: l.quantity * pack,
+        cost,
+        estimated: !isFinite(perPack) && cost !== null,
+      };
+    });
+  }, [linesQ.data, partsQ.data, costsQ.data]);
 
   const total = rows?.reduce((sum, r) => sum + (r.cost ?? 0), 0) ?? 0;
   const anyEstimated = rows?.some(r => r.estimated) ?? false;
@@ -85,7 +83,7 @@ export default function PurchaseOrderDetail({ po, statusClass, onClose }: {
       description: po.description,
       currency,
       lines: rows.map(r => ({ name: r.name, sku: r.sku, quantity: r.packs, unitPrice: r.cost === null ? null : r.cost / r.packs })),
-    }).catch(e => setError(e instanceof Error ? e.message : 'Could not make the PDF'));
+    }).catch(e => setPdfError(e instanceof Error ? e.message : 'Could not make the PDF'));
   };
 
   return (

@@ -7,7 +7,6 @@ import type {
     CreatePartPayload,
     UpdatePartPayload,
 } from './types';
-import { CACHE_TTL } from '../lib/cache';
 import { OrdersApi } from './orders';
 
 export class PartsApi extends OrdersApi {
@@ -49,7 +48,7 @@ export class PartsApi extends OrdersApi {
             let partId: number | null = null;
 
             try {
-                const resp = await this.request<InvenTreeBarcodeResponse>('/barcode/', 'POST', { barcode }, false, false);
+                const resp = await this.request<InvenTreeBarcodeResponse>('/barcode/', 'POST', { barcode }, false);
                 partId = resp.part?.pk ?? null;
                 // Barcodes used to be linked to stock items. That item may have
                 // been sold since; only its part still means anything.
@@ -60,7 +59,7 @@ export class PartsApi extends OrdersApi {
 
             for (const query of [`IPN=${encodeURIComponent(barcode)}`, `search=${encodeURIComponent(barcode)}`]) {
                 if (partId) break;
-                const parts = await this.request<InvenTreePartListResponse>(`/part/?${query}`, 'GET', undefined, false, false);
+                const parts = await this.request<InvenTreePartListResponse>(`/part/?${query}`, 'GET', undefined, false);
                 partId = parts.results[0]?.pk ?? null;
             }
 
@@ -78,7 +77,7 @@ export class PartsApi extends OrdersApi {
                 pk: number; name: string; description: string; IPN: string | null;
                 image: string | null; thumbnail: string | null;
                 category_detail?: { name: string } | null;
-            }>(`/part/${partId}/?category_detail=true`, 'GET', undefined, false, false),
+            }>(`/part/${partId}/?category_detail=true`, 'GET', undefined, false),
             this.getHomeStockItems(partId),
             // The till reads the price. Without the maps it would show 0.
             this.ensurePricingMaps(),
@@ -139,12 +138,8 @@ export class PartsApi extends OrdersApi {
             '/part/',
             'POST',
             payload,
-            false,
             false
         );
-        
-        // Invalidate part list cache
-        this.invalidateCache('/part/');
         
         return result;
     }
@@ -157,13 +152,8 @@ export class PartsApi extends OrdersApi {
             `/part/${partId}/`,
             'PATCH',
             payload,
-            false,
             false
         );
-        
-        // Invalidate part cache
-        this.invalidateCache(`/part/${partId}/`);
-        this.invalidateCache('/part/');
         
         return result;
     }
@@ -179,12 +169,8 @@ export class PartsApi extends OrdersApi {
             `/part/${partId}/`,
             'PATCH',
             formData,
-            true,
-            false
+            true
         );
-        
-        // Invalidate part cache
-        this.invalidateCache(`/part/${partId}/`);
         
         return result;
     }
@@ -197,9 +183,7 @@ export class PartsApi extends OrdersApi {
             `/part/${partId}/`,
             'GET',
             undefined,
-            false,
-            true,
-            CACHE_TTL.MEDIUM
+            false
         );
     }
 
@@ -209,15 +193,15 @@ export class PartsApi extends OrdersApi {
      */
     async linkBarcodeToPart(barcode: string, partPk: number): Promise<'linked' | 'already'> {
         try {
-            const current = await this.request<InvenTreeBarcodeResponse>('/barcode/', 'POST', { barcode }, false, false);
+            const current = await this.request<InvenTreeBarcodeResponse>('/barcode/', 'POST', { barcode }, false);
             if (current.part?.pk === partPk) return 'already';
             if (current.stockitem?.pk) {
-                await this.request('/barcode/unlink/', 'POST', { stockitem: current.stockitem.pk }, false, false);
+                await this.request('/barcode/unlink/', 'POST', { stockitem: current.stockitem.pk }, false);
             }
         } catch {
             // Not in the registry yet.
         }
-        await this.request('/barcode/link/', 'POST', { barcode, part: partPk }, false, false);
+        await this.request('/barcode/link/', 'POST', { barcode, part: partPk }, false);
         return 'linked';
     }
 
@@ -229,20 +213,19 @@ export class PartsApi extends OrdersApi {
      * stack duplicates.
      */
     async setSalePrice(partPk: number, price: number, currency: string = 'EUR'): Promise<void> {
-        await this.request(`/part/${partPk}/`, 'PATCH', { salable: true }, false, false);
+        await this.request(`/part/${partPk}/`, 'PATCH', { salable: true }, false);
         const existing = await this.request<{ results: { pk: number; part: number; quantity: number }[] }>(
-            `/pricing/sale-price/?part=${partPk}&limit=100`, 'GET', undefined, false, false
+            `/pricing/sale-price/?part=${partPk}&limit=100`, 'GET', undefined, false
         );
         // New break first, old ones after: deleting first left the part with no
         // price (sold at €0) whenever the POST failed.
         const created = await this.request<{ pk: number }>('/pricing/sale-price/', 'POST',
-            { part: partPk, quantity: 1, price: String(price), price_currency: currency }, false, false);
+            { part: partPk, quantity: 1, price: String(price), price_currency: currency }, false);
         for (const b of existing.results || []) {
             if (b.quantity === 1 && b.pk !== created?.pk) {
-                await this.request(`/pricing/sale-price/${b.pk}/`, 'DELETE', undefined, false, false);
+                await this.request(`/pricing/sale-price/${b.pk}/`, 'DELETE', undefined, false);
             }
         }
-        this.invalidateCache('/pricing/sale-price/?limit=500');
     }
 
     /**
@@ -283,10 +266,10 @@ export class PartsApi extends OrdersApi {
     async getSupplierCostPerPart(): Promise<Record<number, number>> {
         const [breaksResp, partsResp] = await Promise.all([
             this.requestAll<{ part: number; quantity: number; price: string | number }>(
-                '/company/price-break/?limit=500', true, CACHE_TTL.LONG
+                '/company/price-break/?limit=500'
             ),
             this.requestAll<{ pk: number; part: number; pack_quantity: string }>(
-                '/company/part/?limit=500', true, CACHE_TTL.LONG
+                '/company/part/?limit=500'
             ),
         ]);
 

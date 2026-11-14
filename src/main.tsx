@@ -1,8 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import './index.css'
 import App from './App'
+import { queryClient, persistOptions } from './features/inventory/queryClient'
 
 // The laser timer bar (laser-timer-widget sets LASER_SERVER) runs for days and
 // needs the server anyway. A service worker kept it on an old build whose
@@ -20,6 +22,8 @@ if ('LASER_SERVER' in window) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+      <App />
+    </PersistQueryClientProvider>
   </StrictMode>,
 )

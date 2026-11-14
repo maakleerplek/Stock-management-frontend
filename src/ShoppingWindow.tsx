@@ -8,6 +8,7 @@ import { useToast } from './ToastContext';
 import { useVolunteer } from './VolunteerContext';
 import type { Invoice } from './lib/invoice';
 import ModalFrame from './components/ModalFrame';
+import { invalidateInventree } from './features/inventory/queryClient';
 import { AlertCircle, Check, X, Timer } from 'lucide-react';
 
 interface ShoppingWindowProps {
@@ -186,6 +187,8 @@ export default function ShoppingWindow({ scanEvent, onCheckoutResultChange, lase
         if (saleKey.current?.cart !== cartKey) saleKey.current = { cart: cartKey, key: crypto.randomUUID() };
         const sale = await checkoutApi.checkout(sellCart, saleKey.current.key);
         saleKey.current = null;
+        // The sale ran on the checkout server, not through the InvenTree client: stock changed.
+        invalidateInventree();
         if (sale.warning) addToast(sale.warning, 'warning');
         const b: Bill = sale.bill;
         localStorage.removeItem(EXTRAS_STORAGE_KEY);
