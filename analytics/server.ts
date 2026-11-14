@@ -93,7 +93,7 @@ const ROUTES: Record<string, (d: AnalyticsData, a: Query) => Row[]> = {
   '/items-summary': (d, a) => rows.itemSummaryRows(d, a.kind, a.days),
   '/items-categories': (d, a) => rows.itemCategoryRows(d, a.kind, a.days),
   '/parts': d => rows.partRows(d),
-  '/stock-history': (d, a) => rows.stockLevelRows(d, Number(a.q.get('part')), a.days),
+  '/stock-history': (d, a) => rows.stockLevelRows(d, rows.partId(d, a.q.get('part')), a.days),
   '/days-left': (d, a) => rows.daysLeftRows(d, a.days),
   '/stock-sales': (d, a) => rows.stockSalesRows(d, a.kind, a.days, a.bucket),
   '/laser': (d, a) => rows.laserSessionRows(d, a.days),

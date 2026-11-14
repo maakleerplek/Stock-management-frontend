@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { daysFrom, daysLeftRows, itemRows, laserHeatmapRows, laserTrendRows, partRows, totalsRows, type AnalyticsData } from '../analytics/rows';
+import { partId, daysFrom, daysLeftRows, itemRows, laserHeatmapRows, laserTrendRows, partRows, totalsRows, type AnalyticsData } from '../analytics/rows';
 import type { InvenTreeTrackingEntry } from '../src/api/types';
 
 const DAY = 86_400_000;
@@ -54,5 +54,12 @@ describe('analytics rows', () => {
     const rows = daysLeftRows({ ...empty, tracking, stock: new Map([[1, { inStock: 10, minimum: 2 }]]) }, 7, now);
     // 7 out in 7 days: 1 per day, 10 left. Part 2 sold nothing: not listed.
     expect(rows).toEqual([{ name: 'Part #1', category: '', in_stock: 10, minimum: 2, per_week: 7, days_left: 10 }]);
+  });
+
+  it('finds the part for the picker by name or ID', () => {
+    const parts = new Map([[13, { name: 'Ice Tea Peach', sellingPrice: 1, costPrice: 0.5, category: 'Drinks' }]]);
+    expect(partId({ ...empty, parts }, 'Ice Tea Peach')).toBe(13);
+    expect(partId({ ...empty, parts }, '13')).toBe(13);
+    expect(partId({ ...empty, parts }, 'Nope')).toBeNaN();
   });
 });

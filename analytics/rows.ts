@@ -134,6 +134,14 @@ export function partRows(d: AnalyticsData): Row[] {
   return [...ids].map(id => ({ part_id: id, name: d.parts.get(id)?.name ?? `Part #${id}` })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** The part picker sends the name (Infinity's backend parser drops `__value`); an ID works too. */
+export function partId(d: AnalyticsData, part: string | null): number {
+  if (!part) return NaN;
+  if (/^\d+$/.test(part)) return Number(part);
+  for (const [id, p] of d.parts) if (p.name === part) return id;
+  return NaN;
+}
+
 /** Stock level of one part after every change in the period (time in ms), starting at the level at the period start. */
 export function stockLevelRows(d: AnalyticsData, part: number, days?: number, now = Date.now()): Row[] {
   const points = stockLevels(d.tracking).get(part) ?? [];
