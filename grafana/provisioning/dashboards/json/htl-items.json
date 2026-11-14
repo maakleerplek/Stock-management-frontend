@@ -213,7 +213,12 @@
         },
         "textMode": "value_and_name",
         "colorMode": "none",
-        "graphMode": "none"
+        "graphMode": "none",
+        "justifyMode": "center",
+        "text": {
+          "titleSize": 14,
+          "valueSize": 32
+        }
       }
     },
     {
